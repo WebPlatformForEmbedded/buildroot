@@ -52,7 +52,20 @@ if [ ${git_done} -eq 0 ]; then
     _git clone ${verbose} --mirror "'${repo}'" "'${basename}'"
 fi
 
+# Extract repository information
+# See https://git-scm.com/docs/git-describe
+GIT_VERSION=$(git describe --long --tags --always --dirty)
+
 GIT_DIR="${basename}" \
 _git archive --prefix="'${basename}/'" -o "'${output}.tmp'" --format=tar "'${cset}'"
+
+# Strip everything after '-'
+GIT_VERSION="#define "$(echo "solutions_package_"${basename%%-*} | tr [a-z] [A-Z] )" \""${GIT_VERSION}"\""
+
+GIT_VERSION_FILE=${basename}"/__VERSION.h"
+
+# Add the information to archive
+$(echo "${GIT_VERSION}" >> ${GIT_VERSION_FILE})
+tar --append -f "${output}.tmp" ${GIT_VERSION_FILE}
 
 gzip -n <"${output}.tmp" >"${output}"
