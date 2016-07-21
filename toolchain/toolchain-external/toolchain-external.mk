@@ -437,6 +437,18 @@ else
 TOOLCHAIN_EXTERNAL_SYNOPSYS_ENDIANESS = be
 endif
 TOOLCHAIN_EXTERNAL_SOURCE = arc_gnu_2014.12_prebuilt_uclibc_$(TOOLCHAIN_EXTERNAL_SYNOPSYS_ENDIANESS)_$(TOOLCHAIN_EXTERNAL_SYNOPSYS_CORE)_linux_install.tar.gz
+else ifeq ($(BR2_TOOLCHAIN_EXTERNAL_HORIZON),y)
+TOOLCHAIN_EXTERNAL_VERSION = 8e887bdfb167b4b633f9ebe669bbd03dcaa7c9d6
+TOOLCHAIN_EXTERNAL_SITE = git@github.com:Metrological/toolchain.git
+TOOLCHAIN_EXTERNAL_SITE_METHOD = git
+TOOLCHAIN_EXTERNAL_POST_EXTRACT_HOOKS += \
+	TOOLCHAIN_EXTERNAL_MOVE
+# TODO: check TOOLCHAIN_EXTERNAL_INSTALL_DIR is relatibe tot this path; we should not delete inadvertently a path in our (build)system
+define TOOLCHAIN_EXTERNAL_MOVE
+	rm -rf $(TOOLCHAIN_EXTERNAL_INSTALL_DIR)/*
+	mkdir -p $(TOOLCHAIN_EXTERNAL_INSTALL_DIR)
+	mv $(@D)/horizon/* $(TOOLCHAIN_EXTERNAL_INSTALL_DIR)/
+endef
 else
 # Custom toolchain
 TOOLCHAIN_EXTERNAL_SITE = $(patsubst %/,%,$(dir $(call qstrip,$(BR2_TOOLCHAIN_EXTERNAL_URL))))

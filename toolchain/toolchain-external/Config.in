@@ -634,6 +634,20 @@ config BR2_TOOLCHAIN_EXTERNAL_SYNOPSYS_ARC
 	  Toolchain for the ARC cores, from
 	  https://github.com/foss-for-synopsys-dwc-arc-processors/toolchain/releases
 
+config BR2_TOOLCHAIN_EXTERNAL_HORIZON
+	bool "Horizon toolchain"
+# TODO: verify these settings
+	select BR2_INSTALL_LIBSTDCPP
+	select BR2_TOOLCHAIN_HAS_NATIVE_RPC
+	select BR2_ENABLE_LOCALE
+	select BR2_USE_WCHAR
+        select BR2_TOOLCHAIN_HAS_THREADS
+	select BR2_TOOLCHAIN_EXTERNAL_CUSTOM_GLIBC
+	select BR2_TOOLCHAIN_HAS_SSP
+	select BR2_TOOLCHAIN_GCC_AT_LEAST_4_9
+	help
+	  To be written.
+
 config BR2_TOOLCHAIN_EXTERNAL_CUSTOM
 	bool "Custom toolchain"
 	help
@@ -713,6 +727,7 @@ config BR2_TOOLCHAIN_EXTERNAL_PREFIX
 	default "sh4-linux-musl"         if BR2_TOOLCHAIN_EXTERNAL_MUSL_CROSS && BR2_sh4
 	default "sh4eb-linux-musl"       if BR2_TOOLCHAIN_EXTERNAL_MUSL_CROSS && BR2_sh4eb
 	default "x86_64-linux-musl"	 if BR2_TOOLCHAIN_EXTERNAL_MUSL_CROSS && BR2_x86_64
+        default "i686-buildroot-linux-gnu" if BR2_TOOLCHAIN_EXTERNAL_HORIZON
 	default BR2_TOOLCHAIN_EXTERNAL_CUSTOM_PREFIX \
 					 if BR2_TOOLCHAIN_EXTERNAL_CUSTOM
 
