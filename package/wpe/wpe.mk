@@ -24,7 +24,7 @@ WPE_DEPENDENCIES = host-bison host-cmake host-flex host-gperf host-ruby icu pcre
 
 ifeq ($(WPE_BUILD_WEBKIT),y)
 WPE_DEPENDENCIES += libgcrypt libgles libegl cairo freetype fontconfig \
-	harfbuzz libxml2 libxslt sqlite libsoup jpeg libpng libinput
+	harfbuzz libxml2 libxslt sqlite libsoup jpeg libpng
 endif
 
 WPE_EXTRA_FLAGS = -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
@@ -56,6 +56,24 @@ WPE_FLAGS = \
 	-DENABLE_INDEXED_DATABASE=ON \
 	-DENABLE_FETCH_API=ON
 
+ifeq ($(BR2_PACKAGE_WPE_INPUT_LIBINPUT)$(WPE_BUILD_WEBKIT),yy)
+WPE_FLAGS += -DUSE_WPE_INPUT_LIBINPUT=ON
+WPE_DEPENDENCIES += libinput
+ifeq ($(BR2_PACKAGE_WPE_INPUT_UDEV),y)
+WPE_FLAGS += -DUSE_WPE_INPUT_UDEV=ON
+else
+WPE_FLAGS += -DUSE_WPE_INPUT_UDEV=OFF
+endif
+else
+WPE_FLAGS += -DUSE_WPE_INPUT_LIBINPUT=OFF
+endif
+
+ifeq ($(BR2_PACKAGE_LIBXKBCOMMON),y)
+WPE_DEPENDENCIES += libxkbcommon xkeyboard-config
+else
+WPE_FLAGS += -DUSE_KEY_INPUT_HANDLING_LINUX_INPUT=ON
+endif
+
 ifeq ($(BR2_TOOLCHAIN_USES_MUSL),y)
 WPE_FLAGS += -DENABLE_SAMPLING_PROFILER=OFF
 else
@@ -64,12 +82,6 @@ endif
 
 ifeq ($(BR2_PACKAGE_WEBP),y)
 WPE_DEPENDENCIES += webp
-endif
-
-ifeq ($(BR2_PACKAGE_LIBXKBCOMMON),y)
-WPE_DEPENDENCIES += libxkbcommon xkeyboard-config
-else
-WPE_FLAGS += -DUSE_KEY_INPUT_HANDLING_LINUX_INPUT=ON
 endif
 
 ifeq ($(BR2_PACKAGE_GLUELOGIC_VIRTUAL_KEYBOARD),y)
