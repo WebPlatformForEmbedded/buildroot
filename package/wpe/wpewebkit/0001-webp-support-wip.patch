@@ -64,7 +64,10 @@ index 4a38f58..4f07e36 100644
 +{
 +    if (index >= frameCount())
 +        return 0;
-+
+ 
+-    ImageFrame& frame = m_frameBufferCache[0];
+-    if (!frame.isComplete())
+-        decode(false);
 +    ImageFrame& frame = m_frameBufferCache[index];
 +    if (frame.isComplete())
 +        return &frame;
@@ -75,10 +78,7 @@ index 4a38f58..4f07e36 100644
 +        framesToDecode.append(frameToDecode);
 +        while (frameToDecode > 0 && !m_frameBufferCache[frameToDecode - 1].isComplete())
 +            framesToDecode.append(--frameToDecode);
- 
--    ImageFrame& frame = m_frameBufferCache[0];
--    if (!frame.isComplete())
--        decode(false);
++
 +        //do {
 +            // see Chromium commit 6e5bde615781b310f8e6f03bc4e81b6a5f993bf2
 +            //frameToDecode = m_frameBufferCache[frameToDecode].requiredPreviousFrameIndex();
@@ -226,7 +226,7 @@ index 4a38f58..4f07e36 100644
 +        } else {
 +            // FIXME: use this: const ImageFrame& prevBuffer = m_frameBufferCache[requiredPreviousFrameIndex];
 +            const ImageFrame& prevBuffer = m_frameBufferCache[frameIndex - 1];
-+            ASSERT(prevBuffer.status() == ImageFrame::FrameComplete);
++            ASSERT(prevBuffer.isComplete());
 +
 +            // Preserve the last frame as the starting state for this frame.
 +            if (!prevBuffer.backingStore() || !buffer.initialize(*prevBuffer.backingStore()))
@@ -284,7 +284,7 @@ index 4a38f58..4f07e36 100644
 +        ImageFrame& prevBuffer = m_frameBufferCache[frameIndex - 1];
 +        ImageFrame::DisposalMethod prevMethod = prevBuffer.disposalMethod();
 +        if (prevMethod == ImageFrame::DisposalMethod::RestoreToPrevious) { // Restore transparent pixels to pixels in previous canvas.
-+            ASSERT(prevBuffer.status() == ImageFrame::FrameComplete);
++            ASSERT(prevBuffer.isComplete());
 +            for (int y = m_decodedHeight; y < decodedHeight; ++y) {
 +                const int canvasY = top + y;
 +                for (int x = 0; x < width; ++x) {
@@ -301,7 +301,7 @@ index 4a38f58..4f07e36 100644
 +        } else if (prevMethod == ImageFrame::DisposalMethod::RestoreToBackground && frameIndex != 0) {
 +            // FIXME: check above should be: buffer.requiredPreviousFrameIndex() != notFound
 +            // Note: if the requiredPreviousFrameIndex is |notFound|, there's nothing to do.
-+            ASSERT(prevBuffer.status() == ImageFrame::FrameComplete);
++            ASSERT(prevBuffer.isComplete());
 +            const IntRect& prevRect = prevBuffer.backingStore()->frameRect();
 +            // We need to restore transparent pixels to as they were just after initFrame() call. That is:
 +            //   * Transparent if it belongs to prevRect <-- This is a no-op.
@@ -435,11 +435,12 @@ index e282b22..f6b155d7 100644
  
      WebPIDecoder* m_decoder;
 -    bool m_hasAlpha;
+-
+-    void applyColorProfile(const uint8_t*, size_t, ImageFrame&) { };
 +    WebPDecBuffer m_decoderBuffer;
 +    int m_formatFlags;
 +    bool m_frameBackgroundHasAlpha;
- 
--    void applyColorProfile(const uint8_t*, size_t, ImageFrame&) { };
++
 +    WebPDemuxer* m_demux;
 +    WebPDemuxState m_demuxState;
 +    bool m_haveAlreadyParsedThisData;
