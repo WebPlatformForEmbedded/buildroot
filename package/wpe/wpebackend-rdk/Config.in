@@ -1,5 +1,6 @@
 config BR2_PACKAGE_WPEBACKEND_RDK
 	bool "wpebackend-rdk"
     select BR2_PACKAGE_WAYLAND_EGL_BNXS if BR2_PACKAGE_HAS_NEXUS && BR2_PACKAGE_WESTEROS
+    select BR2_PACKAGE_LIBXKBCOMMON if BR2_PACKAGE_HAS_NEXUS && BR2_PACKAGE_WPEFRAMEWORK_COMPOSITOR
 	help
 	  RDK-specific implementations of the WPEBackend interfaces.
