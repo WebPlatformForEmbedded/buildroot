@@ -1,0 +1,43 @@
+diff --git a/westeros-sink/westeros-sink.c b/westeros-sink/westeros-sink.c
+index b5fa0cb..862b601 100644
+--- a/westeros-sink/westeros-sink.c
++++ b/westeros-sink/westeros-sink.c
+@@ -509,6 +509,11 @@ gst_westeros_sink_init(GstWesterosSink *sink, GstWesterosSinkClass *gclass)
+       if ( !sink->display ) 
+       {
+          sink->display= wl_display_connect(NULL);
++         sink->existingConnection = false;
++      }
++      else
++      {
++         sink->existingConnection = true;
+       }
+       if ( sink->display )
+       {
+@@ -593,7 +598,11 @@ static void gst_westeros_sink_term(GstWesterosSink *sink)
+    if ( sink->display )
+    {
+       printf("gst_westeros_sink_term: wl_display_disconnect: display=%p\n", (void*)sink->display);
+-      wl_display_disconnect(sink->display);
++      if (sink->existingConnection != true)
++      {
++         wl_display_disconnect(sink->display);
++      }
++      sink->existingConnection = false;
+       sink->display= 0;
+    }
+    
+diff --git a/westeros-sink/westeros-sink.h b/westeros-sink/westeros-sink.h
+index 53248fe..7b66cca 100644
+--- a/westeros-sink/westeros-sink.h
++++ b/westeros-sink/westeros-sink.h
+@@ -102,7 +102,8 @@ struct _GstWesterosSink
+    gboolean videoStarted;
+    gboolean startAfterLink;
+    gboolean flushStarted;
+-   
++   gboolean existingConnection;
++
+    gboolean eosEventSeen;
+    gboolean eosDetected;
+    gint64 startPTS;
