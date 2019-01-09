@@ -4,7 +4,7 @@
 #
 ################################################################################
 
-WPEFRAMEWORK_CDMI_NAGRA_VERSION = a1e7bde9d36757cc756ecab58e90d27a80b3da9a
+WPEFRAMEWORK_CDMI_NAGRA_VERSION = 525b4da61d2f515cd0d92421bf87e3cfaf0af088
 WPEFRAMEWORK_CDMI_NAGRA_SITE_METHOD = git
 WPEFRAMEWORK_CDMI_NAGRA_SITE = git@github.com:WebPlatformForEmbedded/OCDM-Nagra.git
 WPEFRAMEWORK_CDMI_NAGRA_INSTALL_STAGING = NO

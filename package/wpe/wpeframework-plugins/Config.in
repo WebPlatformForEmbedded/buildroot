@@ -121,8 +121,22 @@ config BR2_PACKAGE_WPEFRAMEWORK_COMPOSITOR_MEMORY_CLIENT
     help
       Allow update of Client memory. SAGE must be told which heap the client's will be using. The amount of memory in MB to be configured for.
 
+choice
+    prompt "resolution"
+
+menuconfig BR2_PACKAGE_WPEFRAMEWORK_COMPOSITOR_RESOLUTION_720P
+    bool "720p"
+
+menuconfig BR2_PACKAGE_WPEFRAMEWORK_COMPOSITOR_RESOLUTION_1080P
+    bool "1080p"
+
+menuconfig BR2_PACKAGE_WPEFRAMEWORK_COMPOSITOR_RESOLUTION_2160P
+    bool "2160p"
+
+endchoice
+
 config BR2_PACKAGE_WPEFRAMEWORK_COMPOSITOR_HARDWAREREADY
-    string "Manual overrule of the time it takes to initialisize all hardware (ms)"
+    string "Manual overrule of the time it takes to initialisize all hardware (s)"
     default 0
 
 endif
@@ -165,12 +179,40 @@ config BR2_PACKAGE_WPEFRAMEWORK_DICTIONARY
 	help
 	  Dictionary Plugin.
 
-config BR2_PACKAGE_WPEFRAMEWORK_IOCONNECTOR
+menuconfig BR2_PACKAGE_WPEFRAMEWORK_IOCONNECTOR
 	select BR2_PACKAGE_WPEFRAMEWORK_PLUGINS
 	bool "IOConnector"
 	default n
 	help
 	  Take custom action on hardware pins that changes state.
+
+if BR2_PACKAGE_WPEFRAMEWORK_IOCONNECTOR
+
+config BR2_PACKAGE_WPEFRAMEWORK_IOCONNECTOR_PAIRING_IO
+	bool "link pairing button"
+        default n
+        help 
+          Add a the activation of pairing for a control to a GPIO pin
+
+if BR2_PACKAGE_WPEFRAMEWORK_IOCONNECTOR_PAIRING_IO
+config BR2_PACKAGE_WPEFRAMEWORK_IOCONNECTOR_PAIRING_PIN
+	string "pin"
+        default "162"
+        help 
+          To which pin needs the handler to be associated.
+config BR2_PACKAGE_WPEFRAMEWORK_IOCONNECTOR_PAIRING_CALLSIGN
+	string "callsign"
+        default "RemoteControl"
+        help 
+          Which plugin is handling the pairing requests
+ config BR2_PACKAGE_WPEFRAMEWORK_IOCONNECTOR_PAIRING_PRODUCER
+	string "producer"
+        default "RF4CE"
+        help 
+          What is the name of the key producer tha you want to pair
+endif
+endif
+
 
 config BR2_PACKAGE_WPEFRAMEWORK_FRONTPANEL
     select BR2_PACKAGE_WPEFRAMEWORK_PLUGINS
@@ -267,7 +309,6 @@ config BR2_PACKAGE_WPEFRAMEWORK_BLUETOOTH
     bool "Bluetooth"
     select BR2_PACKAGE_WPEFRAMEWORK_PLUGINS
     select BR2_PACKAGE_BLUEZ5_UTILS
-    select BR2_PACKAGE_BLUEZ_ALSA
     default n
     help
       A Bluetooth plugin to interact with Bluetooth devices.

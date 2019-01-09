@@ -1,5 +1,5 @@
-config BR2_PACKAGE_UMA_SDK
-	bool "uma-sdk"
+config BR2_PACKAGE_EXPLORA_SDK
+	bool "explora-sdk"
 	depends on BR2_arm
 	select BR2_PACKAGE_HAS_NEXUS
 	select BR2_PACKAGE_HAS_LIBEGL
@@ -7,19 +7,19 @@ config BR2_PACKAGE_UMA_SDK
 	help
 	  Pre-compiled binaries for a platform
 
-if BR2_PACKAGE_UMA_SDK
+if BR2_PACKAGE_EXPLORA_SDK
 
 config BR2_PACKAGE_PROVIDES_NEXUS
-	default "uma-sdk"
+	default "explora-sdk"
 
 config BR2_PACKAGE_PROVIDES_LIBEGL
-	default "uma-sdk"
+	default "explora-sdk"
 
 config BR2_PACKAGE_PROVIDES_LIBGLES
-	default "uma-sdk"
+	default "explora-sdk"
 
 config BR2_PACKAGE_SDK_INSTALL
         string 
-	default "uma-sdk"
+	default "explora-sdk"
 
 endif
