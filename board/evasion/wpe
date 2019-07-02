@@ -30,8 +30,14 @@ ln -sfn /mnt/app/refsw/lib/libv3ddriver.so $SOURCE/usr/lib/libGLESv2.so
 ln -sfn /mnt/app/refsw/lib/libv3ddriver.so $SOURCE/usr/lib/libEGL.so
 
 # Netflix
+# TODO: once we bump WPEFrameworkPlugins these two lines can be removed.
 mkdir -p $PERSISTANTPATH/Netflix/dpi
 ln -s /etc/playready/  $PERSISTANTPATH/Netflix/dpi/playready
+
+# OCDM
+mkdir -p $PERSISTANTPATH/OCDM/playready
+ln -s /etc/playready/  $PERSISTANTPATH/OCDM/playready/playready
+mkdir -p $PERSISTANTPATH/OCDM/playready/state
 
 # Exports
 export HOME=$SOURCE/root
