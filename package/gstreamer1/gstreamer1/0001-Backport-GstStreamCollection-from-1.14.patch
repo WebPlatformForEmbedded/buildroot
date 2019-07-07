@@ -1,0 +1,151 @@
+From d1939242bafd17959b033f2d01e33646a2125d6f Mon Sep 17 00:00:00 2001
+From: Thibault Saunier <tsaunier@igalia.com>
+Date: Wed, 5 Sep 2018 09:28:46 -0300
+Subject: [PATCH 1/2] Backport GstStreamCollection from 1.14
+
+---
+ gst/gststreamcollection.c | 31 ++++++++++++++++++++++++++-----
+ gst/gststreamcollection.h | 11 +++++++++--
+ 2 files changed, 35 insertions(+), 7 deletions(-)
+
+diff --git a/gst/gststreamcollection.c b/gst/gststreamcollection.c
+index 8e848ded9..f1fa1a41a 100644
+--- a/gst/gststreamcollection.c
++++ b/gst/gststreamcollection.c
+@@ -26,6 +26,7 @@
+ 
+ /**
+  * SECTION:gststreamcollection
++ * @title: GstStreamCollection
+  * @short_description: Base class for collection of streams
+  *
+  * Since: 1.10
+@@ -67,6 +68,7 @@ enum
+ static guint gst_stream_collection_signals[LAST_SIGNAL] = { 0 };
+ 
+ static void gst_stream_collection_dispose (GObject * object);
++static void gst_stream_collection_finalize (GObject * object);
+ 
+ static void gst_stream_collection_set_property (GObject * object, guint prop_id,
+     const GValue * value, GParamSpec * pspec);
+@@ -128,6 +130,7 @@ gst_stream_collection_class_init (GstStreamCollectionClass * klass)
+       2, GST_TYPE_STREAM, G_TYPE_PARAM);
+ 
+   gobject_class->dispose = gst_stream_collection_dispose;
++  gobject_class->finalize = gst_stream_collection_finalize;
+ }
+ 
+ static void
+@@ -158,28 +161,46 @@ gst_stream_collection_dispose (GObject * object)
+   if (collection->priv->streams) {
+     g_queue_foreach (collection->priv->streams,
+         (GFunc) release_gst_stream, collection);
+-    g_queue_free (collection->priv->streams);
+-    collection->priv->streams = NULL;
++    g_queue_clear (collection->priv->streams);
+   }
+ 
+   G_OBJECT_CLASS (parent_class)->dispose (object);
+ }
+ 
++static void
++gst_stream_collection_finalize (GObject * object)
++{
++  GstStreamCollection *collection = GST_STREAM_COLLECTION_CAST (object);
++
++  if (collection->priv->streams)
++    g_queue_free (collection->priv->streams);
++
++  G_OBJECT_CLASS (parent_class)->finalize (object);
++}
++
+ /**
+  * gst_stream_collection_new:
+  * @upstream_id: (allow-none): The stream id of the parent stream
+  *
+  * Create a new #GstStreamCollection.
+  *
+- * Returns: The new #GstStreamCollection.
++ * Returns: (transfer full): The new #GstStreamCollection.
+  *
+  * Since: 1.10
+  */
+ GstStreamCollection *
+ gst_stream_collection_new (const gchar * upstream_id)
+ {
+-  return g_object_new (GST_TYPE_STREAM_COLLECTION, "upstream-id", upstream_id,
++  GstStreamCollection *collection;
++
++  collection =
++      g_object_new (GST_TYPE_STREAM_COLLECTION, "upstream-id", upstream_id,
+       NULL);
++
++  /* Clear floating flag */
++  g_object_ref_sink (collection);
++
++  return collection;
+ }
+ 
+ static void
+@@ -321,7 +342,7 @@ gst_stream_collection_get_size (GstStreamCollection * collection)
+  *
+  * The caller should not modify the returned #GstStream
+  *
+- * Returns: (transfer none): A #GstStream
++ * Returns: (transfer none) (nullable): A #GstStream
+  *
+  * Since: 1.10
+  */
+diff --git a/gst/gststreamcollection.h b/gst/gststreamcollection.h
+index 49734bd7c..4fe69c266 100644
+--- a/gst/gststreamcollection.h
++++ b/gst/gststreamcollection.h
+@@ -26,7 +26,6 @@
+ #define __GST_STREAM_COLLECTION_H__
+ 
+ #include <gst/gstobject.h>
+-#include <gst/gststreams.h>
+ 
+ G_BEGIN_DECLS
+ 
+@@ -42,6 +41,9 @@ typedef struct _GstStreamCollection GstStreamCollection;
+ typedef struct _GstStreamCollectionClass GstStreamCollectionClass;
+ typedef struct _GstStreamCollectionPrivate GstStreamCollectionPrivate;
+ 
++#include <gst/gststreamcollection.h>
++#include <gst/gststreams.h>
++
+ /**
+  * GstStreamCollection:
+  *
+@@ -65,9 +67,9 @@ typedef struct _GstStreamCollectionPrivate GstStreamCollectionPrivate;
+  * Since: 1.10
+  */
+ struct _GstStreamCollection {
++  /*< private >*/
+   GstObject object;
+ 
+-  /*< private >*/
+   gchar *upstream_id;
+   GstStreamCollectionPrivate *priv;
+ 
+@@ -98,11 +100,16 @@ GstStreamCollection *gst_stream_collection_new (const gchar *upstream_id);
+ const gchar *gst_stream_collection_get_upstream_id (GstStreamCollection *collection);
+ 
+ guint gst_stream_collection_get_size (GstStreamCollection *collection);
++
+ GstStream *gst_stream_collection_get_stream (GstStreamCollection *collection, guint index);
+ 
+ gboolean gst_stream_collection_add_stream (GstStreamCollection *collection,
+                                            GstStream *stream);
+ 
++#ifdef G_DEFINE_AUTOPTR_CLEANUP_FUNC
++G_DEFINE_AUTOPTR_CLEANUP_FUNC(GstStreamCollection, gst_object_unref)
++#endif
++
+ G_END_DECLS
+ 
+ #endif /* __GST_STREAM_COLLECTION_H__ */
+-- 
+2.18.0
+

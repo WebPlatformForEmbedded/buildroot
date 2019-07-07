@@ -1,0 +1,84 @@
+From f11000c5455aa88b2519e0c6ee730f5150d44fe0 Mon Sep 17 00:00:00 2001
+From: Edward Hervey <edward@centricular.com>
+Date: Tue, 5 Dec 2017 17:28:55 +0100
+Subject: [PATCH] utils: Never return a group_id of 0, add GST_GROUP_ID_INVALID
+
+Various plugins use special values (0 or G_MAXUINT32) as an
+invalid/unset group_id, but nothing guarantees a groupid won't have
+that value.
+
+Instead define a value which group_id will never have and make
+gst_group_id_next() always return a value different from that.
+
+API: GST_GROUP_ID_INVALID
+---
+ docs/gst/gstreamer-sections.txt |  1 +
+ gst/gstutils.c                  | 12 ++++++++++--
+ gst/gstutils.h                  | 12 ++++++++++++
+ 3 files changed, 23 insertions(+), 2 deletions(-)
+
+diff --git a/docs/gst/gstreamer-sections.txt b/docs/gst/gstreamer-sections.txt
+index 935515577..8aa76d545 100644
+--- a/docs/gst/gstreamer-sections.txt
++++ b/docs/gst/gstreamer-sections.txt
+@@ -3486,6 +3486,7 @@ GFLOAT_FROM_LE
+ GFLOAT_SWAP_LE_BE
+ GFLOAT_TO_BE
+ GFLOAT_TO_LE
++GST_GROUP_ID_INVALID
+ 
+ gst_guint64_to_gdouble
+ gst_gdouble_to_guint64
+diff --git a/gst/gstutils.c b/gst/gstutils.c
+index e64b41fba..cb3be74ce 100644
+--- a/gst/gstutils.c
++++ b/gst/gstutils.c
+@@ -4037,12 +4037,20 @@ gst_pad_get_stream (GstPad * pad)
+  * This function is used to generate a new group-id for the
+  * stream-start event.
+  *
++ * This function never returns %GST_GROUP_ID_INVALID (which is 0)
++ *
+  * Returns: A constantly incrementing unsigned integer, which might
+  * overflow back to 0 at some point.
+  */
+ guint
+ gst_util_group_id_next (void)
+ {
+-  static gint counter = 0;
+-  return g_atomic_int_add (&counter, 1);
++  static gint counter = 1;
++  gint ret = g_atomic_int_add (&counter, 1);
++
++  /* Make sure we don't return GST_GROUP_ID_INVALID */
++  if (G_UNLIKELY (ret == GST_GROUP_ID_INVALID))
++    ret = g_atomic_int_add (&counter, 1);
++
++  return ret;
+ }
+diff --git a/gst/gstutils.h b/gst/gstutils.h
+index 9360c53e4..433ba024d 100644
+--- a/gst/gstutils.h
++++ b/gst/gstutils.h
+@@ -75,6 +75,18 @@ guint64         gst_util_uint64_scale_int_ceil  (guint64 val, gint num, gint den
+ guint32         gst_util_seqnum_next            (void);
+ gint32          gst_util_seqnum_compare         (guint32 s1, guint32 s2);
+ 
++/**
++ * GST_GROUP_ID_INVALID:
++ *
++ * A value which is guaranteed to never be returned by
++ * gst_util_group_id_next().
++ *
++ * Can be used as a default value in variables used to store group_id.
++ *
++ * Since: 1.14
++ */
++#define GST_GROUP_ID_INVALID (0)
++
+ guint           gst_util_group_id_next          (void);
+ 
+ /**
+-- 
+2.18.0
+

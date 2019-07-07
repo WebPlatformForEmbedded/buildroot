@@ -4,9 +4,9 @@
 #
 ################################################################################
 
-LIBVPX_VERSION = 1.6.0
-LIBVPX_SOURCE = libvpx-$(LIBVPX_VERSION).tar.bz2
-LIBVPX_SITE = http://storage.googleapis.com/downloads.webmproject.org/releases/webm
+LIBVPX_VERSION = ec4afbf74a4beebadee3e1b15b43c5d4e3d3bd1c
+LIBVPX_SITE_METHOD = git
+LIBVPX_SITE = https://chromium.googlesource.com/webm/libvpx.git
 LIBVPX_LICENSE = BSD-3c
 LIBVPX_LICENSE_FILES = LICENSE PATENTS
 LIBVPX_INSTALL_STAGING = YES

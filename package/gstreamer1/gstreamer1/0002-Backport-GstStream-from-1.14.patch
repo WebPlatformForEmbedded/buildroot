@@ -1,0 +1,156 @@
+From e25748b258dcaa646819c8639d60f8f49a6f0265 Mon Sep 17 00:00:00 2001
+From: Thibault Saunier <tsaunier@igalia.com>
+Date: Wed, 5 Sep 2018 09:30:11 -0300
+Subject: [PATCH 2/2] Backport GstStream from 1.14
+
+---
+ gst/gststreams.c | 14 +++++++++++---
+ gst/gststreams.h | 38 ++++++++++++++++++++++++++------------
+ 2 files changed, 37 insertions(+), 15 deletions(-)
+
+diff --git a/gst/gststreams.c b/gst/gststreams.c
+index 28741d8b2..9c3272dfe 100644
+--- a/gst/gststreams.c
++++ b/gst/gststreams.c
+@@ -26,6 +26,7 @@
+ 
+ /**
+  * SECTION:gststreams
++ * @title: GstStreams
+  * @short_description: Base class for stream objects
+  *
+  * A #GstStream is a high-level object defining a stream of data which is, or
+@@ -209,7 +210,7 @@ gst_stream_finalize (GObject * object)
+  * Create a new #GstStream for the given @stream_id, @caps, @type
+  * and @flags
+  *
+- * Returns: The new #GstStream
++ * Returns: (transfer full): The new #GstStream
+  *
+  * Since: 1.10
+  */
+@@ -217,8 +218,15 @@ GstStream *
+ gst_stream_new (const gchar * stream_id, GstCaps * caps, GstStreamType type,
+     GstStreamFlags flags)
+ {
+-  return g_object_new (GST_TYPE_STREAM, "stream-id", stream_id, "caps", caps,
++  GstStream *stream;
++
++  stream = g_object_new (GST_TYPE_STREAM, "stream-id", stream_id, "caps", caps,
+       "stream-type", type, "stream-flags", flags, NULL);
++
++  /* Clear floating flag */
++  gst_object_ref_sink (stream);
++
++  return stream;
+ }
+ 
+ static void
+@@ -517,7 +525,7 @@ gst_stream_get_property (GObject * object, guint prop_id,
+  *
+  * Get a descriptive string for a given #GstStreamType
+  *
+- * Returns: A string describing the stream type
++ * Returns: (nullable): A string describing the stream type
+  *
+  * Since: 1.10
+  */
+diff --git a/gst/gststreams.h b/gst/gststreams.h
+index 2df1c7630..4520b84b6 100644
+--- a/gst/gststreams.h
++++ b/gst/gststreams.h
+@@ -26,7 +26,6 @@
+ #define __GST_STREAMS_H__
+ 
+ #include <gst/gstobject.h>
+-#include <gst/gstevent.h>
+ 
+ G_BEGIN_DECLS
+ 
+@@ -52,6 +51,8 @@ G_BEGIN_DECLS
+  * Note that this is a flag, and therefore users should not assume it
+  * will be a single value. Do not use the equality operator for checking
+  * whether a stream is of a certain type.
++ *
++ * Since: 1.10
+  */
+ typedef enum {
+   GST_STREAM_TYPE_UNKNOWN   = 1 << 0,
+@@ -69,7 +70,7 @@ typedef struct _GstStreamPrivate GstStreamPrivate;
+ /**
+  * GstStream:
+  * @stream_id: The Stream Identifier for this #GstStream
+- * 
++ *
+  * A high-level object representing a single stream. It might be backed, or
+  * not, by an actual flow of data in a pipeline (#GstPad).
+  *
+@@ -82,8 +83,11 @@ typedef struct _GstStreamPrivate GstStreamPrivate;
+  *
+  * Elements can subclass a #GstStream for internal usage (to contain information
+  * pertinent to streams of data).
++ *
++ * Since: 1.10
+  */
+ struct _GstStream {
++  /*< private >*/
+   GstObject object;
+ 
+   /*< public >*/
+@@ -103,33 +107,43 @@ struct _GstStream {
+  */
+ struct _GstStreamClass {
+   GstObjectClass parent_class;
+-  
++
+   /*< private >*/
+   gpointer _gst_reserved[GST_PADDING];
+ };
+ 
+ GType     gst_stream_get_type (void);
+ 
++#include <gst/gstevent.h>
++
+ GstStream *gst_stream_new            (const gchar *stream_id,
+ 				      GstCaps *caps,
+ 				      GstStreamType type,
+ 				      GstStreamFlags flags);
+-
+-const gchar *gst_stream_get_stream_id (GstStream *stream);
++const gchar *  gst_stream_get_stream_id (GstStream *stream);
+ 
+ void           gst_stream_set_stream_flags (GstStream *stream, GstStreamFlags flags);
++
+ GstStreamFlags gst_stream_get_stream_flags (GstStream *stream);
+ 
+-void          gst_stream_set_stream_type (GstStream *stream, GstStreamType stream_type);
+-GstStreamType gst_stream_get_stream_type (GstStream *stream);
++void           gst_stream_set_stream_type (GstStream *stream, GstStreamType stream_type);
++
++GstStreamType  gst_stream_get_stream_type (GstStream *stream);
++
++void           gst_stream_set_tags (GstStream *stream, GstTagList *tags);
++
++GstTagList *   gst_stream_get_tags (GstStream *stream);
++
++void           gst_stream_set_caps (GstStream *stream, GstCaps *caps);
++
++GstCaps *      gst_stream_get_caps (GstStream *stream);
+ 
+-void        gst_stream_set_tags (GstStream *stream, GstTagList *tags);
+-GstTagList *gst_stream_get_tags (GstStream *stream);
++const gchar *  gst_stream_type_get_name (GstStreamType stype);
+ 
+-void     gst_stream_set_caps (GstStream *stream, GstCaps *caps);
+-GstCaps *gst_stream_get_caps (GstStream *stream);
++#ifdef G_DEFINE_AUTOPTR_CLEANUP_FUNC
++G_DEFINE_AUTOPTR_CLEANUP_FUNC(GstStream, gst_object_unref)
++#endif
+ 
+-const gchar *gst_stream_type_get_name (GstStreamType stype);
+ G_END_DECLS
+ 
+ #endif /* __GST_STREAMS_H__ */
+-- 
+2.18.0
+

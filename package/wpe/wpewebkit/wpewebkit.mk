@@ -42,7 +42,7 @@ WPEWEBKIT_DEPENDENCIES = host-bison host-cmake host-flex host-gperf host-ruby ic
 
 ifeq ($(WPEWEBKIT_BUILD_WEBKIT),y)
 WPEWEBKIT_DEPENDENCIES += wpebackend libgcrypt libgles libegl libepoxy cairo freetype \
-	fontconfig harfbuzz libxml2 libxslt sqlite libsoup jpeg libpng
+	fontconfig harfbuzz libxml2 libxslt sqlite libsoup jpeg libpng libvpx libevent alsa-lib
 endif
 
 WPEWEBKIT_EXTRA_FLAGS = -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
@@ -79,7 +79,9 @@ WPEWEBKIT_FLAGS = \
 	-DENABLE_INDEXED_DATABASE=ON \
 	-DENABLE_MEDIA_STATISTICS=ON \
 	-DENABLE_FETCH_API=ON \
-	-DENABLE_WEBDRIVER=ON
+	-DENABLE_WEBDRIVER=ON \
+	-DENABLE_WEB_RTC=ON\
+	-DENABLE_MEDIA_STREAM=ON
 
 ifeq ($(BR2_TOOLCHAIN_USES_MUSL),y)
 WPEWEBKIT_FLAGS += -DENABLE_SAMPLING_PROFILER=OFF

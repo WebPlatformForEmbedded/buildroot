@@ -4,6 +4,9 @@ source "package/wpe/wpeframework/Config.in"
 # WPE WebKit
 source "package/wpe/wpewebkit/Config.in"
 
+# Cog
+source "package/wpe/cog/Config.in"
+
 if BR2_PACKAGE_WPEWEBKIT
 source "package/wpe/wpebackend/Config.in"
 source "package/wpe/wpebackend-rdk/Config.in"
