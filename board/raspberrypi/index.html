@@ -113,25 +113,44 @@ div#interfaces {
 <div id="logo" class="animate"><div></div><div></div><div></div><div></div><div></div><div></div></div>
 <div id="status">Hello</div>
 <div id="interfaces"></div>
+<script>
+var ThunderJS=function(){"use strict";function l(e){return(l="function"==typeof Symbol&&"symbol"==typeof Symbol.iterator?function(e){return typeof e}:function(e){return e&&"function"==typeof Symbol&&e.constructor===Symbol&&e!==Symbol.prototype?"symbol":typeof e})(e)}function n(n,e){var t=Object.keys(n);if(Object.getOwnPropertySymbols){var o=Object.getOwnPropertySymbols(n);e&&(o=o.filter(function(e){return Object.getOwnPropertyDescriptor(n,e).enumerable})),t.push.apply(t,o)}return t}var e="undefined"!=typeof globalThis?globalThis:"undefined"!=typeof window?window:"undefined"!=typeof global?global:"undefined"!=typeof self?self:{},t=null;"undefined"!=typeof WebSocket?t=WebSocket:"undefined"!=typeof MozWebSocket?t=MozWebSocket:void 0!==e?t=e.WebSocket||e.MozWebSocket:"undefined"!=typeof window?t=window.WebSocket||window.MozWebSocket:"undefined"!=typeof self&&(t=self.WebSocket||self.MozWebSocket);function f(t){return new Promise(function(e,n){if(i)e(i);else try{c||((c=new r(function(e){return[e&&e.protocol||"ws://",e&&e.host||"localhost",":"+(e&&e.port||80),e&&e.endpoint||"/jsonrpc"].join("")}(t),"notification")).addEventListener("message",function(e){!function(e){if("string"==typeof e&&(e=JSON.parse(e.normalize().replace(/\\x([0-9A-Fa-f]{2})/g,""))),e.id){var n=a[e.id];n?("result"in e?n.resolve(e.result):n.reject(e.error),delete a[e.id]):console.log("no pending request found with id "+e.id)}}(e.data)}),c.addEventListener("message",function(e){!function(n){if("string"==typeof n&&(n=JSON.parse(n.normalize().replace(/\\x([0-9A-Fa-f]{2})/g,""))),!n.id&&n.method){var e=u[n.method];e&&Array.isArray(e)&&e.length?e.forEach(function(e){e(n.params)}):console.log("no callbacks for "+n.method)}}(e.data)})),c.addEventListener("open",function(){e(i=c)})}catch(e){n(e)}})}function o(s){return{request:function(i,c,u){return new Promise(function(e,n){var t=p+=1,o=function(e,n,t){var o;return(o=t&&t.version)?o:e&&(e[n]||e.default)||1}(s.versions,i,u),r=function(e,n,t,o,r){o&&delete o.version;var i={jsonrpc:"2.0",id:e,method:[n,r,t].join(".")};return!o&&!1!==o||"object"===l(o)&&0===Object.keys(o).length||(i.params=o),i}(t,i,c,u,o);s.debug&&(console.log(" "),console.log("API REQUEST:"),console.log(JSON.stringify(r,null,2)),console.log(" ")),a[t]={body:r,resolve:e,reject:n},function(e,n){f(e).then(function(e){e.send(JSON.stringify(n))}).catch(console.error)}(s,r)})}}}var r=t,a={},u={},i=null,c=null,p=0,s={DeviceInfo:{freeRam:function(e){return this.call("systeminfo",e).then(function(e){return e.freeram})},version:function(e){return this.call("systeminfo",e).then(function(e){return e.version})}}};function d(n,t,e){var o=this,r=function(e,n,t){var o=y(e,n);if(!u[o]){u[o]=[];var r="register";var i=o.split(".").slice(0,-1).join(".");var c={event:n,id:i};this.api.request(e,r,c).then().catch()}return u[o].push(t),u[o].length-1}.call(this,n,t,e);return{dispose:function(){var e=y(n,t);u[e].splice(r,1),0===u[e].length&&function(e,n){var t=y(e,n);delete u[t];var o="unregister",r=t.split(".").slice(0,-1).join("."),i={event:n,id:r};this.api.request(e,o,i)}.call(o,n,t)}}}function y(e,n){return["client",e,"events",n].join(".")}var h,g=function t(e){return{options:e,plugin:!1,call:function(){var e=Array.prototype.slice.call(arguments);this.plugin&&e[0]!==this.plugin&&e.unshift(this.plugin);var n=e[0],t=e[1];return"function"==typeof this[n][t]?this[n][t](e[2]):this.api.request.apply(this,e)},registerPlugin:function(e,n){this[e]=b(Object.assign(Object.create(t),n,{plugin:e}))},subscribe:function(){},on:function(){var e=Array.prototype.slice.call(arguments);return this.plugin&&e[0]!==this.plugin&&e.unshift(this.plugin),d.apply(this,e)},once:function(){console.log("todo ...")}}},b=function e(n){return new Proxy(n,{get:function(o,r){var i=o[r];return"api"===r?h:void 0!==i?"function"==typeof i?-1<["on","once","subscribe"].indexOf(r)?function(){for(var e=arguments.length,n=new Array(e),t=0;t<e;t++)n[t]=arguments[t];return i.apply(this,n)}:function(){for(var e=arguments.length,n=new Array(e),t=0;t<e;t++)n[t]=arguments[t];return function(t,e){"object"===l(t)&&("object"!==l(t)||t.then&&"function"==typeof t.then)||(t=new Promise(function(e,n){t instanceof Error==!1?e(t):n(t)}));var n="function"==typeof e[e.length-1]?e[e.length-1]:null;if(!n)return t;t.then(function(e){return n(null,e)}).catch(function(e){return n(e)})}(i.apply(this,n),n)}:"object"===l(i)?e(Object.assign(Object.create(g(o.options)),i,{plugin:r})):i:!1===o.plugin?e(Object.assign(Object.create(g(o.options)),{},{plugin:r})):function(){for(var e=arguments.length,n=new Array(e),t=0;t<e;t++)n[t]=arguments[t];return n.unshift(r),o.call.apply(this,n)}}})};return function(e){return h=o(e),b(function(r){for(var e=1;e<arguments.length;e++){var i=null!=arguments[e]?arguments[e]:{};e%2?n(i,!0).forEach(function(e){var n,t,o;n=r,o=i[t=e],t in n?Object.defineProperty(n,t,{value:o,enumerable:!0,configurable:!0,writable:!0}):n[t]=o}):Object.getOwnPropertyDescriptors?Object.defineProperties(r,Object.getOwnPropertyDescriptors(i)):n(i).forEach(function(e){Object.defineProperty(r,e,Object.getOwnPropertyDescriptor(i,e))})}return r}({},g(e),{},s))}}();
+</script>
 <script type="text/javascript">
-    (function (host, lan, wlan) {
-        var logoEl = document.getElementById('logo'),
+    (function (host) {
+        const logoEl = document.getElementById('logo'),
             statusEl = document.getElementById('status'),
             interfacesEl = document.getElementById('interfaces'),
-            deviceId;
+            thunderJS = ThunderJS({host: host})
+        let deviceid
         function delay(t, v) {
            return new Promise((resolve) => {
                setTimeout(resolve.bind(null, v), t)
-           });
+           })
         }
         function log(interfaces) {
             return new Promise((resolve, reject) => {
-                var ip = '';
+                var ip = ''
                 for (var i = 0; i < interfaces.length; i++)
-                    ip += `${interfaces[i].name}: ${interfaces[i].ip}<br/>`;
-                if (ip !== '') interfacesEl.innerHTML = ip;
-                resolve(interfaces);
-            });
+                    ip += `${interfaces[i].name}: ${interfaces[i].ip}<br/>`
+                if (ip !== '') interfacesEl.innerHTML = ip
+                resolve(interfaces)
+            })
+        }
+        function interfaces() {
+            return new Promise((resolve, reject) => {
+                thunderJS.call('DeviceInfo', 'systeminfo').then((systeminfo) => {
+                    deviceId = systeminfo.deviceid ? systeminfo.deviceid : ''
+
+                    thunderJS.call('DeviceInfo', 'addresses').then( (addresses) => {
+                        let result = addresses.filter( a => {
+                            if (a.ip && a.ip.length && a.ip[0] !== '127.0.0.1')
+                                return true
+                        })
+                        resolve(result)
+                    })
+                })
+            })
         }
         function xhr(method, url, body) {
             return new Promise((resolve, reject) => {
@@ -155,122 +174,91 @@ div#interfaces {
                 http.send(body);
             });
         }
-        function wpe(arr) {
-            return xhr(arr[0], `http://${host}/Service${arr[1]}`, arr[2]);
-        }
-        function interfaces() {
-            return new Promise((resolve, reject) => {
-                wpe(['GET', '/DeviceInfo'])
-                    .then((deviceInfo) => {
-                        var result = [];
-                        if (deviceInfo.systeminfo.deviceid)
-                            deviceId = deviceInfo.systeminfo.deviceid;
-                        if (!deviceInfo.addresses) return resolve(result);
-                        for (var i = 0; i < deviceInfo.addresses.length; i++) {
-                            if (Array.isArray(deviceInfo.addresses[i].ip) && deviceInfo.addresses[i].ip[0] !== '127.0.0.1')
-                                result.push({name: deviceInfo.addresses[i].name, ip: deviceInfo.addresses[i].ip});
-                        }
-                        resolve(result);
-                    });
-            });
-        }
         function configUX() {
             return xhr('GET', '/config.json');
         }
         function loadUX(config) {
             return new Promise((resolve, reject) => {
-                var id = encodeURIComponent(deviceId);
+                var id = encodeURIComponent(deviceId)
                 xhr('GET', `${config.ux}${id}`)
                     .then((result) => {
-                        if (result && result.url)
-                            wpe(['PUT', '/Controller/Activate/UX'])
-                                .then(wpe.bind(null, ['POST', '/UX/URL', `{"url":"${result.url}"}`]))
-                                .then(resolve)
-                                .catch(reject);
-                        else
-                            reject();
+                        if (result && result.url) {
+                            let loadUXListener = thunderJS.on('Controller', 'all', (data) => {
+                                if (data.callsign !== 'UX')
+                                    return;
+
+                                let _data = data.data ? data.data : {};
+
+                                if (_data.state === 'activated')
+                                    thunderjs.call('UX', 'url',  url)
+                                    .then(  thunderjs.call('UX', 'state', 'resumed') )
+
+                                if (_data.url && _data.loaded) {
+                                    delay(5000).then( () => {
+                                        thunderJS.call('Controller', 'deactivate', { callsign: 'WebKitBrowser' } )
+                                    })
+                                    resolve()
+                                }
+                            })
+
+                            thunderJS.call('Controller', 'activate', { callsign : 'UX'})
+                        } else {
+                            reject()
+                        }
                     })
-                    .catch(reject);
+                    .catch(reject)
             });
         }
         return new Promise((resolve, reject) => {
-            var joining = false;
-            var socket = new WebSocket(`ws://${host}/Service/Controller`, 'notification');
-            socket.onmessage = (msg) => {
-                var data;
-                try {
-                    data = msg && msg.data && JSON.parse(msg.data.replace(/\\x00/g, ''));
-                } catch(err) {
-                    // Silently fail
-                    console.error(msg.data, err);
-                    return;
-                }
-                console.log(data);
-                if (data.callsign === 'WifiControl' && data.state === 'activated' && !joining) {
-                    statusEl.innerHTML = 'Scanning WiFi';
-                    delay(1000).then(wpe.bind(null, ['PUT', '/WifiControl/Scan']));
-                }
-                if (data.callsign === 'WifiControl' && data.data && data.data.networks && !joining) {
-                    joining = true;
-                    var networks = {};
-                    for (var i = 0; i < data.data.networks.length; i++) {
-                        var network = data.data.networks[i];
-                        if (network.ssid && !networks[network.ssid])
-                            networks[network.ssid] = network;
-                    }
-                    console.log(networks);
-                }
-                if (data.callsign === 'NetworkControl' && data.data && data.data.interface) {
-                    if (data.data.ip) {
-                        if (data.data.interface === wlan) {
-                            joining = false;
-                        }
+            let subsystemNotificationListener = thunderJS.on('Controller', 'subsystemchange', (data) => {
+                console.log(data)
+
+                data.map( d => {
+                    if (d.subsystem && d.active && d.subsystem === 'Internet')
+                        statusEl.innerHTML = 'We&#39;re connected!';
+
+                    if (d.subsystem && d.active && d.subsystem === 'Network') {
+                        statusEl.innerHTML = 'Waiting for connection'
                         interfaces().then(log);
-                    } else if (data.data.running) {
-                        statusEl.innerHTML = `Acquiring Network (${data.data.interface})`;
-                    } else if (data.data.status === 11) {
-                        // Ignore wlan DHCP failure when not in joining progress
-                        if (data.data.interface === wlan && !joining) return;
-                        delay(2000)
-                            .then(wpe.bind(null, ['PUT', `/NetworkControl/${data.data.interface}/Request`]))
-                            .catch(reject);
                     }
-                }
-                if (data.callsign === 'UX' && data.data && data.data.url && data.data.loaded) {
-                    delay(5000).then(wpe.bind(null, ['PUT', '/Controller/Deactivate/WebKitBrowser']));
-                }
-                if (data.subsystems && data.subsystems.Internet) {
-                    statusEl.innerHTML = 'We&#39;re connected!';
-                }
-                if (data.subsystems && data.subsystems.Time) {
-                    statusEl.innerHTML = 'Internet is up!';
-                    configUX()
-                        .then((config) => {
-                            statusEl.innerHTML = 'Loading UX';
-                            loadUX(config).then(() => {
-                                logoEl.className = '';
-                                statusEl.innerHTML = 'We&#39;re ready!';
+
+                    if (d.subsystem && d.active && d.subsystem === 'Time') {
+                        statusEl.innerHTML = 'Internet is up!';
+                        configUX()
+                            .then((config) => {
+                                statusEl.innerHTML = 'Loading UX';
+                                loadUX(config).then(() => {
+                                    logoEl.className = '';
+                                    statusEl.innerHTML = 'We&#39;re ready!';
+                                })
+                                .catch((err) => {
+                                    statusEl.innerHTML = 'Something went wrong (' + deviceId + ')';
+                                })
                             })
                             .catch((err) => {
-                                statusEl.innerHTML = 'Something went wrong (' + deviceId + ')';
-                            });
-                        })
-                        .catch((err) => {
-                                statusEl.innerHTML = 'We&#39;re ready!';
-                        });
-                }
-            };
-            socket.onopen = () => {
-                interfaces().then(log);
-            };
-            socket.onerror = (err) => {
-                reject(err);
-            };
-            socket.onclose = () => {
-                reject('Connection lost');
-            };
+                                    logoEl.className = '';
+                                    statusEl.innerHTML = 'We&#39;re ready!';
+                            })
+                    }
+                })
+            })
+
+            let networkNotificationListener = thunderJS.on('Controller', 'all', (data) => {
+                if (data.callsign !== 'NetworkControl')
+                    return;
+
+                if (data.data.running)
+                    statusEl.innerHTML = `Acquiring Network (${data.data.interface})`;
+                else if (data.data.status === 11)
+                    delay(2000)
+                        .then( thunderJS.call('NetworkControl', 'request', { device:  data.data.interface} ) )
+                        .catch(reject);
+            })
+
+            //fix me, thunderjs needs a connected event
+            delay(400).then( interfaces().then(log) )
         });
-    }(location.hostname, 'eth0', 'wlan0')).catch(console.error);
+    }(location.hostname)).catch(console.error)
 </script>
 </body>
 </html>
