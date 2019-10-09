@@ -1,0 +1,790 @@
+From 05167c418323663498d9f7d92cce140eba070528 Mon Sep 17 00:00:00 2001
+From: Suman Rapolu <suman.rapolu@soctronics.com>
+Date: Fri, 27 Sep 2019 11:10:57 +0530
+Subject: [PATCH] New interface for ThunderNanoServices
+
+1. Created API interface for Dropbear service
+2. Implemented Session management using linked list
+3. Integrated with pkg-config tool
+4. Modified Configure.ac and Makefile.in to generate shared library
+
+Signed-off-by: Suman Rapolu <suman.rapolu@soctronics.com>
+---
+ Makefile.in       |  18 ++-
+ configure.ac      |   3 +
+ libdropbear.h     |  27 +++++
+ libdropbear.pc.in |  11 ++
+ linkedlist.h      | 169 ++++++++++++++++++++++++++
+ svr-main.c        | 302 ++++++++++++++++++++++++++++++++++++++++++++--
+ svr-session.c     |   2 +-
+ 7 files changed, 514 insertions(+), 18 deletions(-)
+ create mode 100644 libdropbear.h
+ create mode 100644 libdropbear.pc.in
+ create mode 100644 linkedlist.h
+
+diff --git a/Makefile.in b/Makefile.in
+index d9bfdfa..79c15c0 100644
+--- a/Makefile.in
++++ b/Makefile.in
+@@ -10,7 +10,7 @@
+ # Hopefully that seems intuitive.
+ 
+ ifndef PROGRAMS
+-	PROGRAMS=dropbear dbclient dropbearkey dropbearconvert
++	PROGRAMS=dropbear
+ endif
+ 
+ STATIC_LTC=libtomcrypt/libtomcrypt.a
+@@ -18,6 +18,8 @@ STATIC_LTM=libtommath/libtommath.a
+ 
+ LIBTOM_LIBS=@LIBTOM_LIBS@
+ 
++DROPBEAR_SERVER_LIB=libdropbear.so
++
+ ifeq (@BUNDLED_LIBTOM@, 1)
+ LIBTOM_DEPS=$(STATIC_LTC) $(STATIC_LTM) 
+ CFLAGS+=-I$(srcdir)/libtomcrypt/src/headers/
+@@ -75,6 +77,9 @@ datarootdir = @datarootdir@
+ bindir=@bindir@
+ sbindir=@sbindir@
+ mandir=@mandir@
++libdir = @libdir@
++includedir = @includedir@
++pkgconfigdir = $(libdir)/pkgconfig
+ 
+ CC=@CC@
+ AR=@AR@
+@@ -82,9 +87,10 @@ RANLIB=@RANLIB@
+ STRIP=@STRIP@
+ INSTALL=@INSTALL@
+ CPPFLAGS=@CPPFLAGS@
+-CFLAGS+=-I. -I$(srcdir) $(CPPFLAGS) @CFLAGS@
++CFLAGS+=-I. -I$(srcdir) $(CPPFLAGS) @CFLAGS@ -fPIC
+ LIBS+=@LIBS@
+ LDFLAGS=@LDFLAGS@
++ARFLAGS=rcT
+ 
+ EXEEXT=@EXEEXT@
+ 
+@@ -106,12 +112,14 @@ export RANLIB AR STRIP
+ 
+ ifeq ($(STATIC), 1)
+ 	LDFLAGS+=-static
++else
++	LDFLAGS +=-shared
+ endif
+ 
+ ifeq ($(MULTI), 1)
+ 	TARGETS=dropbearmulti
+ else
+-	TARGETS=$(PROGRAMS)
++	TARGETS=$(DROPBEAR_SERVER_LIB)
+ endif
+ 
+ # for the scp progress meter. The -D doesn't affect anything else.
+@@ -175,6 +183,8 @@ dropbearkey dropbearconvert: $(HEADERS) $(LIBTOM_DEPS) Makefile
+ scp: $(SCPOBJS)  $(HEADERS) Makefile
+ 	$(CC) $(LDFLAGS) -o $@$(EXEEXT) $(SCPOBJS)
+ 
++$(DROPBEAR_SERVER_LIB):$(LIBTOM_LIBS)$(dropbearobjs)
++	$(CC) $(LDFLAGS) -o $@ $(dropbearobjs) $(LIBTOM_LIBS)
+ 
+ # multi-binary compilation.
+ MULTIOBJS=
+@@ -215,7 +225,7 @@ clean: ltc-clean ltm-clean thisclean
+ 
+ thisclean:
+ 	-rm -f dropbear dbclient dropbearkey dropbearconvert scp scp-progress \
+-			dropbearmulti *.o *.da *.bb *.bbg *.prof 
++			dropbearmulti *.o *.da *.bb *.bbg *.prof libdropbear.pc $(DROPBEAR_SERVER_LIB)
+ 
+ distclean: clean tidy
+ 	-rm -f config.h
+diff --git a/configure.ac b/configure.ac
+index 893b904..f99ae67 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -730,6 +730,9 @@ AC_CONFIG_HEADER(config.h)
+ AC_CONFIG_FILES(Makefile $LIBTOM_FILES)
+ AC_OUTPUT
+ 
++AC_CONFIG_FILES(libdropbear.pc)
++AC_OUTPUT
++
+ AC_MSG_NOTICE()
+ if test $BUNDLED_LIBTOM = 1 ; then
+ AC_MSG_NOTICE([Using bundled libtomcrypt and libtommath])
+diff --git a/libdropbear.h b/libdropbear.h
+new file mode 100644
+index 0000000..70999c9
+--- /dev/null
++++ b/libdropbear.h
+@@ -0,0 +1,27 @@
++#ifndef __LIBDROPBEAR_H
++#define __LIBDROPBEAR_H
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++#define	IPADDRESSLENGTH		16
++#define	TIMESTAMPLENGTH		26
++
++struct client_info{
++        int  pid;
++        char ipaddress[IPADDRESSLENGTH];  //Client IPv4 address
++        char timestamp[TIMESTAMPLENGTH];  //timestamp of the received client
++};
++
++void activate_dropbear(char*);
++void deactivate_dropbear();
++int get_active_sessions_count();
++void get_active_sessions_info(struct client_info*, int);
++int close_client_session(int);
++
++#ifdef __cplusplus
++}
++#endif
++
++#endif
+diff --git a/libdropbear.pc.in b/libdropbear.pc.in
+new file mode 100644
+index 0000000..2d3ce41
+--- /dev/null
++++ b/libdropbear.pc.in
+@@ -0,0 +1,11 @@
++prefix=@prefix@
++exec_prefix=@exec_prefix@
++libdir=@libdir@
++includedir=@includedir@
++
++Name: libdropbear
++Version: @PACKAGE_VERSION@
++Description: Dropbear SSH
++URL: http://matt.ucc.asn.au/dropbear/releases
++Libs: -L${libdir} -ldropbear
++Cflags: -I${includedir}
+diff --git a/linkedlist.h b/linkedlist.h
+new file mode 100644
+index 0000000..8da6057
+--- /dev/null
++++ b/linkedlist.h
+@@ -0,0 +1,169 @@
++/**
++ * info: linkedlist.h file is derived from the
++ * linux-5.2.1/include/linux/list.h
++ * https://www.kernel.org
++ *
++ */
++
++#ifndef _LINKED_LIST_H
++#define _LINKED_LIST_H
++#include <stdio.h>
++
++/**
++ * Get offset of a member
++ */
++#define offsetoff(TYPE, MEMBER) ((size_t) &((TYPE *)0)->MEMBER)
++
++/**
++ * Casts a member of a structure out to the containing structure
++ * @param ptr        the pointer to the member.
++ * @param type       the type of the container struct this is embedded in.
++ * @param member     the name of the member within the struct.
++ *
++ */
++#define container_of(ptr,type,member) ({                                \
++                const typeof( ((type *)0)->member ) *__mptr = (ptr);    \
++                (type *)( (char *)__mptr - offsetoff(type,member) );})
++/*
++ * These are non-NULL pointers that will result in page faults
++ * under normal circumstances, used to verify that nobody uses
++ * non-initialized list entries.
++ */
++#define LIST_POISON1  ((void *) 0x00100100)
++#define LIST_POISON2  ((void *) 0x00200200)
++
++
++#define WRITE_ONCE(ptr,value)   (ptr=value)
++
++typedef _Bool                   bool;
++
++enum {
++        false   = 0,
++        true    = 1
++};
++
++
++struct list_head {
++        struct list_head *next, *prev;
++};
++
++/*
++ * Simple doubly linked list implementation.
++ *
++ * Some of the internal functions ("__xxx") are useful when
++ * manipulating whole lists rather than single entries, as
++ * sometimes we already know the next/prev entries and we can
++ * generate better code by using them directly rather than
++ * using the generic single-entry routines.
++ */
++
++static inline void INIT_LIST_HEAD(struct list_head *list)
++{
++	WRITE_ONCE(list->next, list);
++	list->prev = list;
++}
++
++#ifdef CONFIG_DEBUG_LIST
++extern bool __list_add_valid(struct list_head *new,
++			      struct list_head *prev,
++			      struct list_head *next);
++extern bool __list_del_entry_valid(struct list_head *entry);
++#else
++static inline bool __list_add_valid(struct list_head *new,
++				struct list_head *prev,
++				struct list_head *next)
++{
++	return true;
++}
++static inline bool __list_del_entry_valid(struct list_head *entry)
++{
++	return true;
++}
++#endif
++
++/*
++ * Insert a new entry between two known consecutive entries.
++ *
++ * This is only for internal list manipulation where we know
++ * the prev/next entries already!
++ */
++static inline void __list_add(struct list_head *new,
++			      struct list_head *prev,
++			      struct list_head *next)
++{
++	if (!__list_add_valid(new, prev, next))
++		return;
++
++	next->prev = new;
++	new->next = next;
++	new->prev = prev;
++	WRITE_ONCE(prev->next, new);
++}
++
++
++/**
++ * list_add_tail - add a new entry
++ * @new: new entry to be added
++ * @head: list head to add it before
++ *
++ * Insert a new entry before the specified head.
++ * This is useful for implementing queues.
++ */
++static inline void list_add_tail(struct list_head *new, struct list_head *head)
++{
++	__list_add(new, head->prev, head);
++}
++
++/*
++ * Delete a list entry by making the prev/next entries
++ * point to each other.
++ *
++ * This is only for internal list manipulation where we know
++ * the prev/next entries already!
++ */
++static inline void __list_del(struct list_head * prev, struct list_head * next)
++{
++	next->prev = prev;
++	WRITE_ONCE(prev->next, next);
++}
++
++/**
++ * list_del - deletes entry from list.
++ * @entry: the element to delete from the list.
++ * Note: list_empty() on entry does not return true after this, the entry is
++ * in an undefined state.
++ */
++static inline void __list_del_entry(struct list_head *entry)
++{
++	if (!__list_del_entry_valid(entry))
++		return;
++
++	__list_del(entry->prev, entry->next);
++}
++
++static inline void list_del(struct list_head *entry)
++{
++	__list_del_entry(entry);
++	entry->next = LIST_POISON1;
++	entry->prev = LIST_POISON2;
++}
++
++/**
++ * list_entry - get the struct for this entry
++ * @ptr:	the &struct list_head pointer.
++ * @type:	the type of the struct this is embedded in.
++ * @member:	the name of the list_head within the struct.
++ */
++#define list_entry(ptr, type, member) \
++	container_of(ptr, type, member)
++
++/**
++ * list_for_each        -       iterate over a list
++ * @pos:        the &struct list_head to use as a loop cursor.
++ * @head:	the head for your list.
++ */
++#define list_for_each(pos, head) \
++	for (pos = (head)->next; pos != (head); pos = pos->next)
++
++#endif
++
+diff --git a/svr-main.c b/svr-main.c
+index b274551..d581dfa 100644
+--- a/svr-main.c
++++ b/svr-main.c
+@@ -30,19 +30,43 @@
+ #include "runopts.h"
+ #include "dbrandom.h"
+ #include "crypto_desc.h"
++#include <pthread.h>
++#include "libdropbear.h"
++#include "linkedlist.h"
+ 
+ static size_t listensockets(int *sock, size_t sockcount, int *maxfd);
+ static void sigchld_handler(int dummy);
+ static void sigsegv_handler(int);
+ static void sigintterm_handler(int fish);
++void init_dropbear(int argc, char ** argv);
++void free_client_info();
++static int setargs(char *args, char **argv);
++char **parsedargs(char *args, int *argc);
++void freeparsedargs(char **argv);
++
++
++
++struct list_head client_connections_info;
++
++struct active_clients{
++	struct client_info info;
++	struct list_head client_list;
++};
++
++static int pluginActivated = 0;
++static pthread_t threadID;
++int server_active = 0;
++pthread_mutex_t lock;
++
+ #ifdef INETD_MODE
+ static void main_inetd(void);
+ #endif
+ #ifdef NON_INETD_MODE
+-static void main_noinetd(void);
++static void* main_noinetd(void *);
+ #endif
+ static void commonsetup(void);
+ 
++#if 0
+ #if defined(DBMULTI_dropbear) || !defined(DROPBEAR_MULTI)
+ #if defined(DBMULTI_dropbear) && defined(DROPBEAR_MULTI)
+ int dropbear_main(int argc, char ** argv)
+@@ -75,6 +99,205 @@ int main(int argc, char ** argv)
+ 	return -1;
+ }
+ #endif
++#endif
++
++void init_dropbear(int argc, char ** argv)
++{
++	server_active = 1;
++	_dropbear_exit = svr_dropbear_exit;
++	_dropbear_log = svr_dropbear_log;
++	disallow_core();
++	/* get commandline options */
++	svr_getopts(argc, argv);
++	/* Note: commonsetup() must happen before we daemon()ise. Otherwise
++           daemon() will chdir("/"), and we won't be able to find local-dir
++           hostkeys. */
++	commonsetup();
++	INIT_LIST_HEAD(&client_connections_info);
++}
++
++static int setargs(char *args, char **argv)
++{
++	int count = 0;
++	while (isspace(*args)) ++args;
++	while (*args) {
++		if (argv) argv[count] = args;
++		while (*args && !isspace(*args)) ++args;
++		if (argv && *args) *args++ = '\0';
++		while (isspace(*args)) ++args;
++		count++;
++	}
++	return count;
++}
++
++char **parsedargs(char *args, int *argc)
++{
++	char **argv = NULL;
++	int    argn = 0;
++
++	if (args && *args
++			&& (args = strdup(args))
++			&& (argn = setargs(args,NULL))
++			&& (argv = malloc((argn+1) * sizeof(char *)))) {
++		*argv++ = args;
++		argn = setargs(args,argv);
++	}
++
++	if (args && !argv) free(args);
++	*argc = argn;
++	return argv;
++}
++
++void freeparsedargs(char **argv)
++{
++	if (argv) {
++		free(argv[-1]);
++		free(argv-1);
++	}
++}
++
++
++void activate_dropbear(char* string)
++{
++	int status;
++	int argc,len;
++	char **argv;
++	char *str;
++
++	if(pluginActivated == 1)
++	{
++		printf("Plugin already Activated \n");
++		return;
++	}
++
++	len = strlen("dropbear ")+strlen(string)+1;
++	str=(char *)malloc(len*sizeof(char));
++	strncpy(str, "dropbear ", strlen("dropbear "));
++	strncpy(str+strlen("dropbear "), string, strlen(string)+1);
++	argv = parsedargs(str,&argc);
++	free(str);
++	/*for (int i = 0; i < argc; i++)
++		printf("argv[%d] = %s\n", i, argv[i]);*/
++
++	init_dropbear(argc, argv);
++	freeparsedargs(argv);
++	if (pthread_mutex_init(&lock, NULL) != 0)
++	{
++		printf("\n mutex init has failed\n");
++		return;
++	}
++	status = pthread_create(&threadID,NULL,main_noinetd,NULL);
++	if(status != 0)
++	{
++		printf("Error in creating thread\n");
++		return;
++	}
++	printf("Plugin Activated \n");
++	pluginActivated =1;
++}
++
++void deactivate_dropbear()
++{
++	if(pluginActivated == 1)
++	{
++		server_active = 0;
++		pthread_join(threadID, 0);
++		pthread_mutex_destroy(&lock);
++		pluginActivated = 0;
++	}
++	printf("Plugin DeActivated \n");
++	return;
++}
++
++/*Return the number of clients currently connected*/
++
++int get_active_sessions_count(){
++	int count=0;
++	if(pluginActivated){
++		struct active_clients *client;
++		struct list_head *ptr_list;
++		list_for_each(ptr_list,&client_connections_info){
++			client = list_entry(ptr_list,struct active_clients,client_list);
++			if(client){
++				count++;
++			}
++		}
++	}
++	return count;
++}
++
++/*To get the list of connections that are currently serving*/
++void  get_active_sessions_info(struct client_info* connected_clients,int connections_count){
++	if(pluginActivated){
++		int count = 0;
++		struct active_clients *client;
++		struct list_head *ptr_list;
++		list_for_each(ptr_list,&client_connections_info){
++			client = list_entry(ptr_list, struct active_clients, client_list );
++			if(client && (count < connections_count)){
++				connected_clients[count].pid=client->info.pid;
++				strcpy(connected_clients[count].ipaddress,client->info.ipaddress);
++				strcpy(connected_clients[count].timestamp,client->info.timestamp);
++				count++;
++			}
++			else{
++				break;
++			}
++		}
++	}
++}
++
++/* To terminate  the server connection to client with the pid  */
++int  close_client_session(int client_pid){
++	int pid_existing=0;
++	struct active_clients *client;
++	struct list_head *ptr_list;
++	if(pluginActivated){
++		list_for_each(ptr_list,&client_connections_info){
++			client = list_entry(ptr_list,struct active_clients,client_list);
++			if(client && (client->info.pid == client_pid)){
++				pid_existing=1;
++				break;
++			}
++		}
++		if(pid_existing){
++			if(kill(client_pid,SIGUSR1)== -1){
++				printf("Error during close session: %s\n", strerror(errno));
++				return errno;
++			}
++			else{
++				return 0;
++			}
++		}
++		else{
++			return -1;
++		}
++	}
++	else{
++		return -1;
++	}
++}
++
++
++void free_client_info(){
++	if(pluginActivated){
++		struct active_clients *client;
++		struct list_head *ptr_list;
++		list_for_each(ptr_list, &client_connections_info){
++			client = list_entry(ptr_list,struct active_clients, client_list);
++			if (client){
++				if(close_client_session(client->info.pid) != 0 ){
++					printf("unable to kill the process : %d\n",client->info.pid);
++				}
++			}
++			else{
++				break;
++			}
++		}
++	}
++
++}
++
+ 
+ #ifdef INETD_MODE
+ static void main_inetd() {
+@@ -104,7 +327,7 @@ static void main_inetd() {
+ #endif /* INETD_MODE */
+ 
+ #ifdef NON_INETD_MODE
+-static void main_noinetd() {
++static void* main_noinetd(void *UNUSED(unused)){
+ 	fd_set fds;
+ 	unsigned int i, j;
+ 	int val;
+@@ -118,11 +341,7 @@ static void main_noinetd() {
+ 
+ 	int childsock;
+ 	int childpipe[2];
+-
+-	/* Note: commonsetup() must happen before we daemon()ise. Otherwise
+-	   daemon() will chdir("/"), and we won't be able to find local-dir
+-	   hostkeys. */
+-	commonsetup();
++	struct timeval timeout;
+ 
+ 	/* sockets to identify pre-authenticated clients */
+ 	for (i = 0; i < MAX_UNAUTH_CLIENTS; i++) {
+@@ -141,6 +360,7 @@ static void main_noinetd() {
+ 		FD_SET(listensocks[i], &fds);
+ 	}
+ 
++#if 0
+ 	/* fork */
+ 	if (svr_opts.forkbg) {
+ 		int closefds = 0;
+@@ -154,6 +374,7 @@ static void main_noinetd() {
+ 		}
+ 	}
+ 
++#endif
+ 	/* should be done after syslog is working */
+ 	if (svr_opts.forkbg) {
+ 		dropbear_log(LOG_INFO, "Running in background");
+@@ -161,6 +382,7 @@ static void main_noinetd() {
+ 		dropbear_log(LOG_INFO, "Not backgrounding");
+ 	}
+ 
++
+ 	/* create a PID file so that we can be killed easily */
+ 	pidfile = fopen(svr_opts.pidfile, "w");
+ 	if (pidfile) {
+@@ -168,6 +390,9 @@ static void main_noinetd() {
+ 		fclose(pidfile);
+ 	}
+ 
++
++	timeout.tv_sec = 5;
++	timeout.tv_usec = 0;
+ 	/* incoming connection select loop */
+ 	for(;;) {
+ 
+@@ -186,11 +411,18 @@ static void main_noinetd() {
+ 			}
+ 		}
+ 
+-		val = select(maxsock+1, &fds, NULL, NULL, NULL);
++		val = select(maxsock+1, &fds, NULL, NULL, &timeout);
+ 
+-		if (exitflag) {
++		if (!server_active) {
+ 			unlink(svr_opts.pidfile);
+-			dropbear_exit("Terminated by signal");
++			//dropbear_exit("Terminated by signal");
++			/* make sure we close sockets */
++			FD_ZERO(&fds);
++			for (i = 0; i < listensockcount; i++) {
++				m_close(listensocks[i]);
++			}
++			free_client_info();
++			break;
+ 		}
+ 		
+ 		if (val == 0) {
+@@ -281,6 +513,21 @@ static void main_noinetd() {
+ 			if (fork_ret > 0) {
+ 
+ 				/* parent */
++				/* taking the pids and respective IP address and timestamp to structure list*/
++				time_t now;
++				time(&now);
++				struct active_clients *client;
++				client = (struct active_clients *)malloc(sizeof(struct active_clients));
++				if(!client){
++					printf("unable to create a memory for active clients structure\n ");
++				}
++				client->info.pid = fork_ret;
++				strcpy(client->info.ipaddress, remote_host);
++				strcpy(client->info.timestamp,ctime(&now));
++				client->info.timestamp[strlen(client->info.timestamp) - 1 ] = '\0';
++				pthread_mutex_lock(&lock);
++				list_add_tail(&(client->client_list),&client_connections_info);
++				pthread_mutex_unlock(&lock);
+ 				childpipes[conn_idx] = childpipe[0];
+ 				m_close(childpipe[1]);
+ 				preauth_addrs[conn_idx] = remote_host;
+@@ -328,6 +575,7 @@ out:
+ 	} /* for(;;) loop */
+ 
+ 	/* don't reach here */
++	return NULL;
+ }
+ #endif /* NON_INETD_MODE */
+ 
+@@ -338,10 +586,26 @@ static void sigchld_handler(int UNUSED(unused)) {
+ 
+ 	const int saved_errno = errno;
+ 
+-	while(waitpid(-1, NULL, WNOHANG) > 0) {}
++	int  pid;
++	/* disconnected ports are removing from structure List */
++	while ((pid = waitpid(0, NULL, WNOHANG)) > 0) {
++		struct active_clients *client;
++		struct list_head *ptr_list;
++
++		list_for_each(ptr_list, &client_connections_info){
++			client  = list_entry(ptr_list,struct active_clients, client_list);
++			if (client && client->info.pid == pid){
++				pthread_mutex_lock(&lock);
++				list_del(ptr_list);
++				pthread_mutex_unlock(&lock);
++				free(client);
++				break;
++			}
++		}
++	}
+ 
+ 	sa_chld.sa_handler = sigchld_handler;
+-	sa_chld.sa_flags = SA_NOCLDSTOP;
++	sa_chld.sa_flags = SA_NOCLDSTOP | SA_RESTART ;
+ 	sigemptyset(&sa_chld.sa_mask);
+ 	if (sigaction(SIGCHLD, &sa_chld, NULL) < 0) {
+ 		dropbear_exit("signal() error");
+@@ -361,6 +625,11 @@ static void sigintterm_handler(int UNUSED(unused)) {
+ 
+ 	exitflag = 1;
+ }
++static void sigusr1_handler(int UNUSED(unused)) {
++
++	exitflag = 1;
++}
++
+ 
+ /* Things used by inetd and non-inetd modes */
+ static void commonsetup() {
+@@ -371,7 +640,7 @@ static void commonsetup() {
+ 		startsyslog(PROGNAME);
+ 	}
+ #endif
+-
++#if 0
+ 	/* set up cleanup handler */
+ 	if (signal(SIGINT, sigintterm_handler) == SIG_ERR || 
+ #ifndef DEBUG_VALGRIND
+@@ -385,12 +654,19 @@ static void commonsetup() {
+ 	sa_chld.sa_handler = sigchld_handler;
+ 	sa_chld.sa_flags = SA_NOCLDSTOP;
+ 	sigemptyset(&sa_chld.sa_mask);
++
+ 	if (sigaction(SIGCHLD, &sa_chld, NULL) < 0) {
+ 		dropbear_exit("signal() error");
+ 	}
++#endif
++	if (signal(SIGUSR1, sigusr1_handler) == SIG_ERR) {
++		dropbear_exit("signal() error");
++	}
++#if 0 
+ 	if (signal(SIGSEGV, sigsegv_handler) == SIG_ERR) {
+ 		dropbear_exit("signal() error");
+ 	}
++#endif
+ 
+ 	crypto_init();
+ 
+diff --git a/svr-session.c b/svr-session.c
+index 4f56cd9..b0fdf6b 100644
+--- a/svr-session.c
++++ b/svr-session.c
+@@ -191,7 +191,7 @@ void svr_dropbear_exit(int exitcode, const char* format, va_list param) {
+ 		m_free(svr_opts.ports[i]);
+ 	}
+ 
+-	exit(exitcode);
++	_exit(exitcode);
+ 
+ }
+ 
+-- 
+2.17.1
+
