@@ -1,0 +1,243 @@
+diff --git a/Source/interfaces/json/Provisioning.json b/Source/interfaces/json/Provisioning.json
+index 303d6d1c..ac7ea0b0 100644
+--- a/Source/interfaces/json/Provisioning.json
++++ b/Source/interfaces/json/Provisioning.json
+@@ -2,92 +2,121 @@
+   "$schema": "interface.schema.json",
+   "jsonrpc": "2.0",
+   "info": {
+-    "title": "Provisioning API",
+-    "class": "Provisioning",
+-    "description": "Provisioning JSON-RPC interface"
++      "title": "Provisioning API",
++      "class": "Provisioning",
++      "description": "Provisioning JSON-RPC interface"
+   },
+   "common": {
+-    "$ref": "common.json"
++      "$ref": "common.json"
+   },
+   "properties": {
+-    "id": {
+-      "summary": "Provision ID",
+-      "readonly": true,
+-      "params": {
+-        "type": "string",
+-        "example": "WPE00000uCfrLF45"
+-      }    
+-    },
+-    "state": {
+-      "summary": "Platform provision state",
+-      "readonly": true,
+-      "params": {
+-        "type": "object",
+-        "properties": {
+-          "id": {
+-            "description": "Provision ID value",
+-            "type": "string",
+-            "example": "WPE00000uCfrLF45"
+-          },
+-          "status": {
+-            "description": "Provision status",
+-            "type": "number",
+-            "example": 200
++      "id": {
++          "summary": "Provision ID",
++          "readonly": true,
++          "params": {
++              "type": "string",
++              "example": "WPE00000uCfrLF45"
++          }
++      },
++      "state": {
++          "summary": "Platform provision state",
++          "readonly": true,
++          "params": {
++              "type": "object",
++              "properties": {
++                  "id": {
++                      "description": "Provision ID value",
++                      "type": "string",
++                      "example": "WPE00000uCfrLF45"
++                  },
++                  "status": {
++                      "description": "Provision status",
++                      "type": "number",
++                      "example": 200
++                  },
++                  "tokens": {
++                      "type": "array",
++                      "description": "List of provisioned systems",
++                      "items": {
++                          "type": "string",
++                          "example": "netflix, playready"
++                      }
++                  }
++              },
++              "required": [
++                  "id",
++                  "status",
++                  "tokens"
++              ]
+           },
+-          "tokens": {
+-              "type": "array",
+-              "description": "List of provisioned systems",
+-              "items": {
+-                "type": "string",
+-                "example": "netflix, playready"
++          "errors": [
++              {
++                  "description": "Provisioning Back Office Client not available",
++                  "$ref": "#/common/errors/unavailable"
+               }
+-            }
+-        },
+-        "required": [
+-          "id",
+-          "status",
+-          "tokens"
+-        ]
+-      },
+-      "errors": [
+-        {
+-          "description": "Provisioning Back Office Client not available",
+-          "$ref": "#/common/errors/unavailable"
+-        }
+-      ]
+-    }
++          ]
++      }
+   },
+   "methods": {
+-    "provision": {
+-      "summary": "Trigers platform provision process",
+-      "result": {
+-        "$ref": "#/common/results/void"
++      "provision": {
++          "summary": "Trigers platform provision process",
++          "result": {
++              "$ref": "#/common/results/void"
++          },
++          "errors": [
++              {
++                  "description": "Provisioning in progress",
++                  "$ref": "#/common/errors/inprogress"
++              },
++              {
++                  "description": "Provisioning Back Office Client not available",
++                  "$ref": "#/common/errors/unavailable"
++              }
++          ]
+       },
+-      "errors": [
+-        {
+-          "description": "Provisioning in progress",
+-          "$ref": "#/common/errors/inprogress"
+-        },
+-        {
+-          "description": "Provisioning Back Office Client not available",
+-          "$ref": "#/common/errors/unavailable"
+-        }
+-      ]
+-    }
++      "index": {
++          "summary": "Set the index for a provisioning key",
++          "params": {
++              "type": "object",
++              "properties": {
++                  "label": {
++                      "description": "The label name for which the index should be changed",
++                      "type": "string",
++                      "example": "cobalt"
++                  },
++                  "index": {
++                      "description": "Index to be used for the key",
++                      "type": "number",
++                      "size": 32,
++                      "signed": false,
++                      "example": "0"
++                  }
++              }
++          },
++          "result": {
++              "$ref": "#/common/results/void"
++          },
++          "errors": [
++              {
++                  "description": "Provisioning Back Office Client not available",
++                  "$ref": "#/common/errors/unavailable"
++              }
++          ]
++      }
+   },
+   "events": {
+-    "provisioningchange": {
+-      "summary": "Signals a provisioning change",
+-      "params": {
+-        "type": "object",
+-        "properties": {
+-          "status": {
+-            "description": "Provision status",
+-            "type": "number",
+-            "example": 200
++      "provisioningchange": {
++          "summary": "Signals a provisioning change",
++          "params": {
++              "type": "object",
++              "properties": {
++                  "status": {
++                      "description": "Provision status",
++                      "type": "number",
++                      "example": 200
++                  }
++              }
+           }
+-        }
+       }
+-    }
+   }
+-}
+\ No newline at end of file
++}
+diff --git a/Source/plugins/IShell.h b/Source/plugins/IShell.h
+index 1f6529db..40363601 100644
+--- a/Source/plugins/IShell.h
++++ b/Source/plugins/IShell.h
+@@ -258,6 +258,21 @@ namespace PluginHost {
+             return (handler == nullptr ? nullptr : handler->RemoteConnection(connectionId));
+         }
+ 
++        inline uint32_t EnablePersistentStorage() {
++            uint32_t result = Core::ERROR_NONE;
++
++            // Make sure there is a path to the persitent infmration
++            Core::File path(PersistentPath(), true);
++
++            if (path.IsDirectory() == false) {
++                if (Core::Directory(PersistentPath().c_str()).Create() != true) {
++                    result = Core::ERROR_BAD_REQUEST;
++                }
++            }
++
++            return (result);
++        }
++
+         template <typename REQUESTEDINTERFACE>
+         REQUESTEDINTERFACE* Root(uint32_t& pid, const uint32_t waitTime, const string className, const uint32_t version = ~0)
+         {
+diff --git a/Source/provisionproxy/CMakeLists.txt b/Source/provisionproxy/CMakeLists.txt
+index f50a9458..458e8767 100644
+--- a/Source/provisionproxy/CMakeLists.txt
++++ b/Source/provisionproxy/CMakeLists.txt
+@@ -67,8 +67,8 @@ install(
+         LIBRARY DESTINATION lib COMPONENT libs      # shared lib
+         RUNTIME DESTINATION bin COMPONENT libs      # binaries
+         FRAMEWORK DESTINATION bin COMPONENT libs    # for mac
+-        PUBLIC_HEADER DESTINATION include/provision COMPONENT devel   # headers for mac (note the different component -> different package)
+-        INCLUDES DESTINATION include/provision      # headers
++        PUBLIC_HEADER DESTINATION include/provisionproxy COMPONENT devel   # headers for mac (note the different component -> different package)
++        INCLUDES DESTINATION include/provisionproxy      # headers
+ )
+ 
+ InstallCMakeConfig(

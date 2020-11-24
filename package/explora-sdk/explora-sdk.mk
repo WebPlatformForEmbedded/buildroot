@@ -3,7 +3,7 @@
 # explora-sdk
 #
 ################################################################################
-EXPLORA_SDK_VERSION = a12e275c5a9afd697aefaf865e02a2f1813e1b5a
+EXPLORA_SDK_VERSION = bf2055db82270df96e68789ffa39df30f7c94e36
 EXPLORA_SDK_SITE = git@github.com:Metrological/SDK_Explora.git
 EXPLORA_SDK_SITE_METHOD = git
 EXPLORA_SDK_INSTALL_STAGING = YES
@@ -35,6 +35,9 @@ define EXPLORA_SDK_INSTALL_TARGET_CMDS
 #	$(INSTALL) -D -m 0750 $(@D)/bin/get_tlv_data.bin $(TARGET_DIR)/bin
 #	$(INSTALL) -d $(TARGET_DIR)/lib/firmware
 #	$(INSTALL) -D -m 0640 $(@D)/firmware/sage/release/* $(TARGET_DIR)/lib/firmware
+    
+	mkdir -p $(TARGET_DIR)/root/Provisioning/vault
+	cp -r $(@D)/cobalt/cobalt.json $(TARGET_DIR)/root/Provisioning/vault
 
 	$(INSTALL) -D -m 0644 $(STAGING_DIR)/usr/lib/libv3ddriver.so $(TARGET_DIR)/usr/lib/
 	$(INSTALL) -D -m 0644 $(STAGING_DIR)/usr/lib/libnxclient_local.so $(TARGET_DIR)/usr/lib/
