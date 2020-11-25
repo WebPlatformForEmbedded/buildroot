@@ -1,0 +1,13 @@
+diff --git a/Cobalt/Cobalt.config b/Cobalt/Cobalt.config
+index cfc1ca6e..276cc149 100644
+--- a/Cobalt/Cobalt.config
++++ b/Cobalt/Cobalt.config
+@@ -49,6 +49,9 @@ map()
+     if(PLUGIN_COBALT_SECRET)
+         kv(secret ${PLUGIN_COBALT_SECRET})
+     endif()
++    if("${PLUGIN_COBALT_PLAYBACKRATES}" STREQUAL false)
++        kv(playbackrates ${PLUGIN_COBALT_PLAYBACKRATES})
++    endif()     
+ end()
+ ans(configuration)
