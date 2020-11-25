@@ -1,0 +1,807 @@
+From 7c9aa6b348f73efa917967fee0bf5dbd715a1b74 Mon Sep 17 00:00:00 2001
+From: Damian Danylko <d.danylko@metrological.com>
+Date: Wed, 25 Nov 2020 12:15:26 +0100
+Subject: [PATCH] Update to latest version of Cobalt plugin
+
+---
+ Cobalt/CMakeLists.txt           |   1 +
+ Cobalt/Cobalt.config            |  36 +++++++-
+ Cobalt/Cobalt.cpp               |   1 +
+ Cobalt/Cobalt.h                 |   3 +
+ Cobalt/CobaltImplementation.cpp | 140 ++++++++++++++++++++++++++++++--
+ Cobalt/CobaltJsonRpc.cpp        |  34 +++++++-
+ Cobalt/CobaltPlugin.json        |  86 ++++++++++++++++++++
+ Cobalt/doc/CobaltPlugin.md      | 101 +++++++++++++++++++++--
+ 8 files changed, 387 insertions(+), 15 deletions(-)
+
+diff --git a/Cobalt/CMakeLists.txt b/Cobalt/CMakeLists.txt
+index ba2d1b2a..6ed4e48a 100644
+--- a/Cobalt/CMakeLists.txt
++++ b/Cobalt/CMakeLists.txt
+@@ -24,6 +24,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+ 
+ set(PLUGIN_NAME Cobalt)
+ set(MODULE_NAME ${NAMESPACE}${PLUGIN_NAME})
++set(PLUGIN_COBALT_WEBINSPECTOR_ADDRESS 0.0.0.0:9222 CACHE STRING "IP:Port for WebInspector of Cobalt")
+ 
+ find_package(${NAMESPACE}Plugins REQUIRED)
+ find_package(Cobalt REQUIRED)
+diff --git a/Cobalt/Cobalt.config b/Cobalt/Cobalt.config
+index 77a352ec..cfc1ca6e 100644
+--- a/Cobalt/Cobalt.config
++++ b/Cobalt/Cobalt.config
+@@ -1,13 +1,20 @@
+ set (autostart ${PLUGIN_COBALT_AUTOSTART})
+-set (preconditions Platform Graphics)
++set (preconditions Platform Graphics Internet)
+ 
+ map()
+     kv(outofprocess ${PLUGIN_COBALT_OUTOFPROCESS})
++    if(PLUGIN_COBALT_USER)
++        kv(user ${PLUGIN_COBALT_USER})
++    endif()
++    if(PLUGIN_COBALT_GROUP)
++        kv(group ${PLUGIN_COBALT_GROUP})
++    endif()
+ end()
+ ans(rootobject)
+ 
+ map()
+     kv(url "https://www.youtube.com/tv")
++    kv(inspector ${PLUGIN_COBALT_WEBINSPECTOR_ADDRESS})
+     kv(height ${PLUGIN_COBALT_HEIGHT})
+     kv(width ${PLUGIN_COBALT_WIDTH})
+     kv(repeatstart 500)
+@@ -15,6 +22,33 @@ map()
+     if(PLUGIN_COBALT_CLIENTIDENTIFIER)
+         kv(clientidentifier ${PLUGIN_COBALT_CLIENTIDENTIFIER})
+     endif()
++    if(PLUGIN_COBALT_MANUFACTURER_NAME)
++        kv(manufacturername ${PLUGIN_COBALT_MANUFACTURER_NAME})
++    endif()
++    if(PLUGIN_COBALT_CHIPSET_MODEL_NUMBER)
++        kv(chipsetmodelnumber ${PLUGIN_COBALT_CHIPSET_MODEL_NUMBER})
++    endif()
++    if(PLUGIN_COBALT_FIRMWARE_VERSION)
++        kv(firmwareversion ${PLUGIN_COBALT_FIRMWARE_VERSION})
++    endif()
++    if(PLUGIN_COBALT_MODEL_NAME)
++        kv(modelname ${PLUGIN_COBALT_MODEL_NAME})
++    endif()
++    if(PLUGIN_COBALT_MODEL_YEAR)
++        kv(modelyear ${PLUGIN_COBALT_MODEL_YEAR})
++    endif()
++    if(PLUGIN_COBALT_OPERATOR_NAME)
++        kv(operatorname ${PLUGIN_COBALT_OPERATOR_NAME})
++    endif()
++    if(PLUGIN_COBALT_FRIENDLY_NAME)
++        kv(friendlyname ${PLUGIN_COBALT_FRIENDLY_NAME})
++    endif()
++    if(PLUGIN_COBALT_SCOPE)
++        kv(scope ${PLUGIN_COBALT_SCOPE})
++    endif()
++    if(PLUGIN_COBALT_SECRET)
++        kv(secret ${PLUGIN_COBALT_SECRET})
++    endif()
+ end()
+ ans(configuration)
+ 
+diff --git a/Cobalt/Cobalt.cpp b/Cobalt/Cobalt.cpp
+index e3f9211b..feddacb2 100644
+--- a/Cobalt/Cobalt.cpp
++++ b/Cobalt/Cobalt.cpp
+@@ -42,6 +42,7 @@ static Core::ProxyPoolType<Web::JSONBodyType<Cobalt::Data>> jsonBodyDataFactory(
+     ASSERT(_memory == nullptr);
+ 
+     config.FromString(service->ConfigLine());
++    _persistentStoragePath = service->PersistentPath();
+ 
+     _connectionId = 0;
+     _service = service;
+diff --git a/Cobalt/Cobalt.h b/Cobalt/Cobalt.h
+index 22670126..3f9f46cd 100644
+--- a/Cobalt/Cobalt.h
++++ b/Cobalt/Cobalt.h
+@@ -178,6 +178,8 @@ class Cobalt: public PluginHost::IPlugin,
+             Core::JSON::EnumType<JsonData::StateControl::StateType> &response) const; // StateControl
+     uint32_t set_state(
+             const Core::JSON::EnumType<JsonData::StateControl::StateType> &param); // StateControl
++    uint32_t endpoint_delete(const JsonData::Browser::DeleteParamsData& params);
++    uint32_t delete_dir(const string& path);
+     void event_urlchange(const string &url, const bool &loaded); // Browser
+     void event_visibilitychange(const bool &hidden); // Browser
+     void event_statechange(const bool &suspended); // StateControl
+@@ -190,6 +192,7 @@ class Cobalt: public PluginHost::IPlugin,
+     Exchange::IMemory *_memory;
+     PluginHost::IShell *_service;
+     Core::Sink<Notification> _notification;
++    string _persistentStoragePath;
+ };
+ }
+ } // namespace
+diff --git a/Cobalt/CobaltImplementation.cpp b/Cobalt/CobaltImplementation.cpp
+index 5474a9dc..7138ebd2 100644
+--- a/Cobalt/CobaltImplementation.cpp
++++ b/Cobalt/CobaltImplementation.cpp
+@@ -20,8 +20,8 @@
+ #include "Module.h"
+ #include <interfaces/IMemory.h>
+ #include <interfaces/IBrowser.h>
++#include <locale.h>
+ 
+-#include "starboard/export.h"
+ #include "third_party/starboard/wpe/shared/cobalt_api_wpe.h"
+ 
+ extern int StarboardMain(int argc, char **argv);
+@@ -32,39 +32,86 @@ namespace Plugin {
+ class CobaltImplementation:
+         public Exchange::IBrowser,
+         public PluginHost::IStateControl {
++public:
++    enum connection {
++        CABLE,
++        WIRELESS
++    };
++
+ private:
+     class Config: public Core::JSON::Container {
+-    private:
+-        Config(const Config&);
+-        Config& operator=(const Config&);
+-
+     public:
++        Config(const Config&) = delete;
++        Config& operator=(const Config&) = delete;
++
+         Config()
+             : Core::JSON::Container()
+             , Url()
++            , Inspector()
+             , Width(1280)
+             , Height(720)
+             , RepeatStart()
+             , RepeatInterval()
+             , ClientIdentifier()
++            , ManufacturerName()
++            , ChipsetModelNumber()
++            , FirmwareVersion()
++            , ModelName()
++            , ModelYear()
++            , OperatorName()
++            , FriendlyName()
++            , CertificationScope()
++            , CertificationSecret()
++            , Language()
++            , Connection(CABLE)
++            , PlaybackRates(true)
++            , DeepLink()
+         {
+             Add(_T("url"), &Url);
++            Add(_T("inspector"), &Inspector);
+             Add(_T("width"), &Width);
+             Add(_T("height"), &Height);
+             Add(_T("repeatstart"), &RepeatStart);
+             Add(_T("repeatinterval"), &RepeatInterval);
+             Add(_T("clientidentifier"), &ClientIdentifier);
++            Add(_T("manufacturername"), &ManufacturerName);
++            Add(_T("chipsetmodelnumber"), &ChipsetModelNumber);
++            Add(_T("firmwareversion"), &FirmwareVersion);
++            Add(_T("modelname"), &ModelName);
++            Add(_T("modelyear"), &ModelYear);
++            Add(_T("operatorname"), &OperatorName);
++            Add(_T("friendlyname"), &FriendlyName);
++            Add(_T("scope"), &CertificationScope);
++            Add(_T("secret"), &CertificationSecret);
++            Add(_T("language"), &Language);
++            Add(_T("connection"), &Connection);
++            Add(_T("playbackrates"), &PlaybackRates);
++            Add(_T("deeplink"), &DeepLink);
+         }
+         ~Config() {
+         }
+ 
+     public:
+         Core::JSON::String Url;
++        Core::JSON::String Inspector;
+         Core::JSON::DecUInt16 Width;
+         Core::JSON::DecUInt16 Height;
+         Core::JSON::DecUInt32 RepeatStart;
+         Core::JSON::DecUInt32 RepeatInterval;
+         Core::JSON::String ClientIdentifier;
++        Core::JSON::String ManufacturerName;
++        Core::JSON::String ChipsetModelNumber;
++        Core::JSON::String FirmwareVersion;
++        Core::JSON::String ModelName;
++        Core::JSON::String ModelYear;
++        Core::JSON::String OperatorName;
++        Core::JSON::String FriendlyName;
++        Core::JSON::String CertificationScope;
++        Core::JSON::String CertificationSecret;
++        Core::JSON::String Language;
++        Core::JSON::EnumType<connection> Connection;
++        Core::JSON::Boolean PlaybackRates;
++        Core::JSON::String DeepLink;
+     };
+ 
+     class NotificationSink: public Core::Thread {
+@@ -117,6 +164,9 @@ class CobaltImplementation:
+         CobaltWindow()
+             : Core::Thread(0, _T("Cobalt"))
+             , _url{"https://www.youtube.com/tv"}
++            , _debugListenIp("0.0.0.0")
++            , _debugPort()
++            , _deepLink("launch=menu")
+         {
+         }
+         virtual ~CobaltWindow()
+@@ -163,10 +213,71 @@ class CobaltImplementation:
+                 Core::SystemInfo::SetEnvironment(_T("COBALT_KEY_REPEAT_INTERVAL"), repeatInterval);
+             }
+ 
++            if (config.ManufacturerName.IsSet() == true) {
++                Core::SystemInfo::SetEnvironment(_T("COBALT_MANUFACTURER_NAME"), config.ManufacturerName.Value());
++            }
++
++            if (config.ChipsetModelNumber.IsSet() == true) {
++                Core::SystemInfo::SetEnvironment(_T("COBALT_CHIPSET_MODEL_NUMBER"), config.ChipsetModelNumber.Value());
++            }
++
++            if (config.FirmwareVersion.IsSet() == true) {
++                Core::SystemInfo::SetEnvironment(_T("COBALT_FIRMWARE_VERSION"), config.FirmwareVersion.Value());
++            }
++
++            if (config.ModelName.IsSet() == true) {
++                Core::SystemInfo::SetEnvironment(_T("COBALT_MODEL_NAME"), config.ModelName.Value());
++            }
++
++            if (config.ModelYear.IsSet() == true) {
++                Core::SystemInfo::SetEnvironment(_T("COBALT_MODEL_YEAR"), config.ModelYear.Value());
++            }
++
++            if (config.OperatorName.IsSet() == true) {
++                Core::SystemInfo::SetEnvironment(_T("COBALT_OPERATOR_NAME"), config.OperatorName.Value());
++            }
++
++            if (config.FriendlyName.IsSet() == true) {
++                Core::SystemInfo::SetEnvironment(_T("COBALT_FRIENDLY_NAME"), config.FriendlyName.Value());
++            }
++
++            if (config.CertificationScope.IsSet() == true) {
++                Core::SystemInfo::SetEnvironment(_T("COBALT_CERTIFICATION_SCOPE"), config.CertificationScope.Value());
++            }
++
++            if (config.CertificationSecret.IsSet() == true) {
++                Core::SystemInfo::SetEnvironment(_T("COBALT_CERTIFICATION_SECRET"), config.CertificationSecret.Value());
++            }
++
++            if (config.Language.IsSet() == true) {
++                setlocale(LC_ALL, config.Language.Value().c_str());
++            }
++
++            if ( (config.Connection.IsSet() == true) && (config.Connection == CobaltImplementation::connection::WIRELESS) ) {
++                Core::SystemInfo::SetEnvironment(_T("COBALT_CONNECTION_TYPE"), _T("wireless"));
++            }
++
++            if ( (config.PlaybackRates.IsSet() == true) && (config.PlaybackRates.Value() == false) ) {
++                Core::SystemInfo::SetEnvironment(_T("COBALT_SUPPORT_PLAYBACK_RATES"), _T("false"));
++            }
++
+             if (config.Url.IsSet() == true) {
+               _url = config.Url.Value();
+             }
+ 
++            if (config.Inspector.Value().empty() == false) {
++                string url(config.Inspector.Value());
++                auto pos = url.find(":");
++                if (pos != std::string::npos) {
++                    _debugListenIp = url.substr(0, pos);
++                    _debugPort = static_cast<uint16_t>(std::atoi(url.substr(pos + 1).c_str()));
++                }
++            }
++
++            if (config.DeepLink.IsSet() == true) {
++              _deepLink = config.DeepLink.Value();
++            }
++
+             Run();
+             return result;
+         }
+@@ -198,14 +309,20 @@ class CobaltImplementation:
+         uint32_t Worker() override
+         {
+             const std::string cmdURL = "--url=" + _url;
+-            const char* argv[] = {"Cobalt", cmdURL.c_str()};
++            const std::string cmdDebugListenIp = "--dev_servers_listen_ip=" + _debugListenIp;
++            const std::string cmdDebugPort = "--remote_debugging_port=" + std::to_string(_debugPort);
++            const std::string cmdDeepLink = "--link=" + _deepLink;
++            const char* argv[] = {"Cobalt", cmdURL.c_str(), cmdDebugListenIp.c_str(), cmdDebugPort.c_str(), cmdDeepLink.c_str()};
+             while (IsRunning() == true) {
+-                StarboardMain(2, const_cast<char**>(argv));
++                StarboardMain(5, const_cast<char**>(argv));
+             }
+             return (Core::infinite);
+         }
+ 
+         string _url;
++        string _debugListenIp;
++        uint16_t _debugPort;
++        string _deepLink;
+     };
+ 
+ private:
+@@ -490,4 +607,13 @@ class MemoryObserverImpl: public Exchange::IMemory {
+         return (result);
+     }
+ }
++
++
++ENUM_CONVERSION_BEGIN(Plugin::CobaltImplementation::connection)
++
++    { Plugin::CobaltImplementation::connection::CABLE,    _TXT("cable")    },
++    { Plugin::CobaltImplementation::connection::WIRELESS, _TXT("wireless") },
++
++ENUM_CONVERSION_END(Plugin::CobaltImplementation::connection)
++
+ } // namespace
+diff --git a/Cobalt/CobaltJsonRpc.cpp b/Cobalt/CobaltJsonRpc.cpp
+index b3010c88..e1abbbec 100644
+--- a/Cobalt/CobaltJsonRpc.cpp
++++ b/Cobalt/CobaltJsonRpc.cpp
+@@ -41,6 +41,7 @@ void Cobalt::RegisterAll() {
+     Property < Core::JSON::EnumType
+             < StateType
+                     >> (_T("state"), &Cobalt::get_state, &Cobalt::set_state, this); /* StateControl */
++    Register<DeleteParamsData,void>(_T("delete"), &Cobalt::endpoint_delete, this);
+ }
+ 
+ void Cobalt::UnregisterAll() {
+@@ -48,6 +49,7 @@ void Cobalt::UnregisterAll() {
+     Unregister(_T("fps"));
+     Unregister(_T("visibility"));
+     Unregister(_T("url"));
++    Unregister(_T("delete"));
+ }
+ 
+ // API implementation
+@@ -83,8 +85,11 @@ uint32_t Cobalt::set_url(const Core::JSON::String &param) /* Browser */
+ //  - ERROR_NONE: Success
+ uint32_t Cobalt::get_visibility(
+         Core::JSON::EnumType<VisibilityType> &response) const /* Browser */ {
++    /*
+     response = (_hidden ? VisibilityType::HIDDEN : VisibilityType::VISIBLE);
+     return Core::ERROR_NONE;
++    */
++    return Core::ERROR_UNAVAILABLE;
+ }
+ 
+ // Property: visibility - Current browser visibility
+@@ -92,9 +97,9 @@ uint32_t Cobalt::get_visibility(
+ //  - ERROR_NONE: Success
+ uint32_t Cobalt::set_visibility(
+         const Core::JSON::EnumType<VisibilityType> &param) /* Browser */ {
++    /*
+     ASSERT(_cobalt != nullptr);
+     uint32_t result = Core::ERROR_BAD_REQUEST;
+-
+     if (param.IsSet()) {
+         if (param == VisibilityType::VISIBLE) {
+             _cobalt->Hide(true);
+@@ -104,6 +109,8 @@ uint32_t Cobalt::set_visibility(
+         result = Core::ERROR_NONE;
+     }
+     return result;
++    */
++    return Core::ERROR_UNAVAILABLE;
+ }
+ 
+ // Property: fps - Current number of frames per second the browser is rendering
+@@ -158,6 +165,31 @@ uint32_t Cobalt::set_state(const Core::JSON::EnumType<StateType> &param) /* Stat
+     return result;
+ }
+ 
++// Method: endpoint_delete - delete dir
++// Return codes:
++//  - ERROR_NONE: Success
++//  - ERROR_UNKNOWN_KEY: The given path was incorrect
++uint32_t Cobalt::endpoint_delete(const DeleteParamsData& params)
++{
++    return delete_dir(params.Path.Value());
++}
++
++uint32_t Cobalt::delete_dir(const string& path)
++{
++    uint32_t result = Core::ERROR_NONE;
++
++    if (path.empty() == false) {
++        string fullPath = _persistentStoragePath + path;
++        Core::Directory dir(fullPath.c_str());
++        if (!dir.Destroy(true)) {
++            TRACE(Trace::Error, (_T("Failed to delete %s\n"), fullPath.c_str()));
++            result = Core::ERROR_UNKNOWN_KEY;
++        }
++    }
++
++    return result;
++}
++
+ // Event: urlchange - Signals a URL change in the browser
+ void Cobalt::event_urlchange(const string &url, const bool &loaded) /* Browser */
+ {
+diff --git a/Cobalt/CobaltPlugin.json b/Cobalt/CobaltPlugin.json
+index 741d8eb9..e60ef0ea 100644
+--- a/Cobalt/CobaltPlugin.json
++++ b/Cobalt/CobaltPlugin.json
+@@ -18,6 +18,92 @@
+           "url": {
+             "type": "string",
+             "description": "The URL that is loaded upon starting the browser"
++          },
++          "width": {
++            "type": "number",
++            "size": 16,
++            "description": "The width in pixels of the surface to be used by the application",
++            "example": "1920"
++          },
++          "height": {
++            "type": "number",
++            "size": 16,
++            "description": "The height in pixels of the surface to be used by the application",
++            "example": "1080"
++          },
++          "repeatstart": {
++            "type": "number",
++            "size": 16,
++            "description": "The number of milliseconds a key should be pressed to start reapeating (set max to adhere to Thunder)",
++            "example": "65535"
++          },
++          "repeatinterval": {
++            "type": "number",
++            "size": 16,
++            "description": "The number of milliseconds the repeated key is send after it started repeating (set max to adhere to Thunder)",
++            "example": "65535"
++          },
++          "clientidentifier": {
++            "type": "string",
++            "description": "An identifier, used during the surface creation as additional information",
++            "example": "2"
++          },
++          "manufacturername": {
++            "type": "string",
++            "description": "The name of the hardware manufacturer on which this software is running",
++            "example": "Metrological"
++          },
++          "chipmodelnumber": {
++            "type": "string",
++            "description": "The number/string defining the SOC in this device",
++            "example": "BCM2467"
++          },
++          "firmwareversion": {
++            "type": "string",
++            "description": "The firmwareversion defining the Board Support Package (BSP) in this device",
++            "example": "24.22.347a"
++          },
++          "modelname": {
++            "type": "string",
++            "description": "Name of the model on which this software is running",
++            "example": "X5"
++          },
++          "modelyear": {
++            "type": "string",
++            "description": "The year this device is manufactured",
++            "example": "2020"
++          },
++          "operatorname": {
++            "type": "string",
++            "description": "The name of the operator that owns the infrastructure on which this device is running",
++            "example": "Comcast"
++          },
++          "friendlyname": {
++            "type": "string",
++            "description": "A user friendly name given to this device",
++            "example": "Xfinity 2"
++          },
++          "language": {
++            "type": "string",
++            "description": "The language to be used to for user interaction."
++          },
++          "connection": {
++            "description": "The type of connection that is used for internet connectivity",
++            "type": "string",
++            "enum": [
++              "cable",
++              "wireless"
++            ],
++            "enumtyped": false,
++            "example": "cable"
++          },
++          "playbackrates": {
++            "type": "boolean",
++            "description": "If enabled, Cobalt supports different rates, otherwise, it supports only 0 and 1 (default: true)"
++          },
++          "deeplink": {
++            "type": "string",
++            "description": "The deeplink that is loaded upon starting the browser (default: launch=menu)"
+           }
+         }
+       }
+diff --git a/Cobalt/doc/CobaltPlugin.md b/Cobalt/doc/CobaltPlugin.md
+index 27774fde..5a4ed1dc 100644
+--- a/Cobalt/doc/CobaltPlugin.md
++++ b/Cobalt/doc/CobaltPlugin.md
+@@ -13,6 +13,7 @@ Cobalt plugin for Thunder framework.
+ - [Introduction](#head.Introduction)
+ - [Description](#head.Description)
+ - [Configuration](#head.Configuration)
++- [Methods](#head.Methods)
+ - [Properties](#head.Properties)
+ - [Notifications](#head.Notifications)
+ 
+@@ -22,12 +23,12 @@ Cobalt plugin for Thunder framework.
+ <a name="head.Scope"></a>
+ ## Scope
+ 
+-This document describes purpose and functionality of the Cobalt plugin. It includes detailed specification of its configuration, properties provided and notifications sent.
++This document describes purpose and functionality of the Cobalt plugin. It includes detailed specification about its configuration, methods and properties provided, as well as notifications sent.
+ 
+ <a name="head.Case_Sensitivity"></a>
+ ## Case Sensitivity
+ 
+-All identifiers on the interface described in this document are case-sensitive. Thus, unless stated otherwise, all keywords, entities, properties, relations and actions should be treated as such.
++All identifiers of the interfaces described in this document are case-sensitive. Thus, unless stated otherwise, all keywords, entities, properties, relations and actions should be treated as such.
+ 
+ <a name="head.Acronyms,_Abbreviations_and_Terms"></a>
+ ## Acronyms, Abbreviations and Terms
+@@ -74,16 +75,80 @@ The table below lists configuration options of the plugin.
+ | callsign | string | Plugin instance name (default: *Cobalt*) |
+ | classname | string | Class name: *Cobalt* |
+ | locator | string | Library name: *libWPEFrameworkCobalt.so* |
+-| autostart | boolean | Determines if the plugin is to be started automatically along with the framework |
++| autostart | boolean | Determines if the plugin shall be started automatically along with the framework |
+ | configuration | object | <sup>*(optional)*</sup>  |
+ | configuration?.url | string | <sup>*(optional)*</sup> The URL that is loaded upon starting the browser |
+ 
++<a name="head.Methods"></a>
++# Methods
++
++The following methods are provided by the Cobalt plugin:
++
++Browser interface methods:
++
++| Method | Description |
++| :-------- | :-------- |
++| [delete](#method.delete) | Removes contents of a directory from the persistent storage |
++
++
++<a name="method.delete"></a>
++## *delete <sup>method</sup>*
++
++Removes contents of a directory from the persistent storage.
++
++### Description
++
++Use this method to recursively delete contents of a directory
++
++### Parameters
++
++| Name | Type | Description |
++| :-------- | :-------- | :-------- |
++| params | object |  |
++| params.path | string | Path to directory (within the persistent storage) to delete contents of |
++
++### Result
++
++| Name | Type | Description |
++| :-------- | :-------- | :-------- |
++| result | null | Always null |
++
++### Errors
++
++| Code | Message | Description |
++| :-------- | :-------- | :-------- |
++| 22 | ```ERROR_UNKNOWN_KEY``` | The given path was incorrect |
++
++### Example
++
++#### Request
++
++```json
++{
++    "jsonrpc": "2.0",
++    "id": 1234567890,
++    "method": "Cobalt.1.delete",
++    "params": {
++        "path": ".cache/wpe/disk-cache"
++    }
++}
++```
++
++#### Response
++
++```json
++{
++    "jsonrpc": "2.0",
++    "id": 1234567890,
++    "result": null
++}
++```
++
+ <a name="head.Properties"></a>
+ # Properties
+ 
+ The following properties are provided by the Cobalt plugin:
+ 
+-
+ Browser interface properties:
+ 
+ | Property | Description |
+@@ -98,6 +163,7 @@ StateControl interface properties:
+ | :-------- | :-------- |
+ | [state](#property.state) | Running state of the service |
+ 
++
+ <a name="property.url"></a>
+ ## *url <sup>property</sup>*
+ 
+@@ -128,6 +194,7 @@ Also see: [urlchange](#event.urlchange)
+     "method": "Cobalt.1.url"
+ }
+ ```
++
+ #### Get Response
+ 
+ ```json
+@@ -137,6 +204,7 @@ Also see: [urlchange](#event.urlchange)
+     "result": "https://www.google.com"
+ }
+ ```
++
+ #### Set Request
+ 
+ ```json
+@@ -147,6 +215,7 @@ Also see: [urlchange](#event.urlchange)
+     "params": "https://www.google.com"
+ }
+ ```
++
+ #### Set Response
+ 
+ ```json
+@@ -156,6 +225,7 @@ Also see: [urlchange](#event.urlchange)
+     "result": "null"
+ }
+ ```
++
+ <a name="property.visibility"></a>
+ ## *visibility <sup>property</sup>*
+ 
+@@ -169,6 +239,12 @@ Also see: [visibilitychange](#event.visibilitychange)
+ | :-------- | :-------- | :-------- |
+ | (property) | string | Current browser visibility (must be one of the following: *visible*, *hidden*) |
+ 
++### Errors
++
++| Code | Message | Description |
++| :-------- | :-------- | :-------- |
++| 2 | ```ERROR_UNAVAILABLE``` | Returned when the operation is unavailable |
++
+ ### Example
+ 
+ #### Get Request
+@@ -180,6 +256,7 @@ Also see: [visibilitychange](#event.visibilitychange)
+     "method": "Cobalt.1.visibility"
+ }
+ ```
++
+ #### Get Response
+ 
+ ```json
+@@ -189,6 +266,7 @@ Also see: [visibilitychange](#event.visibilitychange)
+     "result": "visible"
+ }
+ ```
++
+ #### Set Request
+ 
+ ```json
+@@ -199,6 +277,7 @@ Also see: [visibilitychange](#event.visibilitychange)
+     "params": "visible"
+ }
+ ```
++
+ #### Set Response
+ 
+ ```json
+@@ -208,6 +287,7 @@ Also see: [visibilitychange](#event.visibilitychange)
+     "result": "null"
+ }
+ ```
++
+ <a name="property.fps"></a>
+ ## *fps <sup>property</sup>*
+ 
+@@ -232,6 +312,7 @@ Provides access to the current number of frames per second the browser is render
+     "method": "Cobalt.1.fps"
+ }
+ ```
++
+ #### Get Response
+ 
+ ```json
+@@ -241,6 +322,7 @@ Provides access to the current number of frames per second the browser is render
+     "result": 30
+ }
+ ```
++
+ <a name="property.state"></a>
+ ## *state <sup>property</sup>*
+ 
+@@ -265,6 +347,7 @@ Also see: [statechange](#event.statechange)
+     "method": "Cobalt.1.state"
+ }
+ ```
++
+ #### Get Response
+ 
+ ```json
+@@ -274,6 +357,7 @@ Also see: [statechange](#event.statechange)
+     "result": "resumed"
+ }
+ ```
++
+ #### Set Request
+ 
+ ```json
+@@ -284,6 +368,7 @@ Also see: [statechange](#event.statechange)
+     "params": "resumed"
+ }
+ ```
++
+ #### Set Response
+ 
+ ```json
+@@ -293,14 +378,14 @@ Also see: [statechange](#event.statechange)
+     "result": "null"
+ }
+ ```
++
+ <a name="head.Notifications"></a>
+ # Notifications
+ 
+-Notifications are autonomous events, triggered by the internals of the plugin, and broadcasted via JSON-RPC to all registered observers. Refer to [[Thunder](#ref.Thunder)] for information on how to register for a notification.
++Notifications are autonomous events, triggered by the internals of the implementation, and broadcasted via JSON-RPC to all registered observers. Refer to [[Thunder](#ref.Thunder)] for information on how to register for a notification.
+ 
+ The following events are provided by the Cobalt plugin:
+ 
+-
+ Browser interface events:
+ 
+ | Event | Description |
+@@ -314,6 +399,7 @@ StateControl interface events:
+ | :-------- | :-------- |
+ | [statechange](#event.statechange) | Signals a state change of the service |
+ 
++
+ <a name="event.urlchange"></a>
+ ## *urlchange <sup>event</sup>*
+ 
+@@ -339,6 +425,7 @@ Signals a URL change in the browser.
+     }
+ }
+ ```
++
+ <a name="event.visibilitychange"></a>
+ ## *visibilitychange <sup>event</sup>*
+ 
+@@ -362,6 +449,7 @@ Signals a visibility change of the browser.
+     }
+ }
+ ```
++
+ <a name="event.statechange"></a>
+ ## *statechange <sup>event</sup>*
+ 
+@@ -385,3 +473,4 @@ Signals a state change of the service.
+     }
+ }
+ ```
++
