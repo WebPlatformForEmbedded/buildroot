@@ -89,6 +89,12 @@ config BR2_PACKAGE_WPEFRAMEWORK_COBALT_RESOLUTION_2160P
 
 endchoice
 
+config BR2_PACKAGE_WPEFRAMEWORK_COBALT_PLAYBACKRATES
+    bool "playback rates"
+    default y
+    help
+      Select this to enable all playback rates.
+
 config BR2_PACKAGE_WPEFRAMEWORK_COBALT_AUTOSTART
     bool "Start Automatically"
     default n
