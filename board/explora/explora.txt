@@ -170,3 +170,4 @@ libogg.so
 libWPEFrameworkInputSwitch.so
 playready
 MeteringCertificate.bin
+cobalt.json

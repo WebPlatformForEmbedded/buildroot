@@ -36,8 +36,8 @@ define EXPLORA_SDK_INSTALL_TARGET_CMDS
 #	$(INSTALL) -d $(TARGET_DIR)/lib/firmware
 #	$(INSTALL) -D -m 0640 $(@D)/firmware/sage/release/* $(TARGET_DIR)/lib/firmware
     
-	mkdir -p $(TARGET_DIR)/root/Provisioning/vault
-	cp -r $(@D)/cobalt/cobalt.json $(TARGET_DIR)/root/Provisioning/vault
+	mkdir -p $(TARGET_DIR)/usr/share/WPEFramework/Provisioning/vault
+	cp -r $(@D)/cobalt/cobalt.json $(TARGET_DIR)/usr/share/WPEFramework/Provisioning/vault
 
 	$(INSTALL) -D -m 0644 $(STAGING_DIR)/usr/lib/libv3ddriver.so $(TARGET_DIR)/usr/lib/
 	$(INSTALL) -D -m 0644 $(STAGING_DIR)/usr/lib/libnxclient_local.so $(TARGET_DIR)/usr/lib/
