@@ -104,6 +104,24 @@ config BR2_PACKAGE_WPEFRAMEWORK_PERFORMANCE_MONITOR
     bool "performance monitor on"
     default n
 
+config BR2_PACKAGE_WPEFRAMEWORK_LINUX_UMASK
+    string "umask"
+    default ""
+    help
+      Set file mode creation mask (Thunder will use this setting).
+
+config BR2_PACKAGE_WPEFRAMEWORK_LINUX_GROUP
+    string "group"
+    default ""
+    help
+      Set process group (Thunder will use this setting).
+
+config BR2_PACKAGE_WPEFRAMEWORK_COMMUNICATOR
+    string "communicator"
+    default ""
+    help
+      A connection to where the COMRPC processes need to connect ones spawned. Indicates the chmod properties to be put on domain sockets.
+
 source "package/wpe/wpeframework-devtools/Config.in"
 
 endmenu
