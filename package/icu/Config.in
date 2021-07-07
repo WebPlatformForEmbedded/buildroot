@@ -22,6 +22,16 @@ config BR2_PACKAGE_ICU_USE_ICUDATA
 
 endif
 
+if BR2_PACKAGE_ICU
+
+config BR2_PACKAGE_ICU_FILTERS_DATA_PATH
+	string "Path to filters data file"
+	help
+	  This option allows to define the path to a filters data
+	  file.
+	  Leave empty to not use this functionality.
+endif
+
 if BR2_PACKAGE_ICU && !BR2_PACKAGE_ICU_USE_ICUDATA
 
 config BR2_PACKAGE_ICU_CUSTOM_DATA_PATH

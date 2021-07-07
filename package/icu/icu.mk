@@ -4,28 +4,21 @@
 #
 ################################################################################
 
-ifeq ($(BR2_PACKAGE_RDK_VERSIONING),y)
-ICU_VERSION = 57.1
-else ifeq ($(BR2_PACKAGE_NETFLIX5),y)
 ICU_VERSION = 65.1
-else ifeq ($(BR2_PACKAGE_NETFLIX52),y)
-ICU_VERSION = 65.1
-else
-ICU_VERSION = 57.1
-endif
 
 ICU_SOURCE = icu4c-$(subst .,_,$(ICU_VERSION))-src.tgz
-ifeq ($(ICU_VERSION), 65.1)
 ICU_SITE = \
 	https://github.com/unicode-org/icu/releases/download/release-$(subst .,-,$(ICU_VERSION))
 ICU_LICENSE = ICU License
 ICU_LICENSE_FILES = LICENSE
+
+ICU_FILTERS_DATA_PATH = $(call qstrip,$(BR2_PACKAGE_ICU_FILTERS_DATA_PATH))
+# Force to build icudate, as of ICU 64 the website to generate icudate is no longer applicable
+# If someone needs to build it outside still mk file is able to support it
 ICU_BUILD_ICUDATA = y
-export ICU_DATA_FILTER_FILE=$(HOST_ICU_DIR)/source/data/filters.json
-else
-ICU_SITE = http://download.icu-project.org/files/icu4c/$(ICU_VERSION)
-ICU_LICENSE = ICU License
-ICU_LICENSE_FILES = license.html
+
+ifneq ($(ICU_FILTERS_DATA_PATH),)
+export ICU_DATA_FILTER_FILE=$(ICU_FILTERS_DATA_PATH)
 endif
 
 ICU_DEPENDENCIES = host-icu
@@ -63,11 +56,7 @@ HOST_ICU_CONF_ENV = CXX="$(HOSTCXX_NOCCACHE)" CC="$(HOSTCC_NOCCACHE)"
 
 ifeq ($(BR2_PACKAGE_ICU_USE_ICUDATA),y)
 ICU_DEPENDENCIES += icudata
-ifeq ($(ICU_BUILD_ICUDATA), y)
 ICU_PRE_PATCH_HOOKS += ICUDATA_EXTRACT
-else
-ICU_POST_PATCH_HOOKS += ICUDATA_EXTRACT
-endif
 endif
 
 ICU_CUSTOM_DATA_PATH = $(call qstrip,$(BR2_PACKAGE_ICU_CUSTOM_DATA_PATH))
