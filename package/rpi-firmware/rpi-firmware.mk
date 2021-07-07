@@ -57,7 +57,7 @@ ifeq ($(BR2_TOOLCHAIN_HEADERS_AT_LEAST_4_14)$(BR2_TOOLCHAIN_HEADERS_AT_LEAST_5_4
 define RPI_FIRMWARE_MOUNT_ROOT
 	mkdir -p $(TARGET_DIR)/root
 	grep -q '^/dev/mmcblk1p2' $(TARGET_DIR)/etc/fstab || \
-		echo -e '/dev/mmcblk1p2 /root ext4 defaults 0 0' >> $(TARGET_DIR)/etc/fstab
+		echo -e '/dev/mmcblk1p2 / ext4 defaults 0 0' >> $(TARGET_DIR)/etc/fstab
 	$(INSTALL) -m 0755 -D package/rpi-firmware/S30mountroot-1 \
 		$(TARGET_DIR)/etc/init.d/S30mountroot
 endef
@@ -65,7 +65,7 @@ else
 define RPI_FIRMWARE_MOUNT_ROOT
 	mkdir -p $(TARGET_DIR)/root
 	grep -q '^/dev/mmcblk0p2' $(TARGET_DIR)/etc/fstab || \
-		echo -e '/dev/mmcblk0p2 /root ext4 defaults 0 0' >> $(TARGET_DIR)/etc/fstab
+		echo -e '/dev/mmcblk0p2 / ext4 defaults 0 0' >> $(TARGET_DIR)/etc/fstab
 	$(INSTALL) -m 0755 -D package/rpi-firmware/S30mountroot-0 \
 		$(TARGET_DIR)/etc/init.d/S30mountroot
 endef
