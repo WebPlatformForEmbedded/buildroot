@@ -1,0 +1,48 @@
+diff -urN weston-8.0.0/compositor/main.c weston-8.0.0-mod/compositor/main.c
+--- weston-8.0.0/compositor/main.c	2020-01-24 20:05:18.338963000 +0000
++++ weston-8.0.0-mod/compositor/main.c	2021-07-09 11:08:18.527209030 +0000
+@@ -455,6 +455,12 @@
+ }
+ 
+ WL_EXPORT void
++weston_init_process_list()
++{
++	wl_list_init(&child_process_list);
++}
++
++WL_EXPORT void
+ weston_watch_process(struct weston_process *process)
+ {
+ 	wl_list_insert(&child_process_list, &process->link);
+@@ -2518,11 +2524,15 @@
+ 	ret = weston_compositor_load_backend(c, WESTON_BACKEND_DRM,
+ 					     &config.base);
+ 
+-	/* remoting */
+-	load_remoting(c, wc);
++	if (ret < 0) {
++		weston_compositor_shutdown(c);
++	} else {
++		/* remoting */
++		load_remoting(c, wc);
+ 
+-	/* pipewire */
+-	load_pipewire(c, wc);
++		/* pipewire */
++		load_pipewire(c, wc);
++	}
+ 
+ 	free(config.gbm_format);
+ 	free(config.seat_id);
+diff -urN weston-8.0.0/libweston/backend-drm/drm.c weston-8.0.0-mod/libweston/backend-drm/drm.c
+--- weston-8.0.0/libweston/backend-drm/drm.c	2020-01-24 20:05:18.368963000 +0000
++++ weston-8.0.0-mod/libweston/backend-drm/drm.c	2021-07-09 11:07:25.577719760 +0000
+@@ -3004,7 +3004,7 @@
+ err_udev:
+ 	udev_unref(b->udev);
+ err_compositor:
+-	weston_compositor_shutdown(compositor);
++	weston_compositor_log_scope_destroy(b->debug);
+ 	free(b);
+ 	return NULL;
+ }
