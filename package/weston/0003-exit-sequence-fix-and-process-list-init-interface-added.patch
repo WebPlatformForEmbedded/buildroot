@@ -35,9 +35,9 @@ diff -aurN weston-8.0.0/compositor/main.c weston-8.0.0-mod/compositor/main.c
  	free(config.gbm_format);
  	free(config.seat_id);
 diff -aurN weston-8.0.0/desktop-shell/shell.c weston-8.0.0-mod/desktop-shell/shell.c
---- weston-8.0.0/desktop-shell/shell.c	2020-01-24 20:05:18.348963000 +0000
-+++ weston-8.0.0-mod/desktop-shell/shell.c	2021-07-22 11:23:54.339463662 +0000
-@@ -2049,6 +2049,23 @@
+--- weston-8.0.0/desktop-shell/shell.c	2021-07-22 11:25:23.650120037 +0000
++++ weston-8.0.0-mod/desktop-shell/shell.c	2021-07-22 17:17:00.446797683 +0000
+@@ -2049,6 +2049,22 @@
  	}
  }
  
@@ -50,9 +50,8 @@ diff -aurN weston-8.0.0/desktop-shell/shell.c weston-8.0.0-mod/desktop-shell/she
 +
 +	struct shell_surface *shsurf =	weston_desktop_surface_get_user_data(desktop_surface);
 +	if (shsurf) {
-+
 +		if (shsurf->output)
-+                       	lower_fullscreen_layer(shsurf->shell, shsurf->output);
++			lower_fullscreen_layer(shsurf->shell, shsurf->output);
 +
 +		shell_surface_update_layer(shsurf);
 +	}
@@ -61,6 +60,22 @@ diff -aurN weston-8.0.0/desktop-shell/shell.c weston-8.0.0-mod/desktop-shell/she
  static void
  set_minimized(struct weston_surface *surface)
  {
+@@ -4212,6 +4228,7 @@
+ static void
+ idle_handler(struct wl_listener *listener, void *data)
+ {
++#if 0
+ 	struct desktop_shell *shell =
+ 		container_of(listener, struct desktop_shell, idle_listener);
+ 
+@@ -4221,6 +4238,7 @@
+ 		weston_seat_break_desktop_grabs(seat);
+ 
+ 	shell_fade(shell, FADE_OUT);
++#endif
+ 	/* lock() is called from shell_fade_done_for_output() */
+ }
+ 
 diff -aurN weston-8.0.0/libweston/backend-drm/drm.c weston-8.0.0-mod/libweston/backend-drm/drm.c
 --- weston-8.0.0/libweston/backend-drm/drm.c	2020-01-24 20:05:18.368963000 +0000
 +++ weston-8.0.0-mod/libweston/backend-drm/drm.c	2021-07-09 11:07:25.577719760 +0000
