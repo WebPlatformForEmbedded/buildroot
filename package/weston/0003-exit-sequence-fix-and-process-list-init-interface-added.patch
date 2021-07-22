@@ -36,25 +36,30 @@ diff -aurN weston-8.0.0/compositor/main.c weston-8.0.0-mod/compositor/main.c
  	free(config.seat_id);
 diff -aurN weston-8.0.0/desktop-shell/shell.c weston-8.0.0-mod/desktop-shell/shell.c
 --- weston-8.0.0/desktop-shell/shell.c	2020-01-24 20:05:18.348963000 +0000
-+++ weston-8.0.0-mod/desktop-shell/shell.c	2021-07-20 14:31:45.165012450 +0000
-@@ -1957,6 +1957,18 @@
- 	shell_surface_update_child_surface_layers(shsurf);
++++ weston-8.0.0-mod/desktop-shell/shell.c	2021-07-22 11:23:54.339463662 +0000
+@@ -2049,6 +2049,23 @@
+ 	}
  }
  
 +WL_EXPORT void
 +wet_shell_surface_update_layer(struct weston_surface *surface)
 +{
 +	struct weston_desktop_surface *desktop_surface = weston_surface_get_desktop_surface(surface);
-+	if (desktop_surface) {
-+		struct shell_surface *shsurf =	weston_desktop_surface_get_user_data(desktop_surface);
-+		if (shsurf) {
-+			shell_surface_update_layer(shsurf);
-+		}
++	if (!desktop_surface)
++		return;
++
++	struct shell_surface *shsurf =	weston_desktop_surface_get_user_data(desktop_surface);
++	if (shsurf) {
++
++		if (shsurf->output)
++                       	lower_fullscreen_layer(shsurf->shell, shsurf->output);
++
++		shell_surface_update_layer(shsurf);
 +	}
 +}
 +
  static void
- notify_output_destroy(struct wl_listener *listener, void *data)
+ set_minimized(struct weston_surface *surface)
  {
 diff -aurN weston-8.0.0/libweston/backend-drm/drm.c weston-8.0.0-mod/libweston/backend-drm/drm.c
 --- weston-8.0.0/libweston/backend-drm/drm.c	2020-01-24 20:05:18.368963000 +0000
