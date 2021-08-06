@@ -1,65 +1,186 @@
-diff -ruN cobalt.orig/src/cobalt/renderer/backend/egl/graphics_context.cc cobalt/src/cobalt/renderer/backend/egl/graphics_context.cc
---- cobalt.orig/src/cobalt/renderer/backend/egl/graphics_context.cc	2021-05-27 17:36:48.000000000 +0530
-+++ cobalt/src/cobalt/renderer/backend/egl/graphics_context.cc	2021-07-05 22:36:14.143943715 +0530
-@@ -76,7 +76,7 @@
-   // when we need to make OpenGL calls that do not depend on a surface (e.g.
-   // creating a texture).
-   null_surface_ = new PBufferRenderTargetEGL(display, config, math::Size(0, 0));
--  CHECK(!null_surface_->CreationError());
-+  // CHECK(!null_surface_->CreationError());
+diff --git a/src/third_party/starboard/wpe/shared/libraries.gypi b/src/third_party/starboard/wpe/shared/libraries.gypi
+index 6cf559559..f8e5a5d8c 100644
+--- a/src/third_party/starboard/wpe/shared/libraries.gypi
++++ b/src/third_party/starboard/wpe/shared/libraries.gypi
+@@ -15,6 +15,7 @@
+   'variables': {
+     'has_ocdm': '<!(echo $COBALT_HAS_OCDM)',
+     'has_provision': '<!(echo $COBALT_HAS_PROVISION)',
++    'has_waylandsink': '<!(echo $COBALT_HAS_WAYLANDSINK)',
+     'common_libs': [
+       '-lpthread',
+     ],
+@@ -45,6 +46,11 @@
+           'provisionproxy',
+         ],
+       }],
++      ['<(has_waylandsink)==1', {
++          'common_libs': [
++            '-lgstwayland-1.0',
++          ],
++      }],
+     ],
+   },
+ }
+diff --git a/src/third_party/starboard/wpe/shared/player/player_internal.cc b/src/third_party/starboard/wpe/shared/player/player_internal.cc
+index 097399cf1..2f6e8da27 100644
+--- a/src/third_party/starboard/wpe/shared/player/player_internal.cc
++++ b/src/third_party/starboard/wpe/shared/player/player_internal.cc
+@@ -10,6 +10,11 @@
+ #include <gst/gst.h>
+ #include <gst/video/videooverlay.h>
  
-   ScopedMakeCurrent scoped_current_context(this);
- 
-diff -ruN cobalt.orig/src/cobalt/renderer/backend/egl/graphics_system.cc cobalt/src/cobalt/renderer/backend/egl/graphics_system.cc
---- cobalt.orig/src/cobalt/renderer/backend/egl/graphics_system.cc	2021-05-27 17:36:48.000000000 +0530
-+++ cobalt/src/cobalt/renderer/backend/egl/graphics_system.cc	2021-07-05 22:36:39.544296168 +0530
-@@ -105,7 +105,10 @@
-   // Return the first config that succeeds the above test.
-   EGLint num_configs = 0;
-   EGL_CALL(eglChooseConfig(display, attribute_list, NULL, 0, &num_configs));
--  CHECK_LT(0, num_configs);
-+  // CHECK_LT(0, num_configs);
-+  if (!num_configs) {
-+      return base::nullopt;
-+  }
- 
-   std::unique_ptr<EGLConfig[]> configs(new EGLConfig[num_configs]);
-   EGL_CALL_SIMPLE(eglChooseConfig(display, attribute_list, configs.get(),
-@@ -201,6 +204,15 @@
-     }
-   }
- 
-+  if (!choose_config_results) {
-+    DCHECK_EQ(EGL_SURFACE_TYPE, attribute_list[0]);
-+    EGLint& surface_type_value = attribute_list[1];
++#if defined(WAYLAND_SINK)
++#include <gst/wayland/wayland.h>
++#include <wayland-egl-backend.h>
++#endif
 +
-+    surface_type_value &= ~EGL_PBUFFER_BIT;
-+    choose_config_results =
-+        ChooseConfig(display_, attribute_list, system_window);
-+  }
+ #include <map>
+ #include <string>
+ 
+@@ -921,7 +926,9 @@ PlayerImpl::PlayerImpl(SbPlayer player,
+ 
+   GstBus* bus = gst_pipeline_get_bus(GST_PIPELINE(pipeline_));
+   bus_watch_id_ = gst_bus_add_watch(bus, &PlayerImpl::BusMessageCallback, this);
++#if defined(SB_NEEDS_VIDEO_OVERLAY_SURFACE)
+   gst_bus_set_sync_handler(bus, &PlayerImpl::CreateVideoOverlay, this, nullptr);
++#endif
+   gst_object_unref(bus);
+ 
+   video_appsrc_ = gst_element_factory_make("appsrc", "vidsrc");
+@@ -1137,24 +1144,43 @@ gboolean PlayerImpl::BusMessageCallback(GstBus* bus,
+ GstBusSyncReply PlayerImpl::CreateVideoOverlay(GstBus* bus,
+                                                GstMessage* message,
+                                                gpointer user_data) {
+-  if (!gst_is_video_overlay_prepare_window_handle_message(message))
+-    return GST_BUS_PASS;
+-
+   PlayerImpl* self = reinterpret_cast<PlayerImpl*>(user_data);
+-  GstVideoOverlay* overlay = GST_VIDEO_OVERLAY(GST_MESSAGE_SRC(message));
+   SbWindowPrivate* window_private = self->window_;
+-  self->video_overlay_ = window_private->CreateVideoOverlay();
+-  gst_video_overlay_set_window_handle(overlay,
+-                                      (guintptr)self->video_overlay_->Native());
+-
+-  self->gst_video_overlay_ = GST_ELEMENT(overlay);
+-  GST_INFO("Has video overlay");
+-  if (!self->pending_bounds_.IsEmpty()) {
+-    self->SetBounds(0, self->pending_bounds_.x, self->pending_bounds_.y,
+-                    self->pending_bounds_.w, self->pending_bounds_.h);
+-    self->pending_bounds_ = PendingBounds{};
+-  }
+-  return GST_BUS_DROP;
++#if defined(WAYLAND_SINK)
++  if (gst_is_wayland_display_handle_need_context_message(message)) {
++     struct wl_display* display_handle = static_cast<struct wl_display *>(window_private->GetDisplay()->Native());
++     GstContext* context = gst_wayland_display_handle_context_new(display_handle);
++     gst_element_set_context(GST_ELEMENT(GST_MESSAGE_SRC(message)), context);
 +
-   DCHECK(choose_config_results);
++    return GST_BUS_DROP;
++  } else
++#endif
++  {
++
++    if (gst_is_video_overlay_prepare_window_handle_message(message)) {
++
++      GstVideoOverlay* overlay = GST_VIDEO_OVERLAY(GST_MESSAGE_SRC(message));
++      self->video_overlay_ = window_private->CreateVideoOverlay();
++      if (self->video_overlay_) {
++#if defined(WAYLAND_SINK)
++          struct wl_egl_window* native = reinterpret_cast<struct wl_egl_window*>(self->video_overlay_->Native());
++          gst_video_overlay_set_window_handle(overlay, (guintptr)native->surface);
++#else
++          gst_video_overlay_set_window_handle(overlay, (guintptr)self->video_overlay_->Native());
++#endif
++          self->gst_video_overlay_ = GST_ELEMENT(overlay);
++          GST_INFO("Has video overlay");
++      }
++      if (!self->pending_bounds_.IsEmpty()) {
++        self->SetBounds(0, self->pending_bounds_.x, self->pending_bounds_.y,
++                        self->pending_bounds_.w, self->pending_bounds_.h);
++        self->pending_bounds_ = PendingBounds{};
++      }
++      return GST_BUS_DROP;
++    } else {
++      return GST_BUS_PASS;
++    }
++  }
+ }
  
-   config_ = choose_config_results->config;
-diff -ruN cobalt.orig/src/third_party/starboard/wpe/rpi/gyp_configuration.gypi cobalt/src/third_party/starboard/wpe/rpi/gyp_configuration.gypi
---- cobalt.orig/src/third_party/starboard/wpe/rpi/gyp_configuration.gypi	2021-07-05 22:30:34.734565943 +0530
-+++ cobalt/src/third_party/starboard/wpe/rpi/gyp_configuration.gypi	2021-07-05 22:40:01.850929559 +0530
-@@ -50,6 +50,7 @@
+ // static
+diff --git a/src/third_party/starboard/wpe/shared/sources.gypi b/src/third_party/starboard/wpe/shared/sources.gypi
+index f9e5b4066..37e4cdf8c 100644
+--- a/src/third_party/starboard/wpe/shared/sources.gypi
++++ b/src/third_party/starboard/wpe/shared/sources.gypi
+@@ -15,6 +15,7 @@
+   'variables': {
+     'has_ocdm': '<!(echo $COBALT_HAS_OCDM)',
+     'has_provision': '<!(echo $COBALT_HAS_PROVISION)',
++    'has_waylandsink': '<!(echo $COBALT_HAS_WAYLANDSINK)',
+     'common_defines': [],
+     'use_system_libjpeg': 1,
+     'audio_sink_sources': [
+@@ -480,6 +481,12 @@
+           'HAS_PROVISION',
+         ],
+       }],
++      ['<(has_waylandsink)==1', {
++        'common_defines': [
++          'WAYLAND_SINK',
++          'GST_USE_UNSTABLE_API'
++        ],
++      }],
+     ],
+   },
+ }
+diff --git a/src/third_party/starboard/wpe/shared/window/window_internal.cc b/src/third_party/starboard/wpe/shared/window/window_internal.cc
+index d60285933..6c0ebe350 100644
+--- a/src/third_party/starboard/wpe/shared/window/window_internal.cc
++++ b/src/third_party/starboard/wpe/shared/window/window_internal.cc
+@@ -533,16 +533,22 @@ SbWindowPrivate::SbWindowPrivate(const SbWindowOptions* options) {
+   CreateDisplay();
+ }
  
-       # To support large files
-       '-D_FILE_OFFSET_BITS=64',
-+      '-DEGL_NO_X11',
++WPEFramework::Compositor::IDisplay* SbWindowPrivate::GetDisplay() {
++  return third_party::starboard::wpe::shared::window::GetDisplay();
++}
++
+ void SbWindowPrivate::CreateDisplay() {
  
-       # Suppress some warnings that will be hard to fix.
-       '-Wno-unused-local-typedefs',
-diff -ruN cobalt.orig/src/third_party/starboard/wpe/shared/window/window_internal.h cobalt/src/third_party/starboard/wpe/shared/window/window_internal.h
---- cobalt.orig/src/third_party/starboard/wpe/shared/window/window_internal.h	2021-05-27 17:36:48.000000000 +0530
-+++ cobalt/src/third_party/starboard/wpe/shared/window/window_internal.h	2021-07-05 22:37:46.997216291 +0530
-@@ -20,7 +20,6 @@
- #include "starboard/time.h"
- #include "starboard/window.h"
+ #if defined(SB_NEEDS_VIDEO_OVERLAY_SURFACE)
+   // The sufraces are stacked in order they are
+   // created with by default so make sure video is under gfx by creating
+   // it first.
++#if !defined(WAYLAND_SINK)
+   video_overlay_ =
+       third_party::starboard::wpe::shared::window::GetDisplay()->Create(
+           third_party::starboard::wpe::shared::window::DisplayName() + ":"
+               + std::string("video"), window_width_, window_height_);
++#endif
+ #endif
  
--#define EGL_NO_X11
- #include "WPEFramework/compositor/Client.h"
+   auto* display = third_party::starboard::wpe::shared::window::GetDisplay();
+@@ -579,7 +585,11 @@ void SbWindowPrivate::DestroyDisplay() {
  
- namespace third_party {
+ WPEFramework::Compositor::IDisplay::ISurface*
+ SbWindowPrivate::CreateVideoOverlay() {
++#if defined(WAYLAND_SINK)
++  return window_;
++#else
+   return video_overlay_;
++#endif
+ }
+ 
+ void SbWindowPrivate::DestroyVideoOverlay(
+diff --git a/src/third_party/starboard/wpe/shared/window/window_internal.h b/src/third_party/starboard/wpe/shared/window/window_internal.h
+index 8a04cfcc2..9d39cfcc4 100644
+--- a/src/third_party/starboard/wpe/shared/window/window_internal.h
++++ b/src/third_party/starboard/wpe/shared/window/window_internal.h
+@@ -84,6 +84,7 @@ struct SbWindowPrivate {
+   SbWindowPrivate(const SbWindowOptions* options);
+   ~SbWindowPrivate();
+ 
++  WPEFramework::Compositor::IDisplay* GetDisplay();
+   void CreateDisplay();
+   void DestroyDisplay();
+   void PollNextSystemEvent();
