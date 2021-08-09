@@ -197,3 +197,16 @@ diff -urN gst-plugins-bad-1.16.1/ext/wayland/wlwindow.c gst-plugins-bad-1.16.1-m
    }
  
    if (G_LIKELY (buffer))
+diff -urN gst-plugins-bad-1.16.1/gst-libs/gst/wayland/meson.build gst-plugins-bad-1.16.1-mod/gst-libs/gst/wayland/meson.build
+--- gst-plugins-bad-1.16.1/gst-libs/gst/wayland/meson.build	2019-04-19 02:16:36.000000000 -0700
++++ gst-plugins-bad-1.16.1-mod/gst-libs/gst/wayland/meson.build	2021-08-08 23:24:36.584196795 -0700
+@@ -21,4 +21,9 @@
+   gstwayland_dep = declare_dependency(link_with : gstwayland,
+     include_directories : [libsinc],
+     dependencies : [gst_dep, gstvideo_dep])
++
++  gstwayland_headers = [
++  'wayland.h',
++  ]
++  install_headers(gstwayland_headers, subdir : 'gstreamer-' + api_version + '/gst/wayland/')
+ endif
