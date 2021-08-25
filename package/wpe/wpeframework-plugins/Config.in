@@ -417,6 +417,13 @@ config BR2_PACKAGE_WPEFRAMEWORK_DICTIONARY
     help
       Dictionary Plugin.
 
+config BR2_PACKAGE_WPEFRAMEWORK_LOGEXPORT
+    select BR2_PACKAGE_WPEFRAMEWORK_PLUGINS
+    bool "LogExport"
+    default n
+    help
+      LogExport Plugin.
+
 config BR2_PACKAGE_WPEFRAMEWORK_FRONTPANEL
     select BR2_PACKAGE_WPEFRAMEWORK_PLUGINS
     bool "FrontPanel"
