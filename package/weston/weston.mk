@@ -24,9 +24,8 @@ WESTON_CONF_OPTS = \
 ifeq ($(BR2_TOOLCHAIN_HEADERS_AT_LEAST_3_8),y)
 WESTON_CONF_OPTS += -Dsimple-clients=dmabuf-v4l
 else
-WESTON_CONF_OPTS += -Dsimple-clients=egl
+WESTON_CONF_OPTS += -Dsimple-clients=
 endif
-WESTON_CONF_OPTS += -Dsimple-clients=egl
 
 ifeq ($(BR2_PACKAGE_DBUS)$(BR2_PACKAGE_SYSTEMD),yy)
 WESTON_CONF_OPTS += -Dlauncher-logind=true
