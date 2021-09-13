@@ -23,91 +23,88 @@ index 6cf559559..f8e5a5d8c 100644
    },
  }
 diff --git a/src/third_party/starboard/wpe/shared/player/player_internal.cc b/src/third_party/starboard/wpe/shared/player/player_internal.cc
-index b5c9b1f0c..cd2fce4e3 100644
+index b5c9b1f0c..b0174e8e1 100644
 --- a/src/third_party/starboard/wpe/shared/player/player_internal.cc
 +++ b/src/third_party/starboard/wpe/shared/player/player_internal.cc
-@@ -10,6 +10,11 @@
- #include <gst/gst.h>
- #include <gst/video/videooverlay.h>
+@@ -762,9 +762,14 @@ class PlayerImpl : public Player, public DrmSystemOcdm::Observer {
+   static void ElementAdded(GstElement* pipeline,
+                            GstElement* element,
+                            PlayerImpl* self);
++
++#if defined(SB_NEEDS_VIDEO_OVERLAY_SURFACE)
++#if !defined(WAYLAND_SINK)
+   static GstBusSyncReply CreateVideoOverlay(GstBus* bus,
+                                             GstMessage* message,
+                                             gpointer user_data);
++#endif
++#endif
+   bool ChangePipelineState(GstState state) const;
+   void DispatchOnWorkerThread(Task* task) const;
+   gint64 GetPosition() const;
+@@ -911,6 +916,16 @@ PlayerImpl::PlayerImpl(SbPlayer player,
+ 
+ #endif
  
 +#if defined(WAYLAND_SINK)
-+#include <gst/wayland/wayland.h>
-+#include <wayland-egl-backend.h>
++
++  GstElement* video_sink = gst_element_factory_make("waylandsink",
++      NULL);
++  g_object_set(pipeline_, "video-sink", video_sink, NULL);
++  std::string videoDisplayName = window_->DisplayName() + ":video";
++  g_object_set(video_sink, "window", videoDisplayName.c_str(), NULL);
++
 +#endif
 +
- #include <map>
- #include <string>
+ #if defined(BRCMVIDEOSINK)
  
-@@ -921,7 +926,9 @@ PlayerImpl::PlayerImpl(SbPlayer player,
+   GstElement* video_sink = gst_element_factory_make("brcmvideosink",
+@@ -921,7 +936,11 @@ PlayerImpl::PlayerImpl(SbPlayer player,
  
    GstBus* bus = gst_pipeline_get_bus(GST_PIPELINE(pipeline_));
    bus_watch_id_ = gst_bus_add_watch(bus, &PlayerImpl::BusMessageCallback, this);
 +#if defined(SB_NEEDS_VIDEO_OVERLAY_SURFACE)
++#if !defined(WAYLAND_SINK)
    gst_bus_set_sync_handler(bus, &PlayerImpl::CreateVideoOverlay, this, nullptr);
++#endif
 +#endif
    gst_object_unref(bus);
  
    video_appsrc_ = gst_element_factory_make("appsrc", "vidsrc");
-@@ -1137,24 +1144,43 @@ gboolean PlayerImpl::BusMessageCallback(GstBus* bus,
- GstBusSyncReply PlayerImpl::CreateVideoOverlay(GstBus* bus,
-                                                GstMessage* message,
-                                                gpointer user_data) {
--  if (!gst_is_video_overlay_prepare_window_handle_message(message))
--    return GST_BUS_PASS;
--
-   PlayerImpl* self = reinterpret_cast<PlayerImpl*>(user_data);
--  GstVideoOverlay* overlay = GST_VIDEO_OVERLAY(GST_MESSAGE_SRC(message));
-   SbWindowPrivate* window_private = self->window_;
--  self->video_overlay_ = window_private->CreateVideoOverlay();
--  gst_video_overlay_set_window_handle(overlay,
--                                      (guintptr)self->video_overlay_->Native());
--
--  self->gst_video_overlay_ = GST_ELEMENT(overlay);
--  GST_INFO("Has video overlay");
--  if (!self->pending_bounds_.IsEmpty()) {
--    self->SetBounds(0, self->pending_bounds_.x, self->pending_bounds_.y,
--                    self->pending_bounds_.w, self->pending_bounds_.h);
--    self->pending_bounds_ = PendingBounds{};
--  }
--  return GST_BUS_DROP;
-+#if defined(WAYLAND_SINK)
-+  if (gst_is_wayland_display_handle_need_context_message(message)) {
-+     struct wl_display* display_handle = static_cast<struct wl_display *>(window_private->GetDisplay()->Native());
-+     GstContext* context = gst_wayland_display_handle_context_new(display_handle);
-+     gst_element_set_context(GST_ELEMENT(GST_MESSAGE_SRC(message)), context);
-+
-+    return GST_BUS_DROP;
-+  } else
-+#endif
-+  {
-+
-+    if (gst_is_video_overlay_prepare_window_handle_message(message)) {
-+
-+      GstVideoOverlay* overlay = GST_VIDEO_OVERLAY(GST_MESSAGE_SRC(message));
-+      self->video_overlay_ = window_private->CreateVideoOverlay();
-+      if (self->video_overlay_) {
-+#if defined(WAYLAND_SINK)
-+          struct wl_egl_window* native = reinterpret_cast<struct wl_egl_window*>(self->video_overlay_->Native());
-+          gst_video_overlay_set_window_handle(overlay, (guintptr)native->surface);
-+#else
-+          gst_video_overlay_set_window_handle(overlay, (guintptr)self->video_overlay_->Native());
-+#endif
-+          self->gst_video_overlay_ = GST_ELEMENT(overlay);
-+          GST_INFO("Has video overlay");
-+      }
-+      if (!self->pending_bounds_.IsEmpty()) {
-+        self->SetBounds(0, self->pending_bounds_.x, self->pending_bounds_.y,
-+                        self->pending_bounds_.w, self->pending_bounds_.h);
-+        self->pending_bounds_ = PendingBounds{};
-+      }
-+      return GST_BUS_DROP;
-+    } else {
-+      return GST_BUS_PASS;
-+    }
-+  }
+@@ -1134,6 +1153,8 @@ gboolean PlayerImpl::BusMessageCallback(GstBus* bus,
  }
  
  // static
++#if defined(SB_NEEDS_VIDEO_OVERLAY_SURFACE)
++#if !defined(WAYLAND_SINK)
+ GstBusSyncReply PlayerImpl::CreateVideoOverlay(GstBus* bus,
+                                                GstMessage* message,
+                                                gpointer user_data) {
+@@ -1144,11 +1165,13 @@ GstBusSyncReply PlayerImpl::CreateVideoOverlay(GstBus* bus,
+   GstVideoOverlay* overlay = GST_VIDEO_OVERLAY(GST_MESSAGE_SRC(message));
+   SbWindowPrivate* window_private = self->window_;
+   self->video_overlay_ = window_private->CreateVideoOverlay();
+-  gst_video_overlay_set_window_handle(overlay,
++  if (self->video_overlay_) {
++      gst_video_overlay_set_window_handle(overlay,
+                                       (guintptr)self->video_overlay_->Native());
+ 
+-  self->gst_video_overlay_ = GST_ELEMENT(overlay);
+-  GST_INFO("Has video overlay");
++      self->gst_video_overlay_ = GST_ELEMENT(overlay);
++      GST_INFO("Has video overlay");
++  }
+   if (!self->pending_bounds_.IsEmpty()) {
+     self->SetBounds(0, self->pending_bounds_.x, self->pending_bounds_.y,
+                     self->pending_bounds_.w, self->pending_bounds_.h);
+@@ -1156,6 +1179,8 @@ GstBusSyncReply PlayerImpl::CreateVideoOverlay(GstBus* bus,
+   }
+   return GST_BUS_DROP;
+ }
++#endif
++#endif
+ 
+ // static
+ void* PlayerImpl::ThreadEntryPoint(void* context) {
 diff --git a/src/third_party/starboard/wpe/shared/sources.gypi b/src/third_party/starboard/wpe/shared/sources.gypi
 index f9e5b4066..37e4cdf8c 100644
 --- a/src/third_party/starboard/wpe/shared/sources.gypi
@@ -134,15 +131,15 @@ index f9e5b4066..37e4cdf8c 100644
    },
  }
 diff --git a/src/third_party/starboard/wpe/shared/window/window_internal.cc b/src/third_party/starboard/wpe/shared/window/window_internal.cc
-index d60285933..6c0ebe350 100644
+index d60285933..835ce3d8d 100644
 --- a/src/third_party/starboard/wpe/shared/window/window_internal.cc
 +++ b/src/third_party/starboard/wpe/shared/window/window_internal.cc
 @@ -533,16 +533,22 @@ SbWindowPrivate::SbWindowPrivate(const SbWindowOptions* options) {
    CreateDisplay();
  }
  
-+WPEFramework::Compositor::IDisplay* SbWindowPrivate::GetDisplay() {
-+  return third_party::starboard::wpe::shared::window::GetDisplay();
++std::string SbWindowPrivate::DisplayName() {
++    return third_party::starboard::wpe::shared::window::DisplayName();
 +}
 +
  void SbWindowPrivate::CreateDisplay() {
@@ -173,14 +170,14 @@ index d60285933..6c0ebe350 100644
  
  void SbWindowPrivate::DestroyVideoOverlay(
 diff --git a/src/third_party/starboard/wpe/shared/window/window_internal.h b/src/third_party/starboard/wpe/shared/window/window_internal.h
-index 107b974ff..71773296f 100644
+index 107b974ff..790e1e093 100644
 --- a/src/third_party/starboard/wpe/shared/window/window_internal.h
 +++ b/src/third_party/starboard/wpe/shared/window/window_internal.h
 @@ -83,6 +83,7 @@ struct SbWindowPrivate {
    SbWindowPrivate(const SbWindowOptions* options);
    ~SbWindowPrivate();
  
-+  WPEFramework::Compositor::IDisplay* GetDisplay();
++  std::string DisplayName();
    void CreateDisplay();
    void DestroyDisplay();
    void PollNextSystemEvent();
