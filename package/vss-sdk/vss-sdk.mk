@@ -5,10 +5,14 @@
 ################################################################################
 
 ifeq ($(BR2_PACKAGE_HAS_NEXUS_SAGE),y)
+#FIXME: set proper version
 VSS_SDK_VERSION = d3e0326e73ef443bcbc66049d4813ef8e3006497 # SVP URSR 18.1
 else
 VSS_SDK_VERSION = be1700584e7ebcf54276c432edd390dce118ebf8 # VDGRM URSR 18.1
 endif
+
+SOURCE_PREFIX = br_sysroot
+
 VSS_SDK_SITE = git@github.com:Metrological/SDK_VSS.git
 VSS_SDK_SITE_METHOD = git
 VSS_SDK_LICENSE = PROPRIETARY
@@ -94,9 +98,9 @@ define VSS_SDK_BUILD_CMDS
 endef
 
 define VSS_SDK_INSTALL_STAGING_CMDS
-    cp -a ${@D}/usr ${STAGING_DIR}
-    cp -a ${@D}/etc ${STAGING_DIR}
-    cp -a ${@D}/lib ${STAGING_DIR}
+    cp -a ${@D}/${SOURCE_PREFIX}/usr ${STAGING_DIR}
+    cp -a ${@D}/${SOURCE_PREFIX}/etc ${STAGING_DIR}
+    cp -a ${@D}/${SOURCE_PREFIX}/lib ${STAGING_DIR}
 endef
 
 define VSS_SDK_INSTALL_INITD
@@ -107,27 +111,27 @@ define VSS_SDK_INSTALL_INITD
 	 -e 's;%BOXMODE%;1;g' \
 	 -e 's;%GRAPHICS_HEAP_SIZE%;100000000;g' \
 	 -e 's;%NXSERVERARGS%;$(BR2_PACKAGE_VSS_SDK_NXSERVER_ARGS);g' \
-	 $(@D)/templates/nxserver.in > $(@D)/nxserver.env 
+	 $(@D)/${SOURCE_PREFIX}/templates/nxserver.in > $(@D)/${SOURCE_PREFIX}/nxserver.env
 
-     $(INSTALL) -m 0755  $(@D)/nxserver.env $(TARGET_DIR)/etc
-     $(INSTALL) -m 0755  $(@D)/init.d/* $(TARGET_DIR)/etc/init.d
+     $(INSTALL) -m 0755  $(@D)/${SOURCE_PREFIX}/nxserver.env $(TARGET_DIR)/etc
+     $(INSTALL) -m 0755  $(@D)/${SOURCE_PREFIX}/init.d/* $(TARGET_DIR)/etc/init.d
 endef
 
 define VSS_SDK_INSTALL_TARGET_CMDS_DISABLED
-    cp -a ${@D}/usr/lib/lib*.so* ${TARGET_DIR}/usr/lib
-    cp -a ${@D}/usr/bin/* ${TARGET_DIR}/usr/bin
-    cp -a ${@D}/usr/sbin/* ${TARGET_DIR}/usr/sbin
-    cp -a ${@D}/etc ${TARGET_DIR}
-    cp -a ${@D}/lib ${TARGET_DIR}
+    cp -a ${@D}/${SOURCE_PREFIX}/usr/lib/lib*.so* ${TARGET_DIR}/usr/lib
+    cp -a ${@D}/${SOURCE_PREFIX}/usr/bin/* ${TARGET_DIR}/usr/bin
+    cp -a ${@D}/${SOURCE_PREFIX}/usr/sbin/* ${TARGET_DIR}/usr/sbin
+    cp -a ${@D}/${SOURCE_PREFIX}/etc ${TARGET_DIR}
+    cp -a ${@D}/${SOURCE_PREFIX}/lib ${TARGET_DIR}
 
     mkdir -p  $(TARGET_DIR)$(BR2_PACKAGE_NEXUS_SAGE_PATH)
-    $(INSTALL) -D -m 0644 $(@D)/sage/* $(TARGET_DIR)/$(BR2_PACKAGE_NEXUS_SAGE_PATH)/
+    $(INSTALL) -D -m 0644 $(@D)/${SOURCE_PREFIX}/sage/* $(TARGET_DIR)/$(BR2_PACKAGE_NEXUS_SAGE_PATH)/
 endef
 
 define VSS_SDK_INSTALL_TARGET_CMDS
     ln -sf /usr/lib/libprotobuf-lite.so.8.0.0 ${TARGET_DIR}/usr/lib/libprotobuf-lite.so
     ln -sf /usr/lib/libprotobuf.so.8.0.0 ${TARGET_DIR}/usr/lib/libprotobuf.so
-    cp -va ${@D}/usr/lib/libturbojpeg*.so* ${TARGET_DIR}/usr/lib
+    cp -va ${@D}/${SOURCE_PREFIX}/usr/lib/libturbojpeg*.so* ${TARGET_DIR}/usr/lib
 endef
 
 
