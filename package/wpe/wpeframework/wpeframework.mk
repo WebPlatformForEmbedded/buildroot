@@ -3,7 +3,7 @@
 # wpeframework
 #
 ################################################################################
-WPEFRAMEWORK_VERSION = 5280f6abb4eed5acd21e447e1a697b54f561689b
+WPEFRAMEWORK_VERSION = f4cbb06097c69067453f6986cfdb377649c43d13
 WPEFRAMEWORK_SITE = $(call github,rdkcentral,Thunder,$(WPEFRAMEWORK_VERSION))
 WPEFRAMEWORK_INSTALL_STAGING = YES
 WPEFRAMEWORK_DEPENDENCIES = zlib $(call qstrip,$(BR2_PACKAGE_SDK_INSTALL)) host-wpeframework-tools
