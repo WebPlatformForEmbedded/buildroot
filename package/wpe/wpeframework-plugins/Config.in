@@ -320,7 +320,7 @@ config BR2_PACKAGE_WPEFRAMEWORK_DEVICEIDENTIFICATION
     select BR2_PACKAGE_WPEFRAMEWORK_RDKSERVICES
     depends on BR2_PACKAGE_HAS_NEXUS
     bool "DeviceIdentification"
-    default y
+    default y if BR2_PACKAGE_HAS_NEXUS
     help
       DeviceIdentification Plugin (Nexus OTP)
 
