@@ -184,3 +184,4 @@ libWPEFrameworkInputSwitch.so
 playready
 MeteringCertificate.bin
 cobalt.json
+ca-certificates
