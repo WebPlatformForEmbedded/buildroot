@@ -140,6 +140,7 @@ libWPEFrameworkWebServer.so
 libWPEFrameworkAmazonPrime.so
 libWPEFrameworkWebSocket.so
 libWPEFrameworkCOM.so
+libWPEFrameworkDeviceIdentification.so
 libgiognutls.so
 libWPEInjectedBundle.so
 libWPEFrameworkWebKitBrowserImpl.so
