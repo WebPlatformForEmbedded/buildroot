@@ -48,12 +48,15 @@ case "$1" in
 		mkdir -p $DESTINATION/lib
 		mkdir -p $DESTINATION/bin
 		mkdir -p $DESTINATION/root
+		mkdir -p /usr/libexec
+
 		cp -rfap /usr/share/* $DESTINATION/share
 		cp -rfap /etc/* $DESTINATION/etc
 		cp -rfap /usr/lib/* $DESTINATION/lib
 		cp -rfap /usr/bin/* $DESTINATION/bin
 		cp -rfap /root/* $DESTINATION/root
 		cp -rfap $SOURCE/usr/bin $DESTINATION
+		cp -rfap $SOURCE/usr/libexec $DESTINATION
 
 		ln -s $SOURCE/usr/share/mime $DESTINATION/share/mime
 		ln -s $SOURCE/usr/share/X11 $DESTINATION/share/X11
@@ -84,6 +87,7 @@ case "$1" in
 	grep -q "/usr/lib ext4" /proc/mounts && echo "/usr/lib is already mounted" || mount -t ext4 --bind $DESTINATION/lib/ /usr/lib/
 	grep -q "/usr/bin ext4" /proc/mounts && echo "/usr/bin is already mounted" || mount -t ext4 --bind $DESTINATION/bin /usr/bin/
 	grep -q "/root ext4" /proc/mounts && echo "/root is already mounted" || mount -t ext4 --bind $DESTINATION/root/ /root/
+	grep -q "/usr/libexec ext4" /proc/mounts && echo "/usr/libexec is already mounted" || mount -t ext4 --bind $DESTINATION/libexec /usr/libexec
 
 	WPEFramework -c $SOURCE/etc/WPEFramework/config.json
 ;;
