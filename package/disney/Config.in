@@ -51,15 +51,38 @@ config BR2_PACKAGE_DISNEY_LINK_EXECUTABLE
     help
         Disney+ Merlin executable
 
-config BR2_PACKAGE_DISNEY_LINK_TESTS
+menu "Test tools"
+    config BR2_PACKAGE_DISNEY_LINK_TESTS
     bool "Build ADK test suite"
     default n
     help
         Disney+ tests
+
+    config BR2_PACKAGE_DISNEY_TOOLING_SHIELD_AGENT
+    depends on BR2_PACKAGE_DISNEY_TOOLING
+    bool "Build SHIELD Agent"
+    default n
+    help
+        Build SHIELD Agent (Development tool)
+    comment "SHIELD Agent depens on disney-tooling"
+        depends on !BR2_PACKAGE_DISNEY_TOOLING
+
+    config BR2_PACKAGE_DISNEY_TOOLING_SHIELD_EXTENSION
+    depends on BR2_PACKAGE_DISNEY_TOOLING
+    bool "Build SHIELD Extension"
+    default n
+    help
+        Build SHIELD Extension (Integration test tool)
+    comment "SHIELD Extension depens on disney-tooling"
+        depends on !BR2_PACKAGE_DISNEY_TOOLING
+
+endmenu
+
 
 endmenu
 endif
 
 source "package/disney/disney-uma/Config.in"
 source "package/disney/disney-libopenssl/Config.in"
+source "package/disney/disney-tooling/Config.in"
 
