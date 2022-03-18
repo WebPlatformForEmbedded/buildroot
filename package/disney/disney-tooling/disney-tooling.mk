@@ -13,10 +13,18 @@ DISNEY_TOOLING_DEPENDENCIES = disney
 
 _DISNEY_EXTRACT_DIR = $(BUILD_DIR)/disney-$(DISNEY_VERSION)
 
+ifeq ($(BR2_PACKAGE_DISNEY_PLAYER_UMA),y)
+_DISNEY_PLAYER = nve-shared
+_DISNEY_CURL_HTTP = --curl-http2
+DISNEY_TOOLING_DEPENDENCIES += disney-uma
+endif
+
 define DISNEY_TOOLING_CONFIGURE_CMDS
        ln -sf $(@D)/shield-agent ${_DISNEY_EXTRACT_DIR}
-       cd $(_DISNEY_EXTRACT_DIR) && CC="$(TARGET_CC)" CXX="$(TARGET_CXX)" GCC_PREFIX="$(TARGET_CROSS)" PLATFORM="$(_DISNEY_TARGET_PLATFORM)" ARCH="$(KERNEL_ARCH)" \
-          ./premake5 --verbose --file=shield-agent/premake5.lua --target=$(_DISNEY_TARGET_NAME) gmake2
+       cd $(_DISNEY_EXTRACT_DIR) && CC="$(TARGET_CC)" CXX="$(TARGET_CXX)" GCC_PREFIX="$(TARGET_CROSS)" PLATFORM="$(_DISNEY_TARGET_PLATFORM)" \
+          ARCH="$(KERNEL_ARCH)" SSL_VERSION="$(DISNEY_LIBOPENSSL_SO_VERSION)" SYSINCLUDEDIR="$(STAGING_DIR)/usr/include" \
+              SYSLIBDIR="$(STAGING_DIR)/usr/lib" \
+                 ./premake5 --verbose --file=shield-agent/premake5.lua --target=$(_DISNEY_TARGET_NAME) --player=$(_DISNEY_PLAYER) $(_DISNEY_CURL_HTTP) gmake2
 endef
 
 ifeq ($(BR2_PACKAGE_DISNEY_TOOLING_SHIELD_AGENT),y)
