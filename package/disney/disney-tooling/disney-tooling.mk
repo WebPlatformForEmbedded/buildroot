@@ -73,7 +73,7 @@ endif
 ifeq ($(BR2_PACKAGE_DISNEY_TOOLING_SHIELD_EXTENSION),y)
 define _DISNEY_TOOLING_INSTALL_SHIELD_EXTENSION
     @echo "Installing Extensions"
-    cp -R "$(_DISNEY_BUILD_DIR)/build/bin/$(_DISNEY_TARGET_PLATFORM)/$(_DISNEY_BUILD_TYPE)/extensions" "$(TARGET_DIR)$(_DISNEY_DATA_DIR)/shield_runtime/extensions"
+    rsync -a "$(_DISNEY_BUILD_DIR)/build/bin/$(_DISNEY_TARGET_PLATFORM)/$(_DISNEY_BUILD_TYPE)/extensions" "$(TARGET_DIR)$(_DISNEY_DATA_DIR)/shield_runtime/"
     @echo "Installing morgana executable"
     $(INSTALL) -D -m 0755 "$(_DISNEY_BUILD_DIR)/build/bin/$(_DISNEY_TARGET_PLATFORM)/$(_DISNEY_BUILD_TYPE)/morgana" "$(TARGET_DIR)/usr/bin/morgana"
 endef
@@ -81,8 +81,8 @@ endif
 
 define _DISNEY_TOOLING_INSTALL
     @echo "Installing shield_runtime"
-    cp -R "$(_DISNEY_BUILD_DIR)/shield_runtime" "$(TARGET_DIR)$(_DISNEY_DATA_DIR)"
-    cp -R "$(_DISNEY_BUILD_DIR)/build/shield_runtime/shield_agent_data/assets/dy_lib_tests" "$(TARGET_DIR)$(_DISNEY_DATA_DIR)/shield_runtime/shield_agent_data/assets"
+    rsync -a "$(_DISNEY_BUILD_DIR)/shield_runtime" "$(TARGET_DIR)$(_DISNEY_DATA_DIR)"
+    rsync -a "$(_DISNEY_BUILD_DIR)/build/shield_runtime/shield_agent_data/assets/dy_lib_tests" "$(TARGET_DIR)$(_DISNEY_DATA_DIR)/shield_runtime/shield_agent_data/assets"
     $(call _DISNEY_TOOLING_INSTALL_SHIELD_AGENT)
     $(call _DISNEY_TOOLING_INSTALL_SHIELD_EXTENSION)
 endef
