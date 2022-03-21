@@ -15,7 +15,7 @@ DISNEY_TOOLING_DEPENDENCIES = disney
 # A link is created from the shield-agent (this build dir) to the ADK build directory.
 # That way shield-agent and extension can be properly configured using configuration variables from the ADK
 # and a proper premake file can be selected. Then it is built using generated make files inside the ADK build directory.
-_DISNEY_BUILD_DIR = $(BUILD_DIR)/disney-$(DISNEY_VERSION)
+_DISNEY_BUILD_DIR = "$(BUILD_DIR)/disney-$(DISNEY_VERSION)"
 
 
 _DISNEY_TOOLING_CONFIGURE_FLAGS = --verbose \
@@ -29,7 +29,7 @@ _DISNEY_TOOLING_CONFIGURE_FLAGS += --player=$(_DISNEY_PLAYER) $(_DISNEY_CURL_HTT
 endif
 
 define DISNEY_TOOLING_CONFIGURE_CMDS
-    ln -sf $(@D)/shield-agent ${_DISNEY_BUILD_DIR}
+    ln -sf "$(@D)/shield-agent" "${_DISNEY_BUILD_DIR}"
     cd "$(_DISNEY_BUILD_DIR)" && \
 		CC="$(TARGET_CC)" CXX="$(TARGET_CXX)" GCC_PREFIX="$(TARGET_CROSS)" PLATFORM="$(_DISNEY_TARGET_PLATFORM)" \
     	ARCH="$(KERNEL_ARCH)" SSL_VERSION="$(DISNEY_LIBOPENSSL_SO_VERSION)" SYSINCLUDEDIR="$(STAGING_DIR)/usr/include" \
