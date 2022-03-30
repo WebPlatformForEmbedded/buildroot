@@ -65,6 +65,12 @@ config BR2_PACKAGE_WPEFRAMEWORK_PLUGIN_DISNEYPLUS_PERSONA_ID
     string "persona ID"
     default ""
 
+config BR2_PACKAGE_WPEFRAMEWORK_PLUGIN_DISNEYPLUS_STACK_SIZE
+    depends on BR2_PACKAGE_WPEFRAMEWORK_DISNEYPLUS
+    int "ADK stack size"
+    default 0
+    help
+      Set stack size for the thread running ADK (0 will use the default value specified in the Thunder Core)
 
 endif
 comment "DisneyPlus is dependent on the DisneyPlus-ADK package"
