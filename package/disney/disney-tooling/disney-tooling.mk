@@ -82,7 +82,9 @@ endif
 define _DISNEY_TOOLING_INSTALL
     @echo "Installing shield_runtime"
     rsync -a "$(_DISNEY_BUILD_DIR)/shield_runtime" "$(TARGET_DIR)$(_DISNEY_DATA_DIR)"
-    rsync -a "$(_DISNEY_BUILD_DIR)/build/shield_runtime/shield_agent_data/assets/dy_lib_tests" "$(TARGET_DIR)$(_DISNEY_DATA_DIR)/shield_runtime/shield_agent_data/assets"
+    if [ -d "$(_DISNEY_BUILD_DIR)/build/shield_runtime/shield_agent_data/assets/dy_lib_tests" ]; then \
+        rsync -a "$(_DISNEY_BUILD_DIR)/build/shield_runtime/shield_agent_data/assets/dy_lib_tests" "$(TARGET_DIR)$(_DISNEY_DATA_DIR)/shield_runtime/shield_agent_data/assets"; \
+    fi
     $(call _DISNEY_TOOLING_INSTALL_SHIELD_AGENT)
     $(call _DISNEY_TOOLING_INSTALL_SHIELD_EXTENSION)
 endef
