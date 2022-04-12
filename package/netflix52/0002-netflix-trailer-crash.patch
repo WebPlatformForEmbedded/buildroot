@@ -1,0 +1,13 @@
+diff --git a/netflix/src/nrd/Media/NrdpMediaSourceBuffer.cpp b/netflix/src/nrd/Media/NrdpMediaSourceBuffer.cpp
+index 97b237e5..c4466556 100644
+--- a/netflix/src/nrd/Media/NrdpMediaSourceBuffer.cpp
++++ b/netflix/src/nrd/Media/NrdpMediaSourceBuffer.cpp
+@@ -556,7 +556,7 @@ AseTimeStamp NrdpMediaSourceBuffer::flush(AseTimeStamp const& pts, AseTimeStamp
+            mediaTypeToString(mMediaType).c_str(),
+            mMediaTrackFragments[mPrimaryTrackId].front()->getFragmentStartTime().getValueInMs(),
+            mMediaTrackFragments[mPrimaryTrackId].front()->getFragmentEndTime().getValueInMs());
+-    return mMediaTrackFragments[mPrimaryTrackId].front()->getFragmentStartTime();
++    return  mMediaTrackFragments[mPrimaryTrackId].empty() ? AseTimeStamp::INFINITE : mMediaTrackFragments[mPrimaryTrackId].front()->getFragmentStartTime();
+ }
+ 
+ AseTimeStamp NrdpMediaSourceBuffer::provideBlock(AseBufferPtr pData, int32_t currentTimestampOffset, uint32_t currentTimestampOffsetTimescale)
