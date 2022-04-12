@@ -4,7 +4,7 @@
 #
 ################################################################################
 
-DISNEY_UMA_VERSION = 15949b7c0239d1b233a353d164744efbdf4f34ad
+DISNEY_UMA_VERSION = 7c4504f33ee8616525517435075eac8a579a377d
 DISNEY_UMA_SITE = git@github.com:Metrological/disneyplus-uma.git
 DISNEY_UMA_SITE_METHOD = git
 DISNEY_UMA_LICENSE = PROPRIETARY
@@ -15,7 +15,7 @@ _DISNEY_UMA_PLATFORM = *45*
 
 define _DISNEY_UMA_INSTALL
        @echo "Installing player library"
-       rsync -a $(@D)/prebuilt-libs/$(_DISNEY_UMA_PLATFORM)/stripped/ship/*.so $(1)/usr/lib/
+       rsync -a $(@D)/partner/prebuilt-libs/$(_DISNEY_UMA_PLATFORM)/stripped/ship/*.so $(1)/usr/lib/
 endef
 
 define DISNEY_UMA_INSTALL_STAGING_CMDS
