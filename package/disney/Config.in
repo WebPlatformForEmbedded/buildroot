@@ -76,6 +76,14 @@ menu "Test tools"
     comment "SHIELD Extension depens on disney-tooling"
         depends on !BR2_PACKAGE_DISNEY_TOOLING
 
+    config BR2_PACKAGE_DISNEY_TOOLING_SHIELD_ASSISTANT
+    select BR2_PACKAGE_DISNEY_TOOLING_SHIELD_ASSISTANT
+    bool "Build SHIELD assistant"
+    default n
+    help
+        Build SHIELD assistant - our component enahncing running morgana and shield-agent.
+    depends on BR2_PACKAGE_DISNEY_TOOLING && BR2_PACKAGE_WPEFRAMEWORK_DISNEYPLUS && (BR2_PACKAGE_DISNEY_TOOLING_SHIELD_AGENT || BR2_PACKAGE_DISNEY_TOOLING_SHIELD_EXTENSION)
+
 endmenu
 
 
