@@ -4,7 +4,7 @@
 #
 ################################################################################
 
-WPEFRAMEWORK_DISNEYPLUS_VERSION = 2f53745db404529ef2ecf5039f4d511c4fedd6a9
+WPEFRAMEWORK_DISNEYPLUS_VERSION = c9a81dbfc83efd4e7e70d01fbf11c8ce13be0f97
 WPEFRAMEWORK_DISNEYPLUS_SITE_METHOD = git
 WPEFRAMEWORK_DISNEYPLUS_SITE = git@github.com:WebPlatformForEmbedded/WPEPluginDisneyPlus.git
 WPEFRAMEWORK_DISNEYPLUS_INSTALL_STAGING = YES
