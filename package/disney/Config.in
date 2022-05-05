@@ -83,6 +83,13 @@ menu "Test tools"
         Build SHIELD assistant - our component enahncing running morgana and shield-agent.
     depends on BR2_PACKAGE_DISNEY_TOOLING && BR2_PACKAGE_WPEFRAMEWORK_DISNEYPLUS && (BR2_PACKAGE_DISNEY_TOOLING_SHIELD_AGENT || BR2_PACKAGE_DISNEY_TOOLING_SHIELD_EXTENSION)
 
+    config BR2_PACKAGE_DISNEY_INSTALL_CERTIFICATES
+    bool "Install tooling certificates"
+    default n
+    help
+        Install certificates to connect to the disney platform
+    comment "Installing certificates depends on disney-uma"
+        depends on !BR2_PACKAGE_DISNEY_UMA
 endmenu
 
 
