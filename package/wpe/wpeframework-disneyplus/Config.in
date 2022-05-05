@@ -77,6 +77,89 @@ config BR2_PACKAGE_WPEFRAMEWORK_PLUGIN_DISNEYPLUS_STACK_SIZE
     help
       Set stack size for the thread running ADK (0 will use the default value specified in the Thunder Core)
 
+choice BR2_PACKAGE_WPEFRAMEWORK_DISNEYPLUS_MAX_VIDEO_RESOLUTION
+    default BR2_PACKAGE_WPEFRAMEWORK_DISNEYPLUS_MAX_VIDEO_RESOLUTION_1080P60
+    prompt "Max video resolution"
+    help
+      Select max decoder resolution
+
+config BR2_PACKAGE_WPEFRAMEWORK_DISNEYPLUS_MAX_VIDEO_RESOLUTION_SD
+    bool "SD"
+    help
+      SD resolution
+
+config BR2_PACKAGE_WPEFRAMEWORK_DISNEYPLUS_MAX_VIDEO_RESOLUTION_720P60
+    bool "720p60"
+    help
+      720p@60Hz
+
+config BR2_PACKAGE_WPEFRAMEWORK_DISNEYPLUS_MAX_VIDEO_RESOLUTION_1080P60
+    bool "1080p60"
+    help
+      1080p@60Hz
+
+config BR2_PACKAGE_WPEFRAMEWORK_DISNEYPLUS_MAX_VIDEO_RESOLUTION_2160P60
+    bool "2160p60"
+    help
+      2160p@60Hz
+
+endchoice
+
+menu "Audio codecs"
+    config PLUGIN_DISNEYPLUS_AUDIO_CODECS_AAC
+    bool "AAC"
+    default y
+    help
+        AAC codec
+
+    config PLUGIN_DISNEYPLUS_AUDIO_CODECS_AC3
+    bool "AC3"
+    default n
+    help
+        AC3 codec
+
+    config PLUGIN_DISNEYPLUS_AUDIO_CODECS_EAC3
+    bool "EAC3"
+    default n
+    help
+        EAC3 codec
+
+    config PLUGIN_DISNEYPLUS_AUDIO_CODECS_ATMOS
+    bool "Atmos"
+    default n
+    help
+        Atmos codec
+
+endmenu
+
+menu "Video profiles"
+    config PLUGIN_DISNEYPLUS_VIDEO_PROFILE_H264_MAIN
+    bool "H264 Main"
+    default y
+    help
+        H264 main profile
+
+    config PLUGIN_DISNEYPLUS_VIDEO_PROFILE_H264_HIGH
+    bool "H264 High"
+    default y
+    help
+        H264 high profile
+
+    config PLUGIN_DISNEYPLUS_VIDEO_PROFILE_HEVC_MAIN
+    bool "HEVC main"
+    default n
+    help
+        HEVC main
+
+    config PLUGIN_DISNEYPLUS_VIDEO_PROFILE_HEVC_MAIN_10
+    bool "HEVC main 10"
+    default n
+    help
+        HEVC main 10
+
+
+endmenu
+
 endif
 comment "DisneyPlus is dependent on the DisneyPlus-ADK package"
     depends on !BR2_PACKAGE_DISNEY
