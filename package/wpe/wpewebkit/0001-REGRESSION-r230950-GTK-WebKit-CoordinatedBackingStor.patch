@@ -1,0 +1,61 @@
+From 92e1f16a2fa5851dd5be7478d317d55870fbd749 Mon Sep 17 00:00:00 2001
+From: "mcatanzaro@igalia.com"
+ <mcatanzaro@igalia.com@268f45cc-cd09-0410-ab3c-d52691b4dbfc>
+Date: Fri, 22 Jun 2018 15:43:45 +0000
+Subject: [PATCH] REGRESSION(r230950): [GTK]
+ WebKit::CoordinatedBackingStoreTile::setBackBuffer(): WebKitWebProcess killed
+ by SIGSEGV (ASSERTION FAILED: it != m_tiles.end())
+ https://bugs.webkit.org/show_bug.cgi?id=186206
+
+Source/WebCore:
+
+Unreviewed manual rollout of r230950
+
+* platform/graphics/texmap/TextureMapperLayer.h:
+* platform/graphics/texmap/coordinated/CoordinatedGraphicsLayer.cpp:
+(WebCore::CoordinatedGraphicsLayer::shouldHaveBackingStore const):
+
+Source/WebKit:
+
+Unreviewed manual rollout of r230950
+
+* Shared/CoordinatedGraphics/CoordinatedGraphicsScene.cpp:
+(WebKit::layerShouldHaveBackingStore):
+
+git-svn-id: http://svn.webkit.org/repository/webkit/trunk@233080 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+---
+ .../graphics/texmap/coordinated/CoordinatedGraphicsLayer.cpp   | 3 +--
+ .../Shared/CoordinatedGraphics/CoordinatedGraphicsScene.cpp    | 3 +--
+ 2 files changed, 2 insertions(+), 4 deletions(-)
+
+diff --git a/Source/WebCore/platform/graphics/texmap/coordinated/CoordinatedGraphicsLayer.cpp b/Source/WebCore/platform/graphics/texmap/coordinated/CoordinatedGraphicsLayer.cpp
+index e531eb8fedb..b358394ba06 100644
+--- a/Source/WebCore/platform/graphics/texmap/coordinated/CoordinatedGraphicsLayer.cpp
++++ b/Source/WebCore/platform/graphics/texmap/coordinated/CoordinatedGraphicsLayer.cpp
+@@ -1260,8 +1260,7 @@ void CoordinatedGraphicsLayer::computeTransformedVisibleRect()
+ 
+ bool CoordinatedGraphicsLayer::shouldHaveBackingStore() const
+ {
+-    return drawsContent() && contentsAreVisible() && !m_size.isEmpty()
+-        && (!!opacity() || m_animations.hasActiveAnimationsOfType(AnimatedPropertyOpacity));
++    return drawsContent() && contentsAreVisible() && !m_size.isEmpty();
+ }
+ 
+ bool CoordinatedGraphicsLayer::selfOrAncestorHasActiveTransformAnimation() const
+diff --git a/Source/WebKit/Shared/CoordinatedGraphics/CoordinatedGraphicsScene.cpp b/Source/WebKit/Shared/CoordinatedGraphics/CoordinatedGraphicsScene.cpp
+index 1693fa42d66..b870db9c8b5 100644
+--- a/Source/WebKit/Shared/CoordinatedGraphics/CoordinatedGraphicsScene.cpp
++++ b/Source/WebKit/Shared/CoordinatedGraphics/CoordinatedGraphicsScene.cpp
+@@ -37,8 +37,7 @@ using namespace WebCore;
+ 
+ static bool layerShouldHaveBackingStore(TextureMapperLayer* layer)
+ {
+-    return layer->drawsContent() && layer->contentsAreVisible() && !layer->size().isEmpty()
+-        && (!!layer->opacity() || layer->animations().hasActiveAnimationsOfType(AnimatedPropertyOpacity));
++    return layer->drawsContent() && layer->contentsAreVisible() && !layer->size().isEmpty();
+ }
+ 
+ CoordinatedGraphicsScene::CoordinatedGraphicsScene(CoordinatedGraphicsSceneClient* client)
+-- 
+2.25.1
+
