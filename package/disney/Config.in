@@ -117,6 +117,14 @@ menu "Test tools"
         Install certificates to connect to the disney platform
     comment "Installing certificates depends on disney-uma"
         depends on !BR2_PACKAGE_DISNEY_UMA
+
+    config BR2_PACKAGE_DISNEY_MORGANA_SHARED_LIB
+    bool "Morgana sharedlib"
+    default n
+    help
+        Build morgana as .so instead of normal executable
+    comment "SHIELD Agent depens on disney-tooling"
+        depends on !BR2_PACKAGE_DISNEY_TOOLING
 endmenu
 
 

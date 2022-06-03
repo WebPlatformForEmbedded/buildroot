@@ -4,7 +4,7 @@
 #
 ################################################################################
 
-DISNEY_TOOLING_VERSION = 014bc64b420dec4cc6d4b04eadb7f977e97f24ab
+DISNEY_TOOLING_VERSION = 863d2d4dfa5abfd66a14c9111b3c092b885e386b
 DISNEY_TOOLING_SITE = git@github.com:Metrological/disneyplus-tooling.git
 DISNEY_TOOLING_SITE_METHOD = git
 DISNEY_TOOLING_LICENSE = PROPRIETARY
@@ -48,6 +48,14 @@ endif
 
 ifeq ($(BR2_PACKAGE_DISNEY_NATIVE_VIDEO),y)
 _DISNEY_TOOLING_CONFIGURE_FLAGS += --wpe-native-video
+endif
+
+_DISNEY_MORGANA_LIBRARY_NAME = libmorgana.so
+ifeq ($(BR2_PACKAGE_DISNEY_MORGANA_SHARED_LIB),y)
+    _DISNEY_TOOLING_CONFIGURE_FLAGS += --morgana-library
+    ifeq ($(_DISNEY_BUILD_TYPE),"ship")
+    _DISNEY_MORGANA_LIBRARY_NAME = libmorgana-sym.so
+    endif
 endif
 
 TARGET_LDFLAGS := ${TARGET_LDFLAGS}-Wl,--no-as-needed
@@ -98,23 +106,30 @@ ifeq ($(BR2_PACKAGE_DISNEY_TOOLING_SHIELD_EXTENSION),y)
 define _DISNEY_TOOLING_INSTALL_SHIELD_EXTENSION
     @echo "Installing Extensions"
     rsync -a "$(_DISNEY_BUILD_DIR)/build/bin/$(_DISNEY_TARGET_PLATFORM)/$(_DISNEY_BUILD_TYPE)/extensions" "$(TARGET_DIR)$(_DISNEY_DATA_DIR)/shield_runtime/"
+endef
+ifeq ($(BR2_PACKAGE_DISNEY_MORGANA_SHARED_LIB),y)
+define _DISNEY_TOOLING_INSTALL_MORGANA
+    @echo "Installing morgana library"
+    $(INSTALL) -D -m 0755 "$(_DISNEY_BUILD_DIR)/build/bin/$(_DISNEY_TARGET_PLATFORM)/$(_DISNEY_BUILD_TYPE)/$(_DISNEY_MORGANA_LIBRARY_NAME)" "$(TARGET_DIR)/usr/lib/"
+endef
+else
+define _DISNEY_TOOLING_INSTALL_MORGANA
     @echo "Installing morgana executable"
-    $(INSTALL) -D -m 0755 "$(_DISNEY_BUILD_DIR)/build/bin/$(_DISNEY_TARGET_PLATFORM)/$(_DISNEY_BUILD_TYPE)/morgana" "$(TARGET_DIR)/usr/bin/morgana"
+    $(INSTALL) -D -m 0755 "$(_DISNEY_BUILD_DIR)/build/bin/$(_DISNEY_TARGET_PLATFORM)/$(_DISNEY_BUILD_TYPE)/morgana" "$(TARGET_DIR)/usr/bin/"
 endef
 endif
-
-define _DISNEY_TOOLING_INSTALL
-    @echo "Installing shield_runtime"
-    rsync -a "$(_DISNEY_BUILD_DIR)/shield_runtime" "$(TARGET_DIR)$(_DISNEY_DATA_DIR)"
-    if [ -d "$(_DISNEY_BUILD_DIR)/build/shield_runtime/shield_agent_data/assets/dy_lib_tests" ]; then \
-        rsync -a "$(_DISNEY_BUILD_DIR)/build/shield_runtime/shield_agent_data/assets/dy_lib_tests" "$(TARGET_DIR)$(_DISNEY_DATA_DIR)/shield_runtime/shield_agent_data/assets"; \
-    fi
-    $(call _DISNEY_TOOLING_INSTALL_SHIELD_AGENT)
-    $(call _DISNEY_TOOLING_INSTALL_SHIELD_EXTENSION)
-endef
+endif
 
 define DISNEY_TOOLING_INSTALL_TARGET_CMDS
-    $(call _DISNEY_TOOLING_INSTALL)
+    @echo "Installing shield_runtime"
+    rsync -a "$(_DISNEY_BUILD_DIR)/shield_runtime" "$(TARGET_DIR)$(_DISNEY_DATA_DIR)"
+    $(call _DISNEY_TOOLING_INSTALL_SHIELD_AGENT)
+    $(call _DISNEY_TOOLING_INSTALL_SHIELD_EXTENSION)
+    $(call _DISNEY_TOOLING_INSTALL_MORGANA)
+endef
+
+define DISNEY_TOOLING_INSTALL_STAGING_CMDS
+    $(call _DISNEY_TOOLING_INSTALL_MORGANA)
 endef
 
 
