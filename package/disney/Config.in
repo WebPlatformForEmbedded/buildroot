@@ -50,19 +50,19 @@ endchoice
 
 config BR2_PACKAGE_DISNEY_NON_DEBUG_TRACES
     bool "Enable traces on all builds"
-    default y
+    default n
     help
         Enable debug logs on release/ship builds
 
 config BR2_PACKAGE_DISNEY_NATIVE_AUDIO
     bool "Native audio"
-    default y
+    default n
     help
         Enforce using native audio formats only
 
 config BR2_PACKAGE_DISNEY_NATIVE_VIDEO
     bool "Native video"
-    default y
+    default n
     help
         Enforce using native video formats only
 
