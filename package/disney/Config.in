@@ -39,6 +39,33 @@ config BR2_PACKAGE_DISNEY_VERBOSE
     bool "Verbose output"
     default n
 
+choice
+    bool "WPE version"
+    default BR2_PACKAGE_DISNEY_WPE_R3
+config BR2_PACKAGE_DISNEY_WPE_R3
+    bool "R3"
+config BR2_PACKAGE_DISNEY_WPE_R2
+    bool "R2"
+endchoice
+
+config BR2_PACKAGE_DISNEY_NON_DEBUG_TRACES
+    bool "Enable traces on all builds"
+    default y
+    help
+        Enable debug logs on release/ship builds
+
+config BR2_PACKAGE_DISNEY_NATIVE_AUDIO
+    bool "Native audio"
+    default y
+    help
+        Enforce using native audio formats only
+
+config BR2_PACKAGE_DISNEY_NATIVE_VIDEO
+    bool "Native video"
+    default y
+    help
+        Enforce using native video formats only
+
 config BR2_PACKAGE_DISNEY_LINK_LIBRARY
     bool "Build M5 library"
     default y

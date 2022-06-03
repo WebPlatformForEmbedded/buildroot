@@ -13,7 +13,6 @@ DISNEY_DEPENDENCIES = libgles libegl
 
 _DISNEY_TARGET_NAME = undefined
 _DISNEY_PLATFORM_TYPE = undefined
-_DISNEY_PLAYER = null
 DISNEY_LIBOPENSSL_SO_VERSION =
 
 ifeq ($(BR2_PACKAGE_DISNEY_TARGET_WPE),y)
@@ -22,10 +21,35 @@ _DISNEY_PLATFORM_TYPE = stb_mtk
 DISNEY_DEPENDENCIES += wpeframework-clientlibraries gstreamer1 gst1-plugins-base gst1-plugins-good
 endif
 
+_DISNEY_CONFIGURE_FLAGS = --target=$(_DISNEY_TARGET_NAME)
+
 ifeq ($(BR2_PACKAGE_DISNEY_PLAYER_UMA),y)
-_DISNEY_PLAYER = nve-shared
-_DISNEY_CURL_HTTP = --curl-http2
+_DISNEY_CONFIGURE_FLAGS += --player=nve-shared --curl-http2
 DISNEY_DEPENDENCIES += disney-uma
+endif
+
+ifeq ($(BR2_PACKAGE_DISNEY_VERBOSE),y)
+_DISNEY_CONFIGURE_FLAGS += --verbose
+_DISNEY_VERBOSE = verbose=1
+endif
+
+ifeq ($(BR2_PACKAGE_DISNEY_WPE_R3),y)
+_DISNEY_CONFIGURE_FLAGS += --wpe-version=R3
+endif
+ifeq ($(BR2_PACKAGE_DISNEY_WPE_R2),y)
+_DISNEY_CONFIGURE_FLAGS += --wpe-version=R2
+endif
+
+ifeq ($(BR2_PACKAGE_DISNEY_NON_DEBUG_TRACES),y)
+_DISNEY_CONFIGURE_FLAGS += --wpe-debug
+endif
+
+ifeq ($(BR2_PACKAGE_DISNEY_NATIVE_AUDIO),y)
+_DISNEY_CONFIGURE_FLAGS += --wpe-native-audio
+endif
+
+ifeq ($(BR2_PACKAGE_DISNEY_NATIVE_VIDEO),y)
+_DISNEY_CONFIGURE_FLAGS += --wpe-native-video
 endif
 
 ifeq ($(BR2_PACKAGE_DISNEY_LIBOPENSSL),y)
@@ -42,9 +66,6 @@ else ifeq ($(BR2_PACKAGE_DISNEY_BUILD_PRODUCTION),y)
 _DISNEY_BUILD_TYPE = ship
 endif
 
-ifeq ($(BR2_PACKAGE_DISNEY_VERBOSE),y)
-_DISNEY_VERBOSE = verbose=1
-endif
 
 ifeq ($(findstring 64,$(KERNEL_ARCH)),64)
 _DISNEY_TARGET_ARCH = $(KERNEL_ARCH)_64
@@ -91,11 +112,13 @@ define _DISNEY_INSTALL_RESOURCES
 endef
 endif
 
+TARGET_LDFLAGS := ${TARGET_LDFLAGS}-Wl,--no-as-needed
+
 define DISNEY_CONFIGURE_CMDS
        cd $(@D) && CC="$(TARGET_CC)" CXX="$(TARGET_CXX)" GCC_PREFIX="$(TARGET_CROSS)" PLATFORM="$(_DISNEY_TARGET_PLATFORM)" \
           ARCH="$(KERNEL_ARCH)" SSL_VERSION="$(DISNEY_LIBOPENSSL_SO_VERSION)" SYSINCLUDEDIR="$(STAGING_DIR)/usr/include" \
-              SYSLIBDIR="$(STAGING_DIR)/usr/lib" \
-                 ./premake5 --verbose --target=$(_DISNEY_TARGET_NAME) --player=$(_DISNEY_PLAYER) $(_DISNEY_CURL_HTTP) gmake2
+              SYSLIBDIR="$(STAGING_DIR)/usr/lib" LDFLAGS="${TARGET_LDFLAGS}"\
+                 ./premake5 ${_DISNEY_CONFIGURE_FLAGS} gmake2
 endef
 
 define DISNEY_BUILD_CMDS
