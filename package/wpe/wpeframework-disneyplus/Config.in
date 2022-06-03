@@ -309,10 +309,21 @@ config BR2_PACKAGE_WPEFRAMEWORK_PLUGIN_DISNEYPLUS_CUSTOM_ARGS
     default ""
 
 config BR2_PACKAGE_WPEFRAMEWORK_PLUGIN_DISNEYPLUS_PERSISTENT_DIR
+    depends on BR2_PACKAGE_WPEFRAMEWORK_DISNEYPLUS
     string "override persistent directory path"
     default ""
     help
         Leave empty to take from framework
+
+config BR2_PACKAGE_WPEFRAMEWORK_PLUGIN_DISNEYPLUS_MORGANA_PLUGIN
+    depends on BR2_PACKAGE_WPEFRAMEWORK_DISNEYPLUS
+    depends on BR2_PACKAGE_DISNEY_MORGANA_SHARED_LIB
+    bool "Morgana plugin"
+    default n
+    help
+        Build morgana as a plugin (generate configuration and link with libmorgana.so)
+    comment "Morgana plugin requires libmorgana.so"
+        depends on !BR2_PACKAGE_DISNEY_MORGANA_SHARED_LIB
 
 endif
 comment "DisneyPlus is dependent on the DisneyPlus-ADK package"
