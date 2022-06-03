@@ -64,6 +64,8 @@ config BR2_PACKAGE_WPEFRAMEWORK_PLUGIN_DISNEYPLUS_VIDEO_MEMORY
     int "video memory"
     range 0 360
     default 256
+    help
+        Override max video memory (left as 0 to get from displayinfo)
 
 config BR2_PACKAGE_WPEFRAMEWORK_PLUGIN_DISNEYPLUS_PERSONA_ID
     depends on BR2_PACKAGE_WPEFRAMEWORK_DISNEYPLUS
@@ -273,6 +275,44 @@ menu "Launch point mappings"
 
 
 endmenu
+
+config BR2_PACKAGE_WPEFRAMEWORK_PLUGIN_DISNEYPLUS_SOFTWARE_NAME
+    depends on BR2_PACKAGE_WPEFRAMEWORK_DISNEYPLUS
+    string "software name"
+    default ""
+
+config BR2_PACKAGE_WPEFRAMEWORK_PLUGIN_DISNEYPLUS_SOFTWARE_REVISION
+    depends on BR2_PACKAGE_WPEFRAMEWORK_DISNEYPLUS
+    string "software revision"
+    default ""
+
+config BR2_PACKAGE_WPEFRAMEWORK_PLUGIN_DISNEYPLUS_FIRMWARE_VERSION
+    depends on BR2_PACKAGE_WPEFRAMEWORK_DISNEYPLUS
+    string "firmware version"
+    default ""
+    help
+        Must be in format x.y.z eg. 1.2.3
+
+config BR2_PACKAGE_WPEFRAMEWORK_PLUGIN_DISNEYPLUS_AUDIO_BUFFER
+    depends on BR2_PACKAGE_WPEFRAMEWORK_DISNEYPLUS
+    int "audio buffer"
+    default 1048576
+
+config BR2_PACKAGE_WPEFRAMEWORK_PLUGIN_DISNEYPLUS_VIDEO_BUFFER
+    depends on BR2_PACKAGE_WPEFRAMEWORK_DISNEYPLUS
+    int "video buffer"
+    default 8388608
+
+config BR2_PACKAGE_WPEFRAMEWORK_PLUGIN_DISNEYPLUS_CUSTOM_ARGS
+    depends on BR2_PACKAGE_WPEFRAMEWORK_DISNEYPLUS
+    string "custom arguments passed to ADK"
+    default ""
+
+config BR2_PACKAGE_WPEFRAMEWORK_PLUGIN_DISNEYPLUS_PERSISTENT_DIR
+    string "override persistent directory path"
+    default ""
+    help
+        Leave empty to take from framework
 
 endif
 comment "DisneyPlus is dependent on the DisneyPlus-ADK package"
