@@ -78,67 +78,73 @@ _DISNEY_BUILD_CONFIG = $(_DISNEY_BUILD_TYPE)_$(_DISNEY_TARGET_PLATFORM)
 
 ifeq ($(BR2_PACKAGE_DISNEY_LINK_EXECUTABLE),y)
 define _DISNEY_INSTALL_MERLIN
-       $(INSTALL) -D -m 0755 "$(@D)/build/bin/$(_DISNEY_TARGET_PLATFORM)/$(_DISNEY_BUILD_TYPE)/merlin" "$(TARGET_DIR)/usr/bin/merlin"
+    $(INSTALL) -D -m 0755 "$(@D)/build/bin/$(_DISNEY_TARGET_PLATFORM)/$(_DISNEY_BUILD_TYPE)/merlin" "$(TARGET_DIR)/usr/bin/merlin"
 endef
 endif
 
 ifeq ($(BR2_PACKAGE_DISNEY_LINK_LIBRARY),y)
 define _DISNEY_INSTALL_M5
-       @echo "Installing M5 library"
-       $(INSTALL) -D -m 0755 "$(@D)/build/bin/$(_DISNEY_TARGET_PLATFORM)/$(_DISNEY_BUILD_TYPE)/libm5.so" $(1)/usr/lib/libm5.so
+    @echo "Installing M5 library"
+    $(INSTALL) -D -m 0755 "$(@D)/build/bin/$(_DISNEY_TARGET_PLATFORM)/$(_DISNEY_BUILD_TYPE)/libm5.so" $(1)/usr/lib/libm5.so
 endef
 endif
 
 ifeq ($(BR2_PACKAGE_DISNEY_LINK_TESTS),y)
 define _DISNEY_INSTALL_TESTS
-       @echo "Installing unit tests resources..."
-       $(INSTALL) -D -m 0755 $(@D)/build/bin/$(_DISNEY_TARGET_PLATFORM)/$(_DISNEY_BUILD_TYPE)/tests $(TARGET_DIR)/usr/bin/merlin-tests
-       mkdir -p -p "$(TARGET_DIR)$(_DISNEY_DATA_DIR)"
-       rsync -a "$(@D)/bin" "$(TARGET_DIR)$(_DISNEY_DATA_DIR)"
-       rsync -a "$(@D)/tests" "$(TARGET_DIR)$(_DISNEY_DATA_DIR)"
-       rsync -a "$(@D)/target" "$(TARGET_DIR)$(_DISNEY_DATA_DIR)"
-       rsync -a "$(@D)/source/adk/manifest/examples" "$(TARGET_DIR)$(_DISNEY_DATA_DIR)"
-       touch $(TARGET_DIR)$(_DISNEY_DATA_DIR)/.gitignore
+    @echo "Installing unit tests resources..."
+    $(INSTALL) -D -m 0755 $(@D)/build/bin/$(_DISNEY_TARGET_PLATFORM)/$(_DISNEY_BUILD_TYPE)/tests $(TARGET_DIR)/usr/bin/merlin-tests
+    mkdir -p -p "$(TARGET_DIR)$(_DISNEY_DATA_DIR)"
+    rsync -a "$(@D)/bin" "$(TARGET_DIR)$(_DISNEY_DATA_DIR)"
+    rsync -a "$(@D)/tests" "$(TARGET_DIR)$(_DISNEY_DATA_DIR)"
+    rsync -a "$(@D)/target" "$(TARGET_DIR)$(_DISNEY_DATA_DIR)"
+    rsync -a "$(@D)/source/adk/manifest/examples" "$(TARGET_DIR)$(_DISNEY_DATA_DIR)"
+    touch $(TARGET_DIR)$(_DISNEY_DATA_DIR)/.gitignore
 endef
 endif
 
 _DISNEY_DATA_DIR = /usr/share/WPEFramework/DisneyPlus
 
 define _DISNEY_INSTALL_RESOURCES
-       @echo "Installing resources..."
-       mkdir -p "$(TARGET_DIR)$(_DISNEY_DATA_DIR)"
-       rsync -a "$(@D)/certs" "$(TARGET_DIR)$(_DISNEY_DATA_DIR)"
-       rsync -a "$(@D)/assets" "$(TARGET_DIR)$(_DISNEY_DATA_DIR)"
-       rsync -a "$(@D)/resource" "$(TARGET_DIR)$(_DISNEY_DATA_DIR)"
+    @echo "Installing resources..."
+    mkdir -p "$(TARGET_DIR)$(_DISNEY_DATA_DIR)"
+    rsync -a "$(@D)/certs" "$(TARGET_DIR)$(_DISNEY_DATA_DIR)"
+    rsync -a "$(@D)/assets" "$(TARGET_DIR)$(_DISNEY_DATA_DIR)"
+    rsync -a "$(@D)/resource" "$(TARGET_DIR)$(_DISNEY_DATA_DIR)"
 endef
 
-TARGET_LDFLAGS := ${TARGET_LDFLAGS}-Wl,--no-as-needed
+DISNEY_LDFLAGS := ${TARGET_LDFLAGS}-Wl,--no-as-needed
 
 define DISNEY_CONFIGURE_CMDS
-       cd $(@D) && CC="$(TARGET_CC)" CXX="$(TARGET_CXX)" GCC_PREFIX="$(TARGET_CROSS)" PLATFORM="$(_DISNEY_TARGET_PLATFORM)" \
-          ARCH="$(KERNEL_ARCH)" SSL_VERSION="$(DISNEY_LIBOPENSSL_SO_VERSION)" SYSINCLUDEDIR="$(STAGING_DIR)/usr/include" \
-              SYSLIBDIR="$(STAGING_DIR)/usr/lib" LDFLAGS="$(TARGET_LDFLAGS)"\
-                 ./premake5 ${_DISNEY_CONFIGURE_FLAGS} gmake2
+    cd $(@D) && \
+        CC="$(TARGET_CC)" \
+        CXX="$(TARGET_CXX)" \
+        GCC_PREFIX="$(TARGET_CROSS)" \
+        PLATFORM="$(_DISNEY_TARGET_PLATFORM)" \
+        ARCH="$(KERNEL_ARCH)" \
+        SSL_VERSION="$(DISNEY_LIBOPENSSL_SO_VERSION)" \
+        SYSINCLUDEDIR="$(STAGING_DIR)/usr/include" \
+        SYSLIBDIR="$(STAGING_DIR)/usr/lib" LDFLAGS="$(DISNEY_LDFLAGS)" \
+        ./premake5 ${_DISNEY_CONFIGURE_FLAGS} gmake2
 endef
 
 define DISNEY_BUILD_CMDS
-       @echo ----------------------------------------------------------------------------
-       @echo Building Disney ADK target $(_DISNEY_BUILD_TYPE)_$(_DISNEY_TARGET_PLATFORM)
-       @echo ----------------------------------------------------------------------------
-       cd $(@D)/build && make config=$(_DISNEY_BUILD_CONFIG) $(_DISNEY_VERBOSE)
+    @echo ----------------------------------------------------------------------------
+    @echo Building Disney ADK target $(_DISNEY_BUILD_TYPE)_$(_DISNEY_TARGET_PLATFORM)
+    @echo ----------------------------------------------------------------------------
+    cd $(@D)/build && make config=$(_DISNEY_BUILD_CONFIG) $(_DISNEY_VERBOSE)
 endef
 
 define DISNEY_INSTALL_STAGING_CMDS
-       @echo "Installing binaries..."
-       $(call _DISNEY_INSTALL_M5, $(STAGING_DIR))
+    @echo "Installing binaries..."
+    $(call _DISNEY_INSTALL_M5, $(STAGING_DIR))
 endef
 
 define DISNEY_INSTALL_TARGET_CMDS
-       @echo "Installing binaries..."
-       $(call _DISNEY_INSTALL_MERLIN)
-       $(call _DISNEY_INSTALL_M5, $(TARGET_DIR))
-       $(call _DISNEY_INSTALL_TESTS)
-       $(call _DISNEY_INSTALL_RESOURCES)
+    @echo "Installing binaries..."
+    $(call _DISNEY_INSTALL_MERLIN)
+    $(call _DISNEY_INSTALL_M5, $(TARGET_DIR))
+    $(call _DISNEY_INSTALL_TESTS)
+    $(call _DISNEY_INSTALL_RESOURCES)
 endef
 
 $(eval $(generic-package))
