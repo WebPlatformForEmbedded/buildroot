@@ -100,6 +100,7 @@ define _DISNEY_INSTALL_TESTS
        rsync -a $(@D)/source/adk/manifest/examples $(TARGET_DIR)$(_DISNEY_DATA_DIR)
        touch $(TARGET_DIR)$(_DISNEY_DATA_DIR)/.gitignore
 endef
+endif
 
 _DISNEY_DATA_DIR = /usr/share/WPEFramework/DisneyPlus
 
@@ -110,7 +111,6 @@ define _DISNEY_INSTALL_RESOURCES
        rsync -a $(@D)/assets $(TARGET_DIR)$(_DISNEY_DATA_DIR)
        rsync -a $(@D)/resource $(TARGET_DIR)$(_DISNEY_DATA_DIR)
 endef
-endif
 
 TARGET_LDFLAGS := ${TARGET_LDFLAGS}-Wl,--no-as-needed
 
