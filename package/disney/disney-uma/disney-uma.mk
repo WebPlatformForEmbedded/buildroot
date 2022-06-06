@@ -18,7 +18,7 @@ _DISNEY_UMA_PLATFORM = *45*
 # It is needed for installing certificates in the correct place
 _DISNEY_DATA_DIR = /usr/share/WPEFramework/DisneyPlus
 
-define _DISNEY_UMA_INSTALL
+define _DISNEY_UMA_INSTALL_PLAYER
        @echo "Installing player library"
        rsync -a $(@D)/partner/prebuilt-libs/$(_DISNEY_UMA_PLATFORM)/stripped/ship/*.so $(1)/usr/lib/
 endef
@@ -31,13 +31,19 @@ define _DISNEY_UMA_INSTALL_CERTIFICATES
 endef
 endif
 
+define _DISNEY_UMA_INSTALL_PERSONAS
+       @echo "Installing personas"
+       rsync -a $(@D)/partner/resource/ $(TARGET_DIR)/${_DISNEY_DATA_DIR}/resource
+endef
+
 define DISNEY_UMA_INSTALL_STAGING_CMDS
-       $(call _DISNEY_UMA_INSTALL, $(STAGING_DIR))
+       $(call _DISNEY_UMA_INSTALL_PLAYER, $(STAGING_DIR))
 endef
 
 define DISNEY_UMA_INSTALL_TARGET_CMDS
-       $(call _DISNEY_UMA_INSTALL, $(TARGET_DIR))
+       $(call _DISNEY_UMA_INSTALL_PLAYER, $(TARGET_DIR))
        $(call _DISNEY_UMA_INSTALL_CERTIFICATES)
+       $(call _DISNEY_UMA_INSTALL_PERSONAS)
 endef
 
 $(eval $(generic-package))
