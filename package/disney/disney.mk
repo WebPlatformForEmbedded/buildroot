@@ -4,7 +4,7 @@
 #
 ################################################################################
 
-DISNEY_VERSION = 61beecfba038a83092ad81c20edd852383e22f7f
+DISNEY_VERSION = f158d438887afd57b06cd6844b53c08437c34407
 DISNEY_SITE = git@github.com:Metrological/disneyplus-adk.git
 DISNEY_SITE_METHOD = git
 DISNEY_LICENSE = PROPRIETARY
