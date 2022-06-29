@@ -72,6 +72,9 @@ case "$1" in
 		ln -s $SOURCE/root/OCDM $DESTINATION/root/OCDM
 		ln -s /usr/bin/sage/sage_ta_widevine.bin $SOURCE/sage_ta_widevine.bin
 		ln -s /usr/bin/sage/sage_ta_netflix.bin $SOURCE/sage_ta_netflix.bin
+
+		mkdir -p "$DESTINATION/lib/wpe-webkit-0.1"
+		ln -sf "$SOURCE/usr/lib/libWPEWebInspectorResources.so" "$DESTINATION/lib/wpe-webkit-0.1/libWPEWebInspectorResources.so"
 	fi
 
 	export DRMSTORE=/tmp/drmstore
