@@ -33,13 +33,6 @@ _DISNEY_CONFIGURE_FLAGS += --verbose
 _DISNEY_VERBOSE = verbose=1
 endif
 
-ifeq ($(BR2_PACKAGE_DISNEY_WPE_R3),y)
-_DISNEY_CONFIGURE_FLAGS += --wpe-version=R3
-endif
-ifeq ($(BR2_PACKAGE_DISNEY_WPE_R2),y)
-_DISNEY_CONFIGURE_FLAGS += --wpe-version=R2
-endif
-
 ifeq ($(BR2_PACKAGE_DISNEY_NON_DEBUG_TRACES),y)
 _DISNEY_CONFIGURE_FLAGS += --wpe-debug
 endif
