@@ -40,12 +40,16 @@ config BR2_PACKAGE_DISNEY_VERBOSE
     default n
 
 choice
-    bool "WPE version"
-    default BR2_PACKAGE_DISNEY_WPE_R3
+    bool "[DEPERCATED] WPE version"
+    default BR2_PACKAGE_DISNEY_WPE_NONE
+config BR2_PACKAGE_DISNEY_WPE_NONE
+    bool "NONE"
 config BR2_PACKAGE_DISNEY_WPE_R3
     bool "R3"
 config BR2_PACKAGE_DISNEY_WPE_R2
     bool "R2"
+help
+    Deprecated, wpe version should be taken from the define inside required library or framework.
 endchoice
 
 config BR2_PACKAGE_DISNEY_NON_DEBUG_TRACES
