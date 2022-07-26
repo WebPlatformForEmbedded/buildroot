@@ -1,0 +1,39 @@
+From b74435ee967c59c9aab3ac4d39608db2d49455ba Mon Sep 17 00:00:00 2001
+From: Lukasz Iwan <l.iwan@metrological.com>
+Date: Tue, 26 Jul 2022 12:26:49 +0200
+Subject: [PATCH] Allow setting webinspector config values
+
+This setting is ported from a newer version of the plugin.
+---
+ WebKitBrowser/CMakeLists.txt       | 1 +
+ WebKitBrowser/WebKitBrowser.config | 2 +-
+ 2 files changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/WebKitBrowser/CMakeLists.txt b/WebKitBrowser/CMakeLists.txt
+index 40133c23..5ef70908 100644
+--- a/WebKitBrowser/CMakeLists.txt
++++ b/WebKitBrowser/CMakeLists.txt
+@@ -36,6 +36,7 @@ set(PLUGIN_WEBKITBROWSER_MEDIADISKCACHE false CACHE STRING "Media Disk Cache")
+ set(PLUGIN_WEBKITBROWSER_MSEBUFFERS "audio:2m,video:15m,text:1m" CACHE STRING "MSE Buffers for WebKit")
+ set(PLUGIN_WEBKITBROWSER_DISKCACHE "0" CACHE STRING "Disk Cache")
+ set(PLUGIN_WEBKITBROWSER_XHRCACHE true CACHE STRING "XHR Cache")
++set(PLUGIN_WEBKITBROWSER_WEBINSPECTOR_ADDRESS "0.0.0.0:9224" CACHE STRING "IP:Port for WebInspector of WebKitBrowser")
+ set(PLUGIN_WEBKITBROWSER_LOCALSTORAGE "" CACHE STRING "HTML5 local storage path")
+ set(PLUGIN_WEBKITBROWSER_COOKIESTORAGE "" CACHE STRING "Browser cookie storage path")
+ set(PLUGIN_WEBKITBROWSER_WINDOWCLOSE false CACHE STRING "Allow window close")
+diff --git a/WebKitBrowser/WebKitBrowser.config b/WebKitBrowser/WebKitBrowser.config
+index 49fe9b55..1cc3e043 100644
+--- a/WebKitBrowser/WebKitBrowser.config
++++ b/WebKitBrowser/WebKitBrowser.config
+@@ -23,7 +23,7 @@ map()
+     kv(useragent ${PLUGIN_WEBKITBROWSER_USERAGENT})
+     kv(transparent ${PLUGIN_WEBKITBROWSER_TRANSPARENT})
+     kv(compositor "noaa")
+-    kv(inspector "0.0.0.0:9998")
++    kv(inspector ${PLUGIN_WEBKITBROWSER_WEBINSPECTOR_ADDRESS})
+     kv(fps true)
+     kv(cursor false)
+     kv(touch false)
+-- 
+2.35.1
+
