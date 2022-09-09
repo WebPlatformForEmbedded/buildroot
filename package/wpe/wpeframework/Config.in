@@ -125,7 +125,7 @@ config BR2_PACKAGE_WPEFRAMEWORK_UMASK
 
 config BR2_PACKAGE_WPEFRAMEWORK_GROUP
     string "group"
-    default ""
+    default "thunder"
     help
       Set a system group that need to the used by Thunder
 
