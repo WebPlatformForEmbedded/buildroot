@@ -247,7 +247,5 @@ endif
 define WPEFRAMEWORK_USERS
 	$(WPEFRAMEWORK_USER_STRING)
 endef
-define WPEFRAMEWORK_PERMISSIONS
-	$(subst ",,$(BR2_PACKAGE_WPEFRAMEWORK_PERSISTENT_PATH)") r 0760 root $(subst ",,$(BR2_PACKAGE_WPEFRAMEWORK_GENERAL_GROUP)") - - - - -
-endef
+
 $(eval $(cmake-package))
