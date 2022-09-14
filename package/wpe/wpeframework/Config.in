@@ -177,11 +177,11 @@ config BR2_PACKAGE_WPEFRAMEWORK_PLATFORM_VIDEO_DEVICE_GROUP
         This should be set to the group needed to access the video devices on the platform.
 
 
-config BR2_PACKAGE_WPEFRAMEWORK_PLATFORM_AUDIO_DEVICE_GROUP
-    string "audio"
-    default audio
-    help
-        This should be set to the group needed to access the audio devices on the platform.
+# config BR2_PACKAGE_WPEFRAMEWORK_PLATFORM_AUDIO_DEVICE_GROUP
+#     string "audio"
+#     default audio
+#     help
+#         This should be set to the group needed to access the audio devices on the platform.
 
 
 # config BR2_PACKAGE_WPEFRAMEWORK_PLATFORM_INPUT_DEVICE_GROUP
