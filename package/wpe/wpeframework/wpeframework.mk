@@ -32,6 +32,10 @@ WPEFRAMEWORK_CONF_OPTS += -DETHERNETCARD_NAME=$(BR2_PACKAGE_WPEFRAMEWORK_ETHERNE
 
 ifneq ($(BR2_PACKAGE_WPEFRAMEWORK_GROUP),"")
 WPEFRAMEWORK_USER_STRING=- - $(subst ",,$(BR2_PACKAGE_WPEFRAMEWORK_GROUP)") -1 * - - - general $(subst ",,$(BR2_PACKAGE_WPEFRAMEWORK_GROUP)") group
+ifeq ($(BR2_PACKAGE_RPI_USERLAND),y)
+VIDEO_PLATFORM_SUBSYSTEM="vchiq"
+endif
+WPEFRAMEWORK_POST_INSTALL_TARGET_HOOKS += WPEFRAMEWORK_INSTALL_UDEV_RULES
 endif
 
 ifeq ($(BR2_CMAKE_HOST_DEPENDENCY),)
@@ -210,6 +214,12 @@ define WPEFRAMEWORK_POST_TARGET_INITD
 	mv $(TARGET_DIR)/etc/init.d/wpeframework $(TARGET_DIR)/etc/init.d/S40WPEFramework
 endef
 endif
+
+define WPEFRAMEWORK_INSTALL_UDEV_RULES
+	$(INSTALL) -D -m 0644 package/wpe/wpeframework/20-video-device-udev.rules.in \
+                $(TARGET_DIR)/lib/udev/rules.d/20-video-device-udev.rules
+	$(SED) "s/@SUBSYSTEM@/${VIDEO_PLATFORM_SUBSYSTEM}/" $(TARGET_DIR)/lib/udev/rules.d/20-video-device-udev.rules
+endef
 
 define WPEFRAMEWORK_POST_TARGET_REMOVE_STAGING_ARTIFACTS
 	mkdir -p $(TARGET_DIR)/etc/WPEFramework
