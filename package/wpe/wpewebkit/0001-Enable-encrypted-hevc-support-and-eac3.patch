@@ -1,0 +1,66 @@
+From 5d9ac29649f061b032c9431a4dfa85a738bfe8e8 Mon Sep 17 00:00:00 2001
+From: Lukasz Iwan <l.iwan@metrological.com>
+Date: Mon, 25 Jul 2022 13:55:35 +0200
+Subject: [PATCH] Enable encrypted hevc support and eac3
+
+Part of this patch is derived from
+https://github.com/WebPlatformForEmbedded/WPEWebKit/pull/909/files where a
+support for encrypted content was added. Another part is coming from a request
+to enable support for eac3 and add additional mapping. Since some lines overlap
+those changes are kept in the same patch.
+---
+ .../gstreamer/eme/WebKitOpenCDMDecryptorGStreamer.cpp       | 5 ++++-
+ .../gstreamer/mse/MediaPlayerPrivateGStreamerMSE.cpp        | 6 ++++--
+ 2 files changed, 8 insertions(+), 3 deletions(-)
+
+diff --git a/Source/WebCore/platform/graphics/gstreamer/eme/WebKitOpenCDMDecryptorGStreamer.cpp b/Source/WebCore/platform/graphics/gstreamer/eme/WebKitOpenCDMDecryptorGStreamer.cpp
+index 95e12331598b..796dcbc4ae7c 100644
+--- a/Source/WebCore/platform/graphics/gstreamer/eme/WebKitOpenCDMDecryptorGStreamer.cpp
++++ b/Source/WebCore/platform/graphics/gstreamer/eme/WebKitOpenCDMDecryptorGStreamer.cpp
+@@ -48,7 +48,7 @@ static bool webKitMediaOpenCDMDecryptorDecrypt(WebKitMediaCommonEncryptionDecryp
+ static bool webKitMediaOpenCDMDecryptorHandleKeyId(WebKitMediaCommonEncryptionDecrypt* self, const WebCore::SharedBuffer&);
+ static bool webKitMediaOpenCDMDecryptorAttemptToDecryptWithLocalInstance(WebKitMediaCommonEncryptionDecrypt* self, const WebCore::SharedBuffer&);
+ 
+-static const char* cencEncryptionMediaTypes[] = { "video/mp4", "audio/mp4", "video/x-h264", "audio/mpeg", "audio/x-flac", nullptr };
++static const char* cencEncryptionMediaTypes[] = { "video/mp4", "audio/mp4", "video/x-h264","video/x-h265","audio/mpeg","audio/x-eac3","audio/x-ac3","audio/x-flac", nullptr };
+ static const char* webmEncryptionMediaTypes[] = { "video/webm", "audio/webm", "video/x-vp9", nullptr };
+ 
+ static GstStaticPadTemplate srcTemplate = GST_STATIC_PAD_TEMPLATE("src",
+@@ -61,7 +61,10 @@ static GstStaticPadTemplate srcTemplate = GST_STATIC_PAD_TEMPLATE("src",
+         "audio/mp4; "
+         "audio/mpeg; "
+         "audio/x-flac; "
++        "audio/x-eac3; "
++        "audio/x-ac3; "
+         "video/x-h264; "
++        "video/x-h265; "
+         "video/x-vp9; "));
+ 
+ GST_DEBUG_CATEGORY(webkit_media_opencdm_decrypt_debug_category);
+diff --git a/Source/WebCore/platform/graphics/gstreamer/mse/MediaPlayerPrivateGStreamerMSE.cpp b/Source/WebCore/platform/graphics/gstreamer/mse/MediaPlayerPrivateGStreamerMSE.cpp
+index 157953492ae5..fc932f3ad896 100644
+--- a/Source/WebCore/platform/graphics/gstreamer/mse/MediaPlayerPrivateGStreamerMSE.cpp
++++ b/Source/WebCore/platform/graphics/gstreamer/mse/MediaPlayerPrivateGStreamerMSE.cpp
+@@ -895,7 +895,7 @@ const static HashSet<AtomicString>& codecSet()
+             Vector<AtomicString> webkitCodecs;
+         };
+ 
+-        std::array<GstCapsWebKitMapping, 10> mapping = { {
++        std::array<GstCapsWebKitMapping, 12> mapping = { {
+             { VideoDecoder, "video/x-h264,  profile=(string){ constrained-baseline, baseline }", { "x-h264" } },
+             { VideoDecoder, "video/x-h264, stream-format=avc", { "avc*"} },
+             // An autoplugged h264parse in decodebin can convert from byte-stream to avc.
+@@ -906,7 +906,9 @@ const static HashSet<AtomicString>& codecSet()
+             { VideoDecoder, "video/x-vp9", { "vp9", "x-vp9" } },
+             { AudioDecoder, "audio/x-vorbis", { "vorbis", "x-vorbis" } },
+             { AudioDecoder, "audio/x-opus", { "opus", "x-opus" } },
+-            { AudioDecoder, "audio/x-flac", { "x-flac", "flac" } }
++            { AudioDecoder, "audio/x-flac", { "x-flac", "flac" } },
++            { AudioDecoder, "audio/x-ac3", { "x-ac3", "ac3" } },
++            { AudioDecoder, "audio/x-eac3", { "x-eac3", "ec3","ec-3","eac3" } }
+         } };
+ 
+         for (auto& current : mapping) {
+-- 
+2.35.1
+

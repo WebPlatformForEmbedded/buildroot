@@ -1,0 +1,71 @@
+commit a6f39e95d139561bb8694eb76ad39c1577da8b6b
+Author: Pawel <pawelsnk@o2.pl>
+Date:   Fri Jul 15 19:58:21 2022 +0200
+
+    Avoid triggering reenqueuing for 4k Video on BRCM
+
+diff --git a/Source/WebCore/Modules/mediasource/SourceBuffer.cpp b/Source/WebCore/Modules/mediasource/SourceBuffer.cpp
+index e0770605d7ee..b3343d0f6de4 100644
+--- a/Source/WebCore/Modules/mediasource/SourceBuffer.cpp
++++ b/Source/WebCore/Modules/mediasource/SourceBuffer.cpp
+@@ -58,6 +58,7 @@
+ #include <limits>
+ #include <wtf/CheckedArithmetic.h>
+ 
++
+ namespace WebCore {
+ 
+ static inline bool mediaSourceLogEnabled()
+@@ -1636,13 +1637,28 @@ void SourceBuffer::sourceBufferPrivateDidReceiveSample(MediaSample& sample)
+             decodeTimestamp += trackBuffer.roundedTimestampOffset;
+         }
+ 
++        bool isSampleFromPastOrDistantFuture = trackBuffer.lastDecodeTimestamp.isValid() && (decodeTimestamp < trackBuffer.lastDecodeTimestamp
++            || (trackBuffer.greatestDecodeDuration.isValid() && abs(decodeTimestamp - trackBuffer.lastDecodeTimestamp) > (trackBuffer.greatestDecodeDuration * 2)));
++
++        // If a sample from the distant future or the past, with the same size, is tried to be queued, yet, it's already
++        // there in samples just igore this one. Otherwise it'll cause sampes removal and reenqueuing which - if not done really precisely -
++        // leads to glitches on 4K on BRCM.
++        if (isSampleFromPastOrDistantFuture) {
++            auto inSamples = trackBuffer.samples.presentationOrder().findSampleWithPresentationTime(presentationTimestamp);
++            if (inSamples != trackBuffer.samples.presentationOrder().end() &&
++               trackBuffer.description && trackBuffer.description->isVideo() &&
++                sample.presentationSize().width() == inSamples->second->presentationSize().width() &&
++                sample.presentationSize().height() == inSamples->second->presentationSize().height()) {
++                return;
++            }
++        }
++
+         // 1.6 ↳ If last decode timestamp for track buffer is set and decode timestamp is less than last
+         // decode timestamp:
+         // OR
+         // ↳ If last decode timestamp for track buffer is set and the difference between decode timestamp and
+         // last decode timestamp is greater than 2 times last frame duration:
+-        if (trackBuffer.lastDecodeTimestamp.isValid() && (decodeTimestamp < trackBuffer.lastDecodeTimestamp
+-            || (trackBuffer.greatestDecodeDuration.isValid() && abs(decodeTimestamp - trackBuffer.lastDecodeTimestamp) > (trackBuffer.greatestDecodeDuration * 2)))) {
++        if (isSampleFromPastOrDistantFuture) {
+ 
+             // 1.6.1:
+             if (m_mode == AppendMode::Segments) {
+diff --git a/Source/WebCore/platform/graphics/gstreamer/mse/AppendPipeline.cpp b/Source/WebCore/platform/graphics/gstreamer/mse/AppendPipeline.cpp
+index a7728c5da024..f143f86a8777 100644
+--- a/Source/WebCore/platform/graphics/gstreamer/mse/AppendPipeline.cpp
++++ b/Source/WebCore/platform/graphics/gstreamer/mse/AppendPipeline.cpp
+@@ -172,9 +172,16 @@ public:
+                     GST_BUFFER_DTS(buffer) = toGstClockTime(m_lastDts + MediaTime(GST_BUFFER_DURATION(buffer), GST_SECOND));
+                 else
+                     GST_BUFFER_DTS(buffer) = toGstClockTime(MediaTime(GST_BUFFER_PTS(buffer), GST_SECOND) + MediaTime(GST_BUFFER_DURATION(buffer), GST_SECOND));
+-		GST_TRACE("DTS FILLED: %" GST_TIME_FORMAT "\n", GST_TIME_ARGS(GST_BUFFER_DTS(buffer)));
++                GST_TRACE("DTS FILLED: %" GST_TIME_FORMAT "\n", GST_TIME_ARGS(GST_BUFFER_DTS(buffer)));
+             }
+ 
++            if (GST_BUFFER_DTS_IS_VALID(buffer) && GST_BUFFER_PTS_IS_VALID(buffer) &&
++                GST_BUFFER_DURATION_IS_VALID(buffer) && GST_BUFFER_DTS(buffer) > GST_BUFFER_PTS(buffer)) {
++                GST_WARNING("Buffer %p: DTS > PTS for DTS %" PRId64 ", PTS %" PRId64, buffer, GST_BUFFER_DTS(buffer), GST_BUFFER_PTS(buffer));
++                // GST_BUFFER_PTS(buffer) = GST_BUFFER_DTS(buffer);
++            }
++
++
+             // If the first sample (DTS=0) doesn't start with PTS=0, compute a negative offset.
+             if (!GST_BUFFER_DTS(buffer) && GST_BUFFER_PTS(buffer) && !m_ptsOffset.isValid()) {
+                 m_ptsOffset = MediaTime(GST_BUFFER_DTS(buffer), GST_SECOND) - MediaTime(GST_BUFFER_PTS(buffer), GST_SECOND);
