@@ -219,6 +219,7 @@ define WPEFRAMEWORK_INSTALL_UDEV_RULES
 	$(INSTALL) -D -m 0644 package/wpe/wpeframework/20-video-device-udev.rules.in \
                 $(TARGET_DIR)/lib/udev/rules.d/20-video-device-udev.rules
 	$(SED) "s/@SUBSYSTEM@/${VIDEO_PLATFORM_SUBSYSTEM}/" $(TARGET_DIR)/lib/udev/rules.d/20-video-device-udev.rules
+	$(SED) "s/@GROUP@/${BR2_PACKAGE_WPEFRAMEWORK_PLATFORM_VIDEO_DEVICE_GROUP}/" $(TARGET_DIR)/lib/udev/rules.d/20-video-device-udev.rules
 endef
 
 define WPEFRAMEWORK_POST_TARGET_REMOVE_STAGING_ARTIFACTS
