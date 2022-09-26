@@ -256,4 +256,7 @@ define WPEFRAMEWORK_USERS
 	$(WPEFRAMEWORK_USER_STRING)
 endef
 
+define WPEFRAMEWORK_PERMISSIONS
+	$(subst ",,$(BR2_PACKAGE_WPEFRAMEWORK_DATA_PATH)") d 0770 root $(subst ",,$(BR2_PACKAGE_WPEFRAMEWORK_GROUP)") - - - - -
+endef
 $(eval $(cmake-package))

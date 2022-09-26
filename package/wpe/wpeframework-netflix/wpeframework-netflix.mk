@@ -193,5 +193,9 @@ define WPEFRAMEWORK_NETFLIX_USERS
 	${WPEFRAMEWORK_NETFLIX_USER}
 endef
 
+define WPEFRAMEWORK_NETFLIX_PERMISSIONS
+	$(subst ",,$(BR2_PACKAGE_WPEFRAMEWORK_DATA_PATH)")/Netflix d 0750 root $(subst ",,$(BR2_PACKAGE_WPEFRAMEWORK_NETFLIX_GROUP)") - - - - -
+endef
+
 $(eval $(cmake-package))
 
