@@ -1,61 +1,70 @@
-#!/bin/sh
+#!/bin/ash
+set -e
 
-export SOURCE=/flash/metrological
-#export LD_LIBRARY_PATH=$SOURCE/usr/lib:/lib:/usr/lib:$SOURCE/lib
-export LD_LIBRARY_PATH=$SOURCE/usr/lib:/lib:/usr/lib:$SOURCE/lib:$SOURCE/usr/lib/wpeframework/plugins:$SOURCE/usr/lib/wpeframework/proxystubs
-export PATH=$SOURCE/usr/bin:$PATH
-export GST_PLUGIN_SCANNER=$SOURCE/usr/libexec/gstreamer-1.0/gst-plugin-scanner
-export GST_PLUGIN_SYSTEM_PATH=$SOURCE/usr/lib/gstreamer-1.0
+SOURCE="/hdd/metrological"
 
-export XKB_CONFIG_ROOT=$SOURCE/usr/share/X11/xkb
+# Native stack disablement
+# On some platforms following commands can fail due to missing
+# libraries in the path. As a workaround  there is a need to set
+# LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/usr/local/lib/"
+echo "Disabling native stack..."
+LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/usr/local/lib/" /opt/wpe/wpeframework.sh --kill
+sleep 1
+/etc/init.d/appman.sh stop
+/etc/init.d/freecwmp.sh stop
+/etc/init.d/udploggerd.sh stop
+LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/usr/local/lib/" play --stop || echo "Player already stopped."
+LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/usr/local/lib/" play --destroy || echo "Player already destroyed"
+sleep 1
+
+procs="WPEFramework WPEProcess WPEWebProcess WPENetworkProcess"
+while [ ! -z "$(pidof $procs)" ]; do
+        echo "WPE Processes are still running, waiting for exit."
+        echo "Perhaps you need to run: kill -9 \$(pidof $procs)"
+        sleep 3
+done
+
+# create a ref backup
+[ ! -d /hdd/wpe.org ] && echo "Creating /opt/wpe.org..." && cp -rf /opt/wpe /hdd/wpe.org
+
+# create /opt/wpe/usr in the $SOURCE for easier binds
+mkdir -p "$SOURCE/opt/wpe"
+ln -sf "$SOURCE/usr" "$SOURCE/opt/wpe/usr"
+
+DIRS_TO_BIND="\
+    /usr/lib/gstreamer-1.0 \
+    /etc/WPEFramework \
+    /usr/lib/wpeframework \
+    /usr/share/WPEFramework \
+    /opt/wpe/usr \
+"
+
+for bind_name in ${DIRS_TO_BIND}; do
+    (grep -q "$bind_name" /proc/mounts && echo "Skipping bind $bind_name -> $SOURCE/$bind_name") \
+    || mount --bind "$SOURCE/$bind_name" "$bind_name"
+done
+
+echo "Current mounts:"
+mount
+
+export SOURCE_KPN=/opt/wpe
+export LD_LIBRARY_PATH=$SOURCE_KPN/usr/lib:/lib:/usr/lib:$SOURCE_KPN/lib:$SOURCE/lib:/usr/lib/wpeframework/plugins:/usr/lib/wpeframework/proxystub:/usr/share/WPEFramework/WebKitBrowser/
+export PATH=$SOURCE_KPN/usr/bin:$PATH
+export GST_PLUGIN_SCANNER=$SOURCE_KPN/usr/libexec/gstreamer-1.0/gst-plugin-scanner
+export GST_PLUGIN_SYSTEM_PATH=/usr/lib/gstreamer-1.0
+
+# Needed for community sinks
+export GST_VIDEO_WINDOW_BOX_MODE='y'
+export GST_VIRTUAL_DISP_WIDTH=1280
+export GST_VIRTUAL_DISP_HEIGHT=720
+export GST_WPE_COMP='y'
+
+# export XKB_CONFIG_ROOT=$SOURCE/usr/share/X11/xkb
 export V3D_DRM_DISABLE=1
 
-case "$1" in
-*)
-	export DESTINATION=/flash/acn-5202
-
-	# Currently the root system is read-only. Since we cannot add anything there we bind 
-	# existing directories with a copy of the actual system. All the stuff we want to 
-	# add is symbolicly linked in from our sources..
-	if [ ! -d $DESTINATION ]; then
-
-		mkdir -p $DESTINATION/share
-		mkdir -p $DESTINATION/etc
-		mkdir -p $DESTINATION/lib
-		mkdir -p $DESTINATION/bin
-		mkdir -p $DESTINATION/root
-		cp -rfap /usr/share/* $DESTINATION/share
-		cp -rfap /etc/* $DESTINATION/etc
-		cp -rfap /usr/lib/* $DESTINATION/lib
-		cp -rfap /usr/bin/* $DESTINATION/bin
-		cp -rfap $SOURCE/usr/bin $DESTINATION
-
-		ln -s $SOURCE/usr/share/mime $DESTINATION/share/mime
-		ln -s $SOURCE/usr/share/X11 $DESTINATION/share/X11
-		ln -s $SOURCE/usr/share/WPEFramework $DESTINATION/share/WPEFramework
-		ln -s $SOURCE/usr/share/content $DESTINATION/share/content
-		ln -s $SOURCE/usr/bin/content $DESTINATION/bin/content
-		ln -s $SOURCE/usr/share/fonts $DESTINATION/share/fonts
-		ln -s $SOURCE/etc/ssl $DESTINATION/etc/ssl
-		ln -s $SOURCE/etc/ssl $DESTINATION/lib/ssl
-		ln -s $SOURCE/etc/fonts $DESTINATION/etc/fonts
-		ln -s $SOURCE/etc/WPEFramework $DESTINATION/etc/WPEFramework
-		ln -s $SOURCE/etc/playready $DESTINATION/etc/playready
-		ln -s $SOURCE/usr/lib/gio $DESTINATION/lib/gio
-		ln -s $SOURCE/root/OCDM $DESTINATION/root/OCDM
-	fi
-
-	export DRMSTORE=/tmp/drmstore
-	if [ ! -f $DRMSTORE ]; then
-		touch /tmp/drmstore
-	fi
-
-	grep -q "/usr/share ext4" /proc/mounts && echo "/usr/share is already mounted" || mount -t ext4 --bind $DESTINATION/share/ /usr/share/
-	grep -q "/etc ext4" /proc/mounts && echo "/etc is already mounted" || mount -t ext4 --bind $DESTINATION/etc/ /etc/
-	grep -q "/usr/lib ext4" /proc/mounts && echo "/usr/lib is already mounted" || mount -t ext4 --bind $DESTINATION/lib/ /usr/lib/
-	grep -q "/usr/bin ext4" /proc/mounts && echo "/usr/bin is already mounted" || mount -t ext4 --bind $DESTINATION/bin /usr/bin/
-
-	WPEFramework -c $SOURCE/etc/WPEFramework/config.json
-;;
-esac
-
+echo "Starting WPEFramework"
+# Background
+# WPEFramework -b -c "/etc/WPEFramework/config.json" &
+# Foreground
+WPEFramework -c "/etc/WPEFramework/config.json"
+echo "Done."
