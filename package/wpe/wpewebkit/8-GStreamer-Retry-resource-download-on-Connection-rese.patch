@@ -1,0 +1,50 @@
+From c85219d7cc96acfa3fe02310987568d2a7db0680 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Enrique=20Oca=C3=B1a=20Gonz=C3=A1lez?= <eocanha@igalia.com>
+Date: Thu, 28 May 2020 14:50:07 +0000
+Subject: [PATCH] [GStreamer] Retry resource download on "Connection reset by
+ peer"
+
+This fixes an unrecoverable error when a video is paused, the user waits more
+than the web server connection keep-alive timeout, and then the video playback
+is resumed.
+---
+ .../gstreamer/WebKitWebSourceGStreamer.cpp        | 15 ++++++++++++++-
+ 1 file changed, 14 insertions(+), 1 deletion(-)
+
+diff --git a/Source/WebCore/platform/graphics/gstreamer/WebKitWebSourceGStreamer.cpp b/Source/WebCore/platform/graphics/gstreamer/WebKitWebSourceGStreamer.cpp
+index 42f0a829d40..1e4b7e7bce0 100644
+--- a/Source/WebCore/platform/graphics/gstreamer/WebKitWebSourceGStreamer.cpp
++++ b/Source/WebCore/platform/graphics/gstreamer/WebKitWebSourceGStreamer.cpp
+@@ -33,6 +33,7 @@
+ #include "ResourceRequest.h"
+ #include "ResourceResponse.h"
+ #include <cstdint>
++#include <gio/gioenums.h>
+ #include <gst/app/gstappsrc.h>
+ #include <gst/pbutils/missing-plugins.h>
+ #include <wtf/MainThread.h>
+@@ -1048,8 +1049,20 @@ void CachedResourceStreamingClient::loadFailed(PlatformMediaResource&, const Res
+ {
+     WebKitWebSrc* src = WEBKIT_WEB_SRC(m_src.get());
+ 
++    // Retry on "Connection reset by peer" error.
++    if (error.isGeneral() && error.errorCode() == G_IO_ERROR_BROKEN_PIPE) {
++        GST_DEBUG_OBJECT(src, "%s, retrying", error.localizedDescription().utf8().data());
++
++        // Abuse the seeking code to do a smooth retry
++        bool wasSeeking = std::exchange(src->priv->isSeeking, true);
++        webKitWebSrcStop(src);
++        webKitWebSrcStart(src);
++        std::exchange(src->priv->isSeeking, wasSeeking);
++        return;
++    }
++
+     if (!error.isCancellation()) {
+-        GST_ERROR_OBJECT(src, "Have failure: %s", error.localizedDescription().utf8().data());
++        GST_ERROR_OBJECT(src, "Have failure: %s (%d)", error.localizedDescription().utf8().data(), error.errorCode());
+         GST_ELEMENT_ERROR(src, RESOURCE, FAILED, ("%s", error.localizedDescription().utf8().data()), (nullptr));
+     }
+ 
+-- 
+2.25.1
+

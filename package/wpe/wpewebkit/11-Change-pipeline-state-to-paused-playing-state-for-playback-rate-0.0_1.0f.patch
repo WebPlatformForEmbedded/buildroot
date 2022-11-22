@@ -1,0 +1,66 @@
+From e3813c4061e10de11baa132e00fbc4a656e86366 Mon Sep 17 00:00:00 2001
+From: Lukasz Iwan <l.iwan@metrological.com>
+Date: Fri, 14 Oct 2022 09:01:04 +0000
+Subject: [PATCH] Change pipeline state to paused/playing state for playback
+ rate 0.0 / 1.0f
+
+This patch is ported from:
+https://github.com/WebPlatformForEmbedded/WPEWebKit/commit/833e7a5be7d216576fa724a6db643ac5d56e1c32
+
+Some players are setting the playback rate of 0.0 before the start of playback
+which prevents video from autplay. This patch fixes the behaviour in such case.
+---
+ .../graphics/gstreamer/MediaPlayerPrivateGStreamer.h     |  2 +-
+ .../gstreamer/mse/MediaPlayerPrivateGStreamerMSE.cpp     | 16 ++++++++++++++++
+ 2 files changed, 17 insertions(+), 1 deletion(-)
+
+diff --git a/Source/WebCore/platform/graphics/gstreamer/MediaPlayerPrivateGStreamer.h b/Source/WebCore/platform/graphics/gstreamer/MediaPlayerPrivateGStreamer.h
+index 5490a2d..caa5034 100644
+--- a/Source/WebCore/platform/graphics/gstreamer/MediaPlayerPrivateGStreamer.h
++++ b/Source/WebCore/platform/graphics/gstreamer/MediaPlayerPrivateGStreamer.h
+@@ -188,6 +188,7 @@ protected:
+     mutable MediaTime m_durationAtEOS;
+     bool m_paused;
+     float m_playbackRate;
++    bool m_playbackRatePause;
+     GstState m_requestedState;
+     bool m_resetPipeline;
+     bool m_seeking;
+@@ -233,7 +234,6 @@ private:
+ #endif
+     GstStructure* m_mediaLocations;
+     int m_mediaLocationCurrentIndex;
+-    bool m_playbackRatePause;
+     MediaTime m_timeOfOverlappingSeek;
+     float m_lastPlaybackRate;
+     Timer m_fillTimer;
+diff --git a/Source/WebCore/platform/graphics/gstreamer/mse/MediaPlayerPrivateGStreamerMSE.cpp b/Source/WebCore/platform/graphics/gstreamer/mse/MediaPlayerPrivateGStreamerMSE.cpp
+index 874aedd..e29f914 100644
+--- a/Source/WebCore/platform/graphics/gstreamer/mse/MediaPlayerPrivateGStreamerMSE.cpp
++++ b/Source/WebCore/platform/graphics/gstreamer/mse/MediaPlayerPrivateGStreamerMSE.cpp
+@@ -530,6 +530,22 @@ void MediaPlayerPrivateGStreamerMSE::setRate(float rate)
+     m_playbackRate = rate;
+     m_player->rateChanged();
+ 
++    GstState state, pending;
++    gst_element_get_state(m_pipeline.get(), &state, &pending, 0);
++    if (!rate && lastPlaybackRate == 1.0f) {
++        m_playbackRatePause = true;
++        if (state != GST_STATE_PAUSED && pending != GST_STATE_PAUSED)
++            changePipelineState(GST_STATE_PAUSED);
++        return;
++    }
++    if (!lastPlaybackRate) {
++        m_playbackRatePause = false;
++        if (state != GST_STATE_PLAYING && pending != GST_STATE_PLAYING)
++            changePipelineState(GST_STATE_PLAYING);
++        if (rate == 1.0f)
++            return;
++    }
++
+     m_seekTime = currentMediaTime();
+     if (!doSeek()) {
+         m_playbackRate = lastPlaybackRate;
+-- 
+2.7.4
+

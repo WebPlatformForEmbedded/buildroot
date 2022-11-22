@@ -1,0 +1,37 @@
+From dab5aa9d2623c913edb83ea03fa47fe207d95135 Mon Sep 17 00:00:00 2001
+From: "philn@webkit.org" <philn@webkit.org>
+Date: Thu, 19 Jul 2018 12:53:29 +0000
+Subject: [PATCH 1/2] 
+ imported/w3c/web-platform-tests/media-source/mediasource-is-type-supported.html
+ crashes https://bugs.webkit.org/show_bug.cgi?id=187469
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Reviewed by Žan Doberšek.
+
+* platform/graphics/gstreamer/mse/WebKitMediaSourceGStreamer.cpp:
+(webKitMediaSrcFreeStream): Fix critical warning. The appsrc
+element is created only when a valid sourcebuffer is in use.
+
+git-svn-id: http://svn.webkit.org/repository/webkit/trunk@233981 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+---
+ .../platform/graphics/gstreamer/mse/WebKitMediaSourceGStreamer.cpp      | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/Source/WebCore/platform/graphics/gstreamer/mse/WebKitMediaSourceGStreamer.cpp b/Source/WebCore/platform/graphics/gstreamer/mse/WebKitMediaSourceGStreamer.cpp
+index 25f5b69..c63bc38 100644
+--- a/Source/WebCore/platform/graphics/gstreamer/mse/WebKitMediaSourceGStreamer.cpp
++++ b/Source/WebCore/platform/graphics/gstreamer/mse/WebKitMediaSourceGStreamer.cpp
+@@ -513,7 +513,7 @@ void webKitMediaSrcLinkParser(GstPad* sourcePad, GstCaps* caps, Stream* stream)
+ 
+ void webKitMediaSrcFreeStream(WebKitMediaSrc* source, Stream* stream)
+ {
+-    if (stream->appsrc) {
++    if (GST_IS_APP_SRC(stream->appsrc)) {
+         // Don't trigger callbacks from this appsrc to avoid using the stream anymore.
+         gst_app_src_set_callbacks(GST_APP_SRC(stream->appsrc), &disabledAppsrcCallbacks, nullptr, nullptr);
+         gst_app_src_end_of_stream(GST_APP_SRC(stream->appsrc));
+-- 
+2.7.4
+

@@ -1,0 +1,38 @@
+From e9cc7c479df170d70852d82b6df7fa480a5deb36 Mon Sep 17 00:00:00 2001
+From: Miguel Gomez <magomez@igalia.com>
+Date: Mon, 4 Oct 2021 15:57:33 +0200
+Subject: [PATCH] [nonCompositedWebGL] Add an atexit handler to destroy the
+ WebGL GLContext
+
+---
+ .../graphics/texmap/TextureMapperGC3DPlatformLayer.cpp   | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
+
+diff --git a/Source/WebCore/platform/graphics/texmap/TextureMapperGC3DPlatformLayer.cpp b/Source/WebCore/platform/graphics/texmap/TextureMapperGC3DPlatformLayer.cpp
+index c2973a285f3f21..e617862d148e6f 100644
+--- a/Source/WebCore/platform/graphics/texmap/TextureMapperGC3DPlatformLayer.cpp
++++ b/Source/WebCore/platform/graphics/texmap/TextureMapperGC3DPlatformLayer.cpp
+@@ -33,6 +33,11 @@ namespace WebCore {
+ 
+ static std::unique_ptr<GLContext> s_windowContext;
+ 
++static void terminateWindowContext()
++{
++    s_windowContext = nullptr;
++}
++
+ TextureMapperGC3DPlatformLayer::TextureMapperGC3DPlatformLayer(GraphicsContext3D& context, GraphicsContext3D::RenderStyle renderStyle, HostWindow* hostWindow)
+     : m_context(context)
+     , m_renderStyle(renderStyle)
+@@ -42,8 +47,10 @@ TextureMapperGC3DPlatformLayer::TextureMapperGC3DPlatformLayer(GraphicsContext3D
+         m_glContext = GLContext::createOffscreenContext(&PlatformDisplay::sharedDisplayForCompositing());
+         break;
+     case GraphicsContext3D::RenderDirectlyToHostWindow:
+-        if (!s_windowContext)
++        if (!s_windowContext) {
+             s_windowContext = GLContext::createContextForWindow(reinterpret_cast<GLNativeWindowType>(hostWindow->nativeWindowID()), &PlatformDisplay::sharedDisplayForCompositing());
++            std::atexit(terminateWindowContext);
++        }
+         break;
+     }
+ 

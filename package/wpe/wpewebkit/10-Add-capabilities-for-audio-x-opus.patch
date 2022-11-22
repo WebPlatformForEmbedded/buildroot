@@ -1,0 +1,38 @@
+From 00bc15e9b673c2fcfc03cc0f22df0ce06acded3f Mon Sep 17 00:00:00 2001
+From: "k.plata" <k.plata@metrological.com>
+Date: Tue, 1 Feb 2022 10:44:39 +0000
+Subject: [PATCH 2/2] Add capabilities for audio/x-opus
+
+This commit is a rework of:
+https://github.com/WebPlatformForEmbedded/WPEWebKit/commit/b96feca98f178157ba648d79870cae70f873379d
+for webkit-2017.
+---
+ .../graphics/gstreamer/eme/WebKitOpenCDMDecryptorGStreamer.cpp       | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/Source/WebCore/platform/graphics/gstreamer/eme/WebKitOpenCDMDecryptorGStreamer.cpp b/Source/WebCore/platform/graphics/gstreamer/eme/WebKitOpenCDMDecryptorGStreamer.cpp
+index c004dd0..0b6a5de 100644
+--- a/Source/WebCore/platform/graphics/gstreamer/eme/WebKitOpenCDMDecryptorGStreamer.cpp
++++ b/Source/WebCore/platform/graphics/gstreamer/eme/WebKitOpenCDMDecryptorGStreamer.cpp
+@@ -47,7 +47,7 @@ static bool webKitMediaOpenCDMDecryptorHandleKeyId(WebKitMediaCommonEncryptionDe
+ static bool webKitMediaOpenCDMDecryptorAttemptToDecryptWithLocalInstance(WebKitMediaCommonEncryptionDecrypt* self, const WebCore::SharedBuffer&);
+ 
+ static const char* cencEncryptionMediaTypes[] = { "video/mp4", "audio/mp4", "video/x-h264", "audio/mpeg", nullptr };
+-static const char* webmEncryptionMediaTypes[] = { "video/webm", "audio/webm", "video/x-vp9", nullptr };
++static const char* webmEncryptionMediaTypes[] = { "video/webm", "audio/webm", "video/x-vp9", "audio/x-opus", nullptr };
+ 
+ static GstStaticPadTemplate srcTemplate = GST_STATIC_PAD_TEMPLATE("src",
+     GST_PAD_SRC,
+@@ -59,7 +59,8 @@ static GstStaticPadTemplate srcTemplate = GST_STATIC_PAD_TEMPLATE("src",
+         "audio/mp4; "
+         "audio/mpeg; "
+         "video/x-h264; "
+-        "video/x-vp9; "));
++        "video/x-vp9; "
++        "audio/x-opus; "));
+ 
+ GST_DEBUG_CATEGORY(webkit_media_opencdm_decrypt_debug_category);
+ #define GST_CAT_DEFAULT webkit_media_opencdm_decrypt_debug_category
+-- 
+2.7.4
+

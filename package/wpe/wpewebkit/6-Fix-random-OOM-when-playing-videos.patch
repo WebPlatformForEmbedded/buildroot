@@ -1,0 +1,86 @@
+From afd87764311dca2287d24d176040759f634c5c24 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Enrique=20Oca=C3=B1a=20Gonz=C3=A1lez?= <eocanha@igalia.com>
+Date: Tue, 25 Aug 2020 13:13:24 +0000
+Subject: [PATCH] [GStreamer] Fix random OOM when playing videos
+
+Under some circumstances, MainThreadNotifier can swap the arrival order of the
+needData and enoughData notifications (emitted from appsrc's streaming and
+main threads respectively) to the main thread. This happens because
+MainThreadNotifier propagates immeiately the notifications coming from the
+main thread, so this scenario is possible:
+
+Streaming thread           Main thread
+       |                        |
+       |               webKitWebSrcEnoughData()
+webKitWebSrcNeedData()          |
+       |               webKitWebSrcEnoughData()::<lambda()>
+       |                        |
+       |               webKitWebSrcEnoughData()
+       |               webKitWebSrcEnoughData()::<lambda()>
+       |                        |
+       |               webKitWebSrcNeedData()::<lambda()>
+       |                        |
+
+In this scenario, needData and the second enoughData are propagated to the
+main thread (where their associated lambda code is run) in the wrong order.
+This makes the network process to be suspended, suspended and resumed (should
+be suspended, resumed, suspended). The pipeline expects data to exhaust and
+eventually issue a new resume, but what happens is that data keeps flowing,
+it won't exhaust, (no more needData ever) and subsequent enoughData
+notifications won't ever be generated (there's code to ensure they aren't
+generated several times in a row). As a result, the network process will
+keep sending data to the web process, which will push it to appsrc, the
+memory used by appsrc will grow with no limit and the process will eventually
+cause an out of memory (OOM) error.
+
+The solution is to always propagate the notification to the main thread, no
+matter if it's already generated on the main thread or not, by adding a new
+preserveOrdering parameter to MainThreadNotifier::notify().
+
+Thanks to Alicia Boya <aboya@igalia.com> for her help finding why the order
+changes when the notifications arrive to the main thread.
+---
+ .../WebCore/platform/graphics/gstreamer/MainThreadNotifier.h  | 4 ++--
+ .../platform/graphics/gstreamer/WebKitWebSourceGStreamer.cpp  | 4 ++--
+ 2 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/Source/WebCore/platform/graphics/gstreamer/MainThreadNotifier.h b/Source/WebCore/platform/graphics/gstreamer/MainThreadNotifier.h
+index 3752dc275e71..3f6515a3c80b 100644
+--- a/Source/WebCore/platform/graphics/gstreamer/MainThreadNotifier.h
++++ b/Source/WebCore/platform/graphics/gstreamer/MainThreadNotifier.h
+@@ -36,10 +36,10 @@ class MainThreadNotifier final : public ThreadSafeRefCounted<MainThreadNotifier<
+     }
+ 
+     template<typename F>
+-    void notify(T notificationType, F&& callbackFunctor)
++    void notify(T notificationType, F&& callbackFunctor, bool preserveOrdering = false)
+     {
+         ASSERT(m_isValid.load());
+-        if (isMainThread()) {
++        if (!preserveOrdering && isMainThread()) {
+             removePendingNotification(notificationType);
+             callbackFunctor();
+             return;
+diff --git a/Source/WebCore/platform/graphics/gstreamer/WebKitWebSourceGStreamer.cpp b/Source/WebCore/platform/graphics/gstreamer/WebKitWebSourceGStreamer.cpp
+index 49ac84824800..d60927b31ffa 100644
+--- a/Source/WebCore/platform/graphics/gstreamer/WebKitWebSourceGStreamer.cpp
++++ b/Source/WebCore/platform/graphics/gstreamer/WebKitWebSourceGStreamer.cpp
+@@ -747,7 +747,7 @@ static void webKitWebSrcNeedData(WebKitWebSrc* src)
+         WebKitWebSrcPrivate* priv = protector->priv;
+         if (priv->resource)
+             priv->resource->setDefersLoading(false);
+-    });
++    }, true);
+ }
+ 
+ static void webKitWebSrcEnoughData(WebKitWebSrc* src)
+@@ -765,7 +765,7 @@ static void webKitWebSrcEnoughData(WebKitWebSrc* src)
+         WebKitWebSrcPrivate* priv = protector->priv;
+         if (priv->resource)
+             priv->resource->setDefersLoading(true);
+-    });
++    }, true);
+ }
+ 
+ static gboolean webKitWebSrcSeek(WebKitWebSrc* src, guint64 offset)
+
