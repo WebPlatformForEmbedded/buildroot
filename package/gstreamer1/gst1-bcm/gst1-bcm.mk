@@ -29,7 +29,8 @@ GST1_BCM_VERSION = 18.2-rdkv-20180727
 else ifeq ($(BR2_PACKAGE_BCM_REFSW_19_1),y)
 GST1_BCM_VERSION = 19.1-rdkv_20190409
 else ifneq ($(filter y,$(BR2_PACKAGE_ACN_SDK)),)
-GST1_BCM_VERSION = 17.1-5
+GST1_BCM_SITE = https://code.rdkcentral.com/r/collaboration/rdk/components/generic/gst-plugins-soc/soc/broadcom
+GST1_BCM_VERSION = 5534aa56dfea8d3758db59753c539f0be1dba03d
 else ifneq ($(filter y,$(BR2_PACKAGE_HOMECAST_SDK)),)
 GST1_BCM_VERSION = 961a36dcd30c91330b8a9503e12ec3ddb30b70b6
 else ifneq ($(filter y,$(BR2_PACKAGE_VSS_SDK)),)
@@ -39,7 +40,8 @@ GST1_BCM_VERSION = 18.2-rdkv-20180727
 else ifneq ($(filter y,$(BR2_PACKAGE_VFTV_SDK)),)
 GST1_BCM_VERSION = 18.2-rdkv-20180727
 else ifneq ($(filter y,$(BR2_PACKAGE_ACN_5202_SDK)),)
-GST1_BCM_VERSION = 18.2-rdkv-20180727
+GST1_BCM_SITE = https://code.rdkcentral.com/r/collaboration/rdk/components/generic/gst-plugins-soc/soc/broadcom
+GST1_BCM_VERSION = 5534aa56dfea8d3758db59753c539f0be1dba03d
 else
 GST1_BCM_VERSION = 15.2
 endif

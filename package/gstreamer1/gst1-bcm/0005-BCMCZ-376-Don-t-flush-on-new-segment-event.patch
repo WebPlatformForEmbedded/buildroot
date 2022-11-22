@@ -1,0 +1,46 @@
+From 5feeec9fe1ea89d1f75ff2d927cf75bf0be037ca Mon Sep 17 00:00:00 2001
+From: krp97 <k.plata@metrological.com>
+Date: Mon, 10 Jan 2022 15:07:57 +0000
+Subject: [PATCH] [BCMCZ-376] Don't flush on new segment event
+
+In some cases, before a segment event arrives the decoder already
+manages to queue some buffers up internally. If they're flushed
+on a GST_EVENT_SEGMENT, there will be a noticeable video freeze
+for a couple of seconds. It will last until the STC reaches PTS
+received in the decoder after the bad flush.
+
+This change also reverts a patchset added for a seperate issue,
+which is why the scope is still being discussed:
+
+https://jira.rdkcentral.com/jira/browse/BCMCZ-376
+---
+ reference/videodecode/src/gst_brcm_video_decoder.c | 13 +------------
+ 1 file changed, 1 insertion(+), 12 deletions(-)
+
+diff --git a/reference/videodecode/src/gst_brcm_video_decoder.c b/reference/videodecode/src/gst_brcm_video_decoder.c
+index 2133eb5..2e1aa67 100755
+--- a/reference/videodecode/src/gst_brcm_video_decoder.c
++++ b/reference/videodecode/src/gst_brcm_video_decoder.c
+@@ -2997,18 +2997,7 @@ static gboolean gst_brcm_video_decoder_sink_event(GstPad *pad, GstObject *parent
+         if (segFormat == GST_FORMAT_TIME) {
+             uint32_t start_pts = (GST_TIME_AS_MSECONDS(segStart) * 45);
+             GST_INFO("GST_EVENT_NEWSEGMENT start_pts 0x%x segStart %"G_GINT64_FORMAT"ms, segPos %"G_GINT64_FORMAT"ms ", start_pts, (segStart/GST_MSECOND), (segPos/GST_MSECOND));
+-
+-            if (segStart == 0) {
+-                NEXUS_VideoDecoderStatus decoderStatus;
+-                NEXUS_SimpleVideoDecoder_GetStatus (decoder->video_decoder, &decoderStatus);
+-                if (decoderStatus.fifoDepth || decoderStatus.queueDepth) {
+-                    GST_WARNING("GST_EVENT_NEWSEGMENT flushing video decoder data fifoDepth %d Frames %d ", decoderStatus.fifoDepth, decoderStatus.queueDepth);
+-                }
+-                NEXUS_SimpleVideoDecoder_Flush(decoder->video_decoder);  // this will clear any previous SetStartPts
+-            }
+-            else {
+-                NEXUS_SimpleVideoDecoder_SetStartPts(decoder->video_decoder, start_pts);
+-            }
++            NEXUS_SimpleVideoDecoder_SetStartPts(decoder->video_decoder, start_pts);
+         }
+ 
+         rv = gst_pad_push_event(decoder->src_pad, event);
+-- 
+2.7.4
+

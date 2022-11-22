@@ -1,0 +1,53 @@
+From e70e0ce78ad6bd474cdeb5807715289b11453f51 Mon Sep 17 00:00:00 2001
+From: ym915329 <meng.ying@broadcom.com>
+Date: Tue, 26 Oct 2021 11:12:31 -0400
+Subject: [PATCH] BCMCZ-368 SWRDKV-3139 : Gravity UI can't play web video the
+ second time
+
+Change-Id: Ic28509a5b8912f739474534c91d0e0214394e2ac
+---
+ reference/audiosink/src/gst_brcm_audio_sink.c | 8 ++++++++
+ reference/util/src/gst_system_clock.c         | 2 ++
+ 2 files changed, 10 insertions(+)
+ mode change 100755 => 100644 reference/audiosink/src/gst_brcm_audio_sink.c
+ mode change 100755 => 100644 reference/util/src/gst_system_clock.c
+
+diff --git a/reference/audiosink/src/gst_brcm_audio_sink.c b/reference/audiosink/src/gst_brcm_audio_sink.c
+old mode 100755
+new mode 100644
+index 60d294b..83f80be
+--- a/reference/audiosink/src/gst_brcm_audio_sink.c
++++ b/reference/audiosink/src/gst_brcm_audio_sink.c
+@@ -1170,6 +1170,14 @@ gst_brcm_audio_sink_change_state(GstElement *element, GstStateChange transition)
+         if (sink->audio_decoder)
+             gst_brcm_audio_sink_apply_downmix_mode(sink);
+ #endif
++        if (!sink->stc_channel)
++        {
++            if(query_nexus_stc_handle(sink) == FALSE)
++            {
++                GST_DEBUG("No query_nexus_stc_handle during transition PAUSED_TO_PLAYING");
++                break;
++            }
++        }
+ 
+         audio_sink_nexus_pause(sink, NEXUS_NORMAL_DECODE_RATE);
+ 
+diff --git a/reference/util/src/gst_system_clock.c b/reference/util/src/gst_system_clock.c
+old mode 100755
+new mode 100644
+index ce14076..0ccd4f5
+--- a/reference/util/src/gst_system_clock.c
++++ b/reference/util/src/gst_system_clock.c
+@@ -250,6 +250,8 @@ void gst_brcm_system_clock_release_stc_channel(NEXUS_SimpleStcChannelHandle stc_
+             BDBG_MSG(("%s: Release STC Channel %p\n", GST_FUNCTION,stc_channel));
+             sysclock.clock[token_id].stc_channel = NULL;
+             sysclock.clock[token_id].token = 0;
++            sysclock.clock[token_id].frozen[SYS_CLK_CLIENT_VIDEO] = false;
++            sysclock.clock[token_id].frozen[SYS_CLK_CLIENT_AUDIO] = false;
+         }
+ 
+     }else{
+-- 
+2.7.4
+

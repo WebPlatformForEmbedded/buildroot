@@ -1,0 +1,34 @@
+From aa47dc6fe63316a3321a2339b9093f766f901e37 Mon Sep 17 00:00:00 2001
+From: Krystian Plata <k.plata@metrological.com>
+Date: Mon, 20 Sep 2021 13:18:12 +0000
+Subject: [PATCH] BCMCZ-365 Retry resize of video surface in preroll
+
+This change adds brcm_video_sink_* calls to resize and update
+the video surface during overriden preroll.
+
+Change-Id: I407d327767f2f3a97ae760007e2eeb5f3ff6ad3e
+---
+ reference/videosink/src/gst_brcm_video_sink.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/reference/videosink/src/gst_brcm_video_sink.c b/reference/videosink/src/gst_brcm_video_sink.c
+index 53c7c27..66f9196 100755
+--- a/reference/videosink/src/gst_brcm_video_sink.c
++++ b/reference/videosink/src/gst_brcm_video_sink.c
+@@ -970,6 +970,13 @@ gst_brcm_video_sink_preroll (GstBaseSink *base_sink, GstBuffer *buffer)
+         NEXUS_Error rc;
+ 
+         video_sink_nexus_pause(sink, 0);
++
++        brcm_video_sink_set_output_resolution(sink);
++        brcm_video_sink_resize_and_reposition(sink);
++        brcm_video_sink_set_box_mode(sink);
++        brcm_video_sink_set_visibility(sink);
++        brcm_video_sink_set_z_order(sink);
++
+         rc = NEXUS_SimpleVideoDecoder_FrameAdvance(sink->video_decoder);
+         if (rc) {
+             g_warning("(%s:%d) NEXUS_SimpleVideoDecoder_FrameAdvance failed %d", GST_FUNCTION,__LINE__, rc);
+-- 
+2.7.4
+
