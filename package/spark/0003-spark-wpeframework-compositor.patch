@@ -203,7 +203,7 @@ index 47c00a94b..2f7fddd5d 100644
  #ifndef GL_GLEXT_PROTOTYPES
  #define GL_GLEXT_PROTOTYPES
 diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
-index 9ec759cfb..9057fb903 100755
+index 9ec759cfb..798648ecb 100755
 --- a/src/CMakeLists.txt
 +++ b/src/CMakeLists.txt
 @@ -138,6 +138,36 @@ elseif (CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux")
@@ -243,7 +243,15 @@ index 9ec759cfb..9057fb903 100755
      elseif (PXCORE_DFB)
          message("Building pxcore for dfb ")
          set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../build/dfb)
-@@ -307,6 +337,9 @@ endif (OUTPUT_LIBS_LOCAL)
+@@ -242,6 +272,7 @@ if (SUPPORT_NODE)
+     add_definitions(-DRTSCRIPT_SUPPORT_NODE)
+     set(PXCORE_FILES ${PXCORE_FILES} rtScriptV8/rtScriptNode.cpp rtScriptV8/jsCallback.cpp rtScriptV8/rtFunctionWrapper.cpp 
+         rtScriptV8/rtObjectWrapper.cpp rtScriptV8/rtWrapperUtils.cpp)
++    set_source_files_properties(rtScriptV8/rtScriptNode.cpp PROPERTIES COMPILE_OPTIONS "-fexceptions")
+     if (USE_NODE_10)
+       set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++1y")
+     endif (USE_NODE_10)
+@@ -307,6 +338,9 @@ endif (OUTPUT_LIBS_LOCAL)
  if (BUILD_PXCORE_LIBS)
      message("Building pxcore libs")
      add_library(pxCore ${PXCORE_FILES})
