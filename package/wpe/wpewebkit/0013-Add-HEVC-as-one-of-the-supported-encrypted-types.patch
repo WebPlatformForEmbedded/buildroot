@@ -1,0 +1,33 @@
+From d077d1fb094b0f12c7b384adc0f3688fe066effd Mon Sep 17 00:00:00 2001
+From: Artur Gebicz <45754882+404ag@users.noreply.github.com>
+Date: Fri, 2 Dec 2022 13:32:44 +0100
+Subject: [PATCH] Add HEVC as one of the supported encrypted types
+
+---
+ .../graphics/gstreamer/eme/WebKitOpenCDMDecryptorGStreamer.cpp | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/Source/WebCore/platform/graphics/gstreamer/eme/WebKitOpenCDMDecryptorGStreamer.cpp b/Source/WebCore/platform/graphics/gstreamer/eme/WebKitOpenCDMDecryptorGStreamer.cpp
+index 0b6a5deed3e1..752c89825b26 100644
+--- a/Source/WebCore/platform/graphics/gstreamer/eme/WebKitOpenCDMDecryptorGStreamer.cpp
++++ b/Source/WebCore/platform/graphics/gstreamer/eme/WebKitOpenCDMDecryptorGStreamer.cpp
+@@ -46,7 +46,7 @@ static bool webKitMediaOpenCDMDecryptorDecrypt(WebKitMediaCommonEncryptionDecryp
+ static bool webKitMediaOpenCDMDecryptorHandleKeyId(WebKitMediaCommonEncryptionDecrypt* self, const WebCore::SharedBuffer&);
+ static bool webKitMediaOpenCDMDecryptorAttemptToDecryptWithLocalInstance(WebKitMediaCommonEncryptionDecrypt* self, const WebCore::SharedBuffer&);
+ 
+-static const char* cencEncryptionMediaTypes[] = { "video/mp4", "audio/mp4", "video/x-h264", "audio/mpeg", nullptr };
++static const char* cencEncryptionMediaTypes[] = { "video/mp4", "audio/mp4", "video/x-h264", "video/x-h265", "audio/mpeg", nullptr };
+ static const char* webmEncryptionMediaTypes[] = { "video/webm", "audio/webm", "video/x-vp9", "audio/x-opus", nullptr };
+ 
+ static GstStaticPadTemplate srcTemplate = GST_STATIC_PAD_TEMPLATE("src",
+@@ -59,6 +59,7 @@ static GstStaticPadTemplate srcTemplate = GST_STATIC_PAD_TEMPLATE("src",
+         "audio/mp4; "
+         "audio/mpeg; "
+         "video/x-h264; "
++        "video/x-h265; "
+         "video/x-vp9; "
+         "audio/x-opus; "));
+ 
+-- 
+2.37.0 (Apple Git-136)
+
