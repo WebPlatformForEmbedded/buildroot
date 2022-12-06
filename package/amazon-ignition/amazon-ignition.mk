@@ -93,6 +93,12 @@ AMAZON_IGNITION_CONF_OPTS += \
    -DBUILD_SHARED_LIBRARY_LAUNCHER=ON
 endif
 
+ifneq ($(BR2_PACKAGE_WPEFRAMEWORK_AMAZON_INSTALL_PATH_OVERRIDE),"")
+    AMAZON_IGNITION_IG_INSTALL_PATH = $(BR2_PACKAGE_WPEFRAMEWORK_AMAZON_INSTALL_PATH_OVERRIDE)
+else
+    AMAZON_IGNITION_IG_INSTALL_PATH = $(BR2_PACKAGE_AMAZON_IGNITION_IG_INSTALL_PATH)
+endif
+
 ifeq ($(BR2_PACKAGE_AMAZON_IGNITION_BUILD_TYPE_RELEASE),y)
   AMAZON_IGNITION_BUILD_TYPE = Release 
 else ifeq  ($(BR2_PACKAGE_AMAZON_IGNITION_BUILD_TYPE_RELEASE_DEBUG),y)
@@ -132,19 +138,19 @@ endef
 
 define AMAZON_IGNITION_INSTALL_IGNITION
     @$(call MESSAGE,"Installing ignition to: $(call qstrip,$(TARGET_DIR))")
-    @$(INSTALL) -v -d -m 0755 $(call qstrip,$(TARGET_DIR))/$(BR2_PACKAGE_AMAZON_IGNITION_IG_INSTALL_PATH)
+    @$(INSTALL) -v -d -m 0755 $(call qstrip,$(TARGET_DIR))/$(AMAZON_IGNITION_IG_INSTALL_PATH)
 
-    rsync -av --exclude lib/ ${AMAZON_IGNITION_BINARY_INSTALL_DIR}/ $(call qstrip,$(TARGET_DIR))$(BR2_PACKAGE_AMAZON_IGNITION_IG_INSTALL_PATH)
+    rsync -av --exclude lib/ ${AMAZON_IGNITION_BINARY_INSTALL_DIR}/ $(call qstrip,$(TARGET_DIR))$(AMAZON_IGNITION_IG_INSTALL_PATH)
 
-    $(INSTALL) -d $(call qstrip,$(TARGET_DIR))$(BR2_PACKAGE_AMAZON_IGNITION_IG_INSTALL_PATH)/lib
-    $(INSTALL) -m 755 ${AMAZON_IGNITION_BINARY_INSTALL_DIR}/lib/*.so $(call qstrip,$(TARGET_DIR))$(BR2_PACKAGE_AMAZON_IGNITION_IG_INSTALL_PATH)/lib
+    $(INSTALL) -d $(call qstrip,$(TARGET_DIR))$(AMAZON_IGNITION_IG_INSTALL_PATH)/lib
+    $(INSTALL) -m 755 ${AMAZON_IGNITION_BINARY_INSTALL_DIR}/lib/*.so $(call qstrip,$(TARGET_DIR))$(AMAZON_IGNITION_IG_INSTALL_PATH)/lib
 
     $(INSTALL) -d $(TARGET_DIR)/usr/lib
-    ln -sf "$(BR2_PACKAGE_AMAZON_IGNITION_IG_INSTALL_PATH)/lib/libignition.so" "$(TARGET_DIR)/usr/lib/libignition.so"
-    ln -sf "$(BR2_PACKAGE_AMAZON_IGNITION_IG_INSTALL_PATH)/lib/libamazon_player.so" "$(TARGET_DIR)/usr/lib/libamazon_player.so"
-    ln -sf "$(BR2_PACKAGE_AMAZON_IGNITION_IG_INSTALL_PATH)/lib/libamazon_playready.so" "$(TARGET_DIR)/usr/lib/libamazon_playready.so"
-    ln -sf "$(BR2_PACKAGE_AMAZON_IGNITION_IG_INSTALL_PATH)/lib/libamazon_player_mediapipeline.so" "$(TARGET_DIR)/usr/lib/libamazon_player_mediapipeline.so"
-    ln -sf "$(BR2_PACKAGE_AMAZON_IGNITION_IG_INSTALL_PATH)/lib/libprime-video-device-layer.so" "$(TARGET_DIR)/usr/lib/libprime-video-device-layer.so"
+    ln -sf "$(AMAZON_IGNITION_IG_INSTALL_PATH)/lib/libignition.so" "$(TARGET_DIR)/usr/lib/libignition.so"
+    ln -sf "$(AMAZON_IGNITION_IG_INSTALL_PATH)/lib/libamazon_player.so" "$(TARGET_DIR)/usr/lib/libamazon_player.so"
+    ln -sf "$(AMAZON_IGNITION_IG_INSTALL_PATH)/lib/libamazon_playready.so" "$(TARGET_DIR)/usr/lib/libamazon_playready.so"
+    ln -sf "$(AMAZON_IGNITION_IG_INSTALL_PATH)/lib/libamazon_player_mediapipeline.so" "$(TARGET_DIR)/usr/lib/libamazon_player_mediapipeline.so"
+    ln -sf "$(AMAZON_IGNITION_IG_INSTALL_PATH)/lib/libprime-video-device-layer.so" "$(TARGET_DIR)/usr/lib/libprime-video-device-layer.so"
 endef
 
 define AMAZON_IGNITION_INSTALL_IGNITION_DEV
