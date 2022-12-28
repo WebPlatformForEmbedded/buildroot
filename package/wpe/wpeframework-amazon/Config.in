@@ -9,21 +9,21 @@ if BR2_PACKAGE_WPEFRAMEWORK_AMAZON
 menu "Box Configuration"
 config BR2_PACKAGE_WPEFRAMEWORK_AMAZON_DTID
 	string "DTID"
-	default "UnknownDTID"
+	default ""
     help
         DTID will be provided by amazon, test DTID's can be found in docs on the partner central
 
 config BR2_PACKAGE_WPEFRAMEWORK_AMAZON_MODEL
 	string "model name"
-	default "UnknownModel"
+	default ""
 
 config BR2_PACKAGE_WPEFRAMEWORK_AMAZON_MANUFACTURER
 	string "manufacturer"
-	default "UnknownManufacturer"
+	default ""
 
 config BR2_PACKAGE_WPEFRAMEWORK_AMAZON_CHIPSET
 	string "chipset"
-	default "UnknownChipset"
+	default ""
 
 config BR2_PACKAGE_WPEFRAMEWORK_AMAZON_USER
 	string "user"
