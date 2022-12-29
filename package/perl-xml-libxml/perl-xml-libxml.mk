@@ -17,4 +17,6 @@ PERL_XML_LIBXML_CONF_OPTS = \
 	INC="-I $(STAGING_DIR)/usr/include/libxml2" \
 	NO_THREADS
 
+HOST_PERL_XML_LIBXML_DEPENDENCIES = host-libxml2
 $(eval $(perl-package))
+$(eval $(host-perl-package))

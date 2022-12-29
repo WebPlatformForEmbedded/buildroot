@@ -12,3 +12,4 @@ PERL_XML_SAX_BASE_LICENSE_FILES = README
 PERL_XML_SAX_BASE_DISTNAME = XML-SAX-Base
 
 $(eval $(perl-package))
+$(eval $(host-perl-package))

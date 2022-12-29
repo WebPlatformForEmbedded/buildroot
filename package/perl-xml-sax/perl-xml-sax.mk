@@ -12,3 +12,4 @@ PERL_XML_SAX_LICENSE_FILES = LICENSE
 PERL_XML_SAX_DISTNAME = XML-SAX
 
 $(eval $(perl-package))
+$(eval $(host-perl-package))
