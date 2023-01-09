@@ -39,8 +39,13 @@ GST1_PLUGINS_BASE_CONF_OPTS = \
 	-Dgobject-cast-checks=disabled \
 	-Dglib-asserts=disabled \
 	-Dglib-checks=disabled \
-	-Ddoc=disabled \
 	-Dintrospection=disabled
+
+ifeq ($(BR2_PACKAGE_GSTREAMER1_18),y)
+GST1_PLUGINS_BASE_CONF_OPTS += -Ddoc=disabled
+else
+GST1_PLUGINS_BASE_CONF_OPTS += -Dgtk_doc=disabled
+endif
 
 # Options which require currently unpackaged libraries
 GST1_PLUGINS_BASE_CONF_OPTS += \
