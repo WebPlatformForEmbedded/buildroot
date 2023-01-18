@@ -104,14 +104,10 @@ choice
 	help
 	  Choose the debug flavor.
 
-if !BR2_ENABLE_DEBUG
-
 config BR2_PACKAGE_WPEWEBKIT_RELEASE
 	bool "release"
 	help
 	  Release build
-
-endif
 
 config BR2_PACKAGE_WPEWEBKIT_DEBUG
 	bool "debug"
@@ -120,16 +116,34 @@ config BR2_PACKAGE_WPEWEBKIT_DEBUG
 
 endchoice
 
-if !BR2_PACKAGE_WPEWEBKIT_DEBUG
+choice
+        bool "Symbols level"
+        default BR2_PACKAGE_WPEWEBKIT_SYMBOLS_LEVEL_1 if BR2_PACKAGE_WPEWEBKIT_DEBUG
+        default BR2_PACKAGE_WPEWEBKIT_SYMBOLS_NO
+        help
+          Choose symbols level to apply to the compiler. WebKit 2.38 might not build with level 2 or 3.
 
-config BR2_PACKAGE_WPEWEBKIT_SYMBOLS
-	bool "add symbols to a release build"
-        default y if BR2_PACKAGE_WPEWEBKIT_DEBUG
-        default n
-	help
-	  Add symbols to a release build
+config BR2_PACKAGE_WPEWEBKIT_SYMBOLS_NO
+        bool "no symbols"
+        help
+          No symbols
 
-endif
+config BR2_PACKAGE_WPEWEBKIT_SYMBOLS_LEVEL_1
+        bool "level 1"
+        help
+          Adds -g1 to the compiler
+
+config BR2_PACKAGE_WPEWEBKIT_SYMBOLS_LEVEL_2
+        bool "level 2"
+        help
+          Adds -g2 to the compiler. WebKit 2.38 might not build with this level.
+
+config BR2_PACKAGE_WPEWEBKIT_SYMBOLS_LEVEL_3
+        bool "level 3"
+        help
+          Adds -g3 to the compiler. WebKit 2.38 might not build with this level.
+
+endchoice
 
 if BR2_PACKAGE_WPEWEBKIT2_22
 
