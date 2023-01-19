@@ -78,6 +78,7 @@ GST1_PLUGINS_BAD_CONF_OPTS += \
 	-Dgme=disabled \
 	-Dspandsp=disabled \
 	-Diqa=disabled \
+	-Dnvcodec=disabled \
 	-Dopencv=disabled
 
 GST1_PLUGINS_BAD_DEPENDENCIES = gst1-plugins-base gstreamer1
