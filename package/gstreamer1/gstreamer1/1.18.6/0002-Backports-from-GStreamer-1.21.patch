@@ -1,0 +1,2377 @@
+From ef697a754085dc0262cc2ef79b9d018b96727121 Mon Sep 17 00:00:00 2001
+From: Philippe Normand <philn@igalia.com>
+Date: Thu, 19 Jan 2023 14:50:21 +0000
+Subject: [PATCH] Backports from GStreamer 1.21.
+
+---
+ gst/gstbuffer.c  | 244 ++++++++++++++++++++++++++++++-----------------
+ gst/gstbuffer.h  | 133 +++++++++++++++++++++-----
+ gst/gstelement.c |  84 ++++++++++++----
+ gst/gstelement.h | 141 ++++++++++++++++++++++++++-
+ gst/gstevent.c   | 205 ++++++++++++++++++++++++++-------------
+ gst/gstevent.h   |  26 +++++
+ gst/gstmeta.c    | 220 +++++++++++++++++++++++++++++++++++++++++-
+ gst/gstmeta.h    |  61 ++++++++++++
+ gst/gstquark.c   |   1 +
+ gst/gstquark.h   |   5 +-
+ 10 files changed, 918 insertions(+), 202 deletions(-)
+
+diff --git a/gst/gstbuffer.c b/gst/gstbuffer.c
+index 8048651120..fb2c787ab0 100644
+--- a/gst/gstbuffer.c
++++ b/gst/gstbuffer.c
+@@ -34,7 +34,8 @@
+  * created one will typically allocate memory for it and add it to the buffer.
+  * The following example creates a buffer that can hold a given video frame
+  * with a given width, height and bits per plane.
+- * |[<!-- language="C" -->
++ *
++ * ``` C 
+  *   GstBuffer *buffer;
+  *   GstMemory *memory;
+  *   gint size, width, height, bpp;
+@@ -44,7 +45,7 @@
+  *   memory = gst_allocator_alloc (NULL, size, NULL);
+  *   gst_buffer_insert_memory (buffer, -1, memory);
+  *   ...
+- * ]|
++ * ```
+  *
+  * Alternatively, use gst_buffer_new_allocate() to create a buffer with
+  * preallocated data of a given size.
+@@ -84,7 +85,7 @@
+  *
+  * If a plug-in wants to modify the buffer data or metadata in-place, it should
+  * first obtain a buffer that is safe to modify by using
+- * gst_buffer_make_writable().  This function is optimized so that a copy will
++ * gst_buffer_make_writable(). This function is optimized so that a copy will
+  * only be made when it is necessary.
+  *
+  * Several flags of the buffer can be set and unset with the
+@@ -96,7 +97,7 @@
+  * needed.
+  *
+  * Arbitrary extra metadata can be set on a buffer with gst_buffer_add_meta().
+- * Metadata can be retrieved with gst_buffer_get_meta(). See also #GstMeta
++ * Metadata can be retrieved with gst_buffer_get_meta(). See also #GstMeta.
+  *
+  * An element should either unref the buffer or push it out on a src pad
+  * using gst_pad_push() (see #GstPad).
+@@ -114,8 +115,8 @@
+  * using the #GstMemory of the parent buffer, and wants to prevent the parent
+  * buffer from being returned to a buffer pool until the #GstMemory is available
+  * for re-use. (Since: 1.6)
+- *
+  */
++
+ #define GST_DISABLE_MINIOBJECT_INLINE_FUNCTIONS
+ #include "gst_private.h"
+ 
+@@ -129,9 +130,13 @@
+ #include "gstbuffer.h"
+ #include "gstbufferpool.h"
+ #include "gstinfo.h"
++#include "gstmeta.h"
+ #include "gstutils.h"
+ #include "gstversion.h"
+ 
++/* For g_memdup2 */
++#include "glib-compat-private.h"
++
+ GType _gst_buffer_type = 0;
+ 
+ /* info->size will be sizeof(FooMeta) which contains a GstMeta at the beginning
+@@ -355,7 +360,7 @@ _replace_memory (GstBuffer * buffer, guint len, guint idx, guint length,
+  * gst_buffer_get_flags:
+  * @buffer: a #GstBuffer
+  *
+- * Get the #GstBufferFlags flags set on this buffer.
++ * Gets the #GstBufferFlags flags set on this buffer.
+  *
+  * Returns: the flags set on this buffer.
+  *
+@@ -501,7 +506,7 @@ _priv_gst_buffer_initialize (void)
+ /**
+  * gst_buffer_get_max_memory:
+  *
+- * Get the maximum amount of memory blocks that a buffer can hold. This is a
++ * Gets the maximum amount of memory blocks that a buffer can hold. This is a
+  * compile time constant that can be queried with the function.
+  *
+  * When more memory blocks are added, existing memory blocks will be merged
+@@ -662,6 +667,10 @@ gst_buffer_copy_into (GstBuffer * dest, GstBuffer * src,
+   }
+ 
+   if (flags & GST_BUFFER_COPY_META) {
++    gboolean deep;
++
++    deep = (flags & GST_BUFFER_COPY_DEEP) != 0;
++
+     /* NOTE: GstGLSyncMeta copying relies on the meta
+      *       being copied now, after the buffer data,
+      *       so this has to happen last */
+@@ -679,6 +688,10 @@ gst_buffer_copy_into (GstBuffer * dest, GstBuffer * src,
+         GST_CAT_DEBUG (GST_CAT_BUFFER,
+             "don't copy memory meta %p of API type %s", meta,
+             g_type_name (info->api));
++      } else if (deep && gst_meta_api_type_has_tag (info->api,
++              _gst_meta_tag_memory_reference)) {
++        GST_CAT_DEBUG (GST_CAT_BUFFER,
++            "don't copy meta with memory references %" GST_PTR_FORMAT, meta);
+       } else if (info->transform_func) {
+         GstMetaTransformCopy copy_data;
+ 
+@@ -730,10 +743,10 @@ _gst_buffer_copy (const GstBuffer * buffer)
+  * gst_buffer_copy_deep:
+  * @buf: a #GstBuffer.
+  *
+- * Create a copy of the given buffer. This will make a newly allocated
++ * Creates a copy of the given buffer. This will make a newly allocated
+  * copy of the data the source buffer contains.
+  *
+- * Returns: (transfer full): a new copy of @buf.
++ * Returns: (transfer full) (nullable): a new copy of @buf if the copy succeeded, %NULL otherwise.
+  *
+  * Since: 1.6
+  */
+@@ -839,8 +852,6 @@ gst_buffer_init (GstBufferImpl * buffer, gsize size)
+  *
+  * Creates a newly allocated buffer without any data.
+  *
+- * MT safe.
+- *
+  * Returns: (transfer full): the new #GstBuffer.
+  */
+ GstBuffer *
+@@ -871,10 +882,7 @@ gst_buffer_new (void)
+  *
+  * Note that when @size == 0, the buffer will not have memory associated with it.
+  *
+- * MT safe.
+- *
+- * Returns: (transfer full) (nullable): a new #GstBuffer, or %NULL if
+- *     the memory couldn't be allocated.
++ * Returns: (transfer full) (nullable): a new #GstBuffer
+  */
+ GstBuffer *
+ gst_buffer_new_allocate (GstAllocator * allocator, gsize size,
+@@ -972,7 +980,7 @@ no_memory:
+  * @user_data: (allow-none): user_data
+  * @notify: (allow-none) (scope async) (closure user_data): called with @user_data when the memory is freed
+  *
+- * Allocate a new buffer that wraps the given memory. @data must point to
++ * Allocates a new buffer that wraps the given memory. @data must point to
+  * @maxsize of memory, the wrapped buffer will have the region from @offset and
+  * @size visible.
+  *
+@@ -1008,9 +1016,7 @@ gst_buffer_new_wrapped_full (GstMemoryFlags flags, gpointer data,
+  * @size: allocated size of @data
+  *
+  * Creates a new buffer that wraps the given @data. The memory will be freed
+- * with g_free and will be marked writable.
+- *
+- * MT safe.
++ * with g_free() and will be marked writable.
+  *
+  * Returns: (transfer full): a new #GstBuffer
+  */
+@@ -1027,8 +1033,6 @@ gst_buffer_new_wrapped (gpointer data, gsize size)
+  * Creates a new #GstBuffer that wraps the given @bytes. The data inside
+  * @bytes cannot be %NULL and the resulting buffer will be marked as read only.
+  *
+- * MT safe.
+- *
+  * Returns: (transfer full): a new #GstBuffer wrapping @bytes
+  *
+  * Since: 1.16
+@@ -1047,11 +1051,30 @@ gst_buffer_new_wrapped_bytes (GBytes * bytes)
+       size, 0, size, g_bytes_ref (bytes), (GDestroyNotify) g_bytes_unref);
+ }
+ 
++/**
++ * gst_buffer_new_memdup:
++ * @data: (array length=size) (element-type guint8) (transfer none): data to copy into new buffer
++ * @size: size of @data in bytes
++ *
++ * Creates a new buffer of size @size and fills it with a copy of @data.
++ *
++ * Returns: (transfer full): a new #GstBuffer
++ *
++ * Since: 1.20
++ */
++GstBuffer *
++gst_buffer_new_memdup (gconstpointer data, gsize size)
++{
++  gpointer data2 = g_memdup2 (data, size);
++
++  return gst_buffer_new_wrapped_full (0, data2, size, 0, size, data2, g_free);
++}
++
+ /**
+  * gst_buffer_n_memory:
+  * @buffer: a #GstBuffer.
+  *
+- * Get the amount of memory blocks that this buffer has. This amount is never
++ * Gets the amount of memory blocks that this buffer has. This amount is never
+  * larger than what gst_buffer_get_max_memory() returns.
+  *
+  * Returns: the number of memory blocks this buffer is made of.
+@@ -1069,7 +1092,7 @@ gst_buffer_n_memory (GstBuffer * buffer)
+  * @buffer: a #GstBuffer.
+  * @mem: (transfer full): a #GstMemory.
+  *
+- * Prepend the memory block @mem to @buffer. This function takes
++ * Prepends the memory block @mem to @buffer. This function takes
+  * ownership of @mem and thus doesn't increase its refcount.
+  *
+  * This function is identical to gst_buffer_insert_memory() with an index of 0.
+@@ -1086,7 +1109,7 @@ gst_buffer_prepend_memory (GstBuffer * buffer, GstMemory * mem)
+  * @buffer: a #GstBuffer.
+  * @mem: (transfer full): a #GstMemory.
+  *
+- * Append the memory block @mem to @buffer. This function takes
++ * Appends the memory block @mem to @buffer. This function takes
+  * ownership of @mem and thus doesn't increase its refcount.
+  *
+  * This function is identical to gst_buffer_insert_memory() with an index of -1.
+@@ -1104,7 +1127,7 @@ gst_buffer_append_memory (GstBuffer * buffer, GstMemory * mem)
+  * @idx: the index to add the memory at, or -1 to append it to the end
+  * @mem: (transfer full): a #GstMemory.
+  *
+- * Insert the memory block @mem to @buffer at @idx. This function takes ownership
++ * Inserts the memory block @mem into @buffer at @idx. This function takes ownership
+  * of @mem and thus doesn't increase its refcount.
+  *
+  * Only gst_buffer_get_max_memory() can be added to a buffer. If more memory is
+@@ -1160,7 +1183,7 @@ _get_mapped (GstBuffer * buffer, guint idx, GstMapInfo * info,
+  * @buffer: a #GstBuffer.
+  * @idx: an index
+  *
+- * Get the memory block at @idx in @buffer. The memory block stays valid until
++ * Gets the memory block at @idx in @buffer. The memory block stays valid until
+  * the memory block in @buffer is removed, replaced or merged, typically with
+  * any call that modifies the memory in @buffer.
+  *
+@@ -1180,10 +1203,10 @@ gst_buffer_peek_memory (GstBuffer * buffer, guint idx)
+  * @buffer: a #GstBuffer.
+  * @idx: an index
+  *
+- * Get the memory block at index @idx in @buffer.
++ * Gets the memory block at index @idx in @buffer.
+  *
+  * Returns: (transfer full) (nullable): a #GstMemory that contains the data of the
+- * memory block at @idx. Use gst_memory_unref () after usage.
++ * memory block at @idx.
+  */
+ GstMemory *
+ gst_buffer_get_memory (GstBuffer * buffer, guint idx)
+@@ -1195,11 +1218,10 @@ gst_buffer_get_memory (GstBuffer * buffer, guint idx)
+  * gst_buffer_get_all_memory:
+  * @buffer: a #GstBuffer.
+  *
+- * Get all the memory block in @buffer. The memory blocks will be merged
++ * Gets all the memory blocks in @buffer. The memory blocks will be merged
+  * into one large #GstMemory.
+  *
+  * Returns: (transfer full) (nullable): a #GstMemory that contains the merged memory.
+- * Use gst_memory_unref () after usage.
+  */
+ GstMemory *
+ gst_buffer_get_all_memory (GstBuffer * buffer)
+@@ -1213,13 +1235,13 @@ gst_buffer_get_all_memory (GstBuffer * buffer)
+  * @idx: an index
+  * @length: a length
+  *
+- * Get @length memory blocks in @buffer starting at @idx. The memory blocks will
++ * Gets @length memory blocks in @buffer starting at @idx. The memory blocks will
+  * be merged into one large #GstMemory.
+  *
+  * If @length is -1, all memory starting from @idx is merged.
+  *
+  * Returns: (transfer full) (nullable): a #GstMemory that contains the merged data of @length
+- *    blocks starting at @idx. Use gst_memory_unref () after usage.
++ *    blocks starting at @idx.
+  */
+ GstMemory *
+ gst_buffer_get_memory_range (GstBuffer * buffer, guint idx, gint length)
+@@ -1270,7 +1292,7 @@ gst_buffer_replace_all_memory (GstBuffer * buffer, GstMemory * mem)
+  * gst_buffer_replace_memory_range:
+  * @buffer: a #GstBuffer.
+  * @idx: an index
+- * @length: a length should not be 0
++ * @length: a length, should not be 0
+  * @mem: (transfer full): a #GstMemory
+  *
+  * Replaces @length memory blocks in @buffer starting at @idx with @mem.
+@@ -1306,7 +1328,7 @@ gst_buffer_replace_memory_range (GstBuffer * buffer, guint idx, gint length,
+  * @buffer: a #GstBuffer.
+  * @idx: an index
+  *
+- * Remove the memory block in @b at index @i.
++ * Removes the memory block in @b at index @i.
+  */
+ void
+ gst_buffer_remove_memory (GstBuffer * buffer, guint idx)
+@@ -1318,7 +1340,7 @@ gst_buffer_remove_memory (GstBuffer * buffer, guint idx)
+  * gst_buffer_remove_all_memory:
+  * @buffer: a #GstBuffer.
+  *
+- * Remove all the memory blocks in @buffer.
++ * Removes all the memory blocks in @buffer.
+  */
+ void
+ gst_buffer_remove_all_memory (GstBuffer * buffer)
+@@ -1333,7 +1355,7 @@ gst_buffer_remove_all_memory (GstBuffer * buffer)
+  * @idx: an index
+  * @length: a length
+  *
+- * Remove @length memory blocks in @buffer starting from @idx.
++ * Removes @length memory blocks in @buffer starting from @idx.
+  *
+  * @length can be -1, in which case all memory starting from @idx is removed.
+  */
+@@ -1366,7 +1388,7 @@ gst_buffer_remove_memory_range (GstBuffer * buffer, guint idx, gint length)
+  * @length: (out): pointer to length
+  * @skip: (out): pointer to skip
+  *
+- * Find the memory blocks that span @size bytes starting from @offset
++ * Finds the memory blocks that span @size bytes starting from @offset
+  * in @buffer.
+  *
+  * When this function returns %TRUE, @idx will contain the index of the first
+@@ -1434,9 +1456,9 @@ gst_buffer_find_memory (GstBuffer * buffer, gsize offset, gsize size,
+  * gst_buffer_is_memory_range_writable:
+  * @buffer: a #GstBuffer.
+  * @idx: an index
+- * @length: a length should not be 0
++ * @length: a length, should not be 0
+  *
+- * Check if @length memory blocks in @buffer starting from @idx are writable.
++ * Checks if @length memory blocks in @buffer starting from @idx are writable.
+  *
+  * @length can be -1 to check all the memory blocks after @idx.
+  *
+@@ -1477,7 +1499,7 @@ gst_buffer_is_memory_range_writable (GstBuffer * buffer, guint idx, gint length)
+  * gst_buffer_is_all_memory_writable:
+  * @buffer: a #GstBuffer.
+  *
+- * Check if all memory blocks in @buffer are writable.
++ * Checks if all memory blocks in @buffer are writable.
+  *
+  * Note that this function does not check if @buffer is writable, use
+  * gst_buffer_is_writable() to check that if needed.
+@@ -1498,7 +1520,7 @@ gst_buffer_is_all_memory_writable (GstBuffer * buffer)
+  * @offset: (out) (allow-none): a pointer to the offset
+  * @maxsize: (out) (allow-none): a pointer to the maxsize
+  *
+- * Get the total size of the memory blocks in @b.
++ * Gets the total size of the memory blocks in @buffer.
+  *
+  * When not %NULL, @offset will contain the offset of the data in the
+  * first memory block in @buffer and @maxsize will contain the sum of
+@@ -1518,7 +1540,7 @@ gst_buffer_get_sizes (GstBuffer * buffer, gsize * offset, gsize * maxsize)
+  * gst_buffer_get_size:
+  * @buffer: a #GstBuffer.
+  *
+- * Get the total size of the memory blocks in @buffer.
++ * Gets the total size of the memory blocks in @buffer.
+  *
+  * Returns: total size of the memory blocks in @buffer.
+  */
+@@ -1545,7 +1567,7 @@ gst_buffer_get_size (GstBuffer * buffer)
+  * @offset: (out) (allow-none): a pointer to the offset
+  * @maxsize: (out) (allow-none): a pointer to the maxsize
+  *
+- * Get the total size of @length memory blocks stating from @idx in @buffer.
++ * Gets the total size of @length memory blocks stating from @idx in @buffer.
+  *
+  * When not %NULL, @offset will contain the offset of the data in the
+  * memory block in @buffer at @idx and @maxsize will contain the sum of the size
+@@ -1625,7 +1647,7 @@ gst_buffer_get_sizes_range (GstBuffer * buffer, guint idx, gint length,
+  * @offset: the offset adjustment
+  * @size: the new size or -1 to just adjust the offset
+  *
+- * Set the offset and total size of the memory blocks in @buffer.
++ * Sets the offset and total size of the memory blocks in @buffer.
+  */
+ void
+ gst_buffer_resize (GstBuffer * buffer, gssize offset, gssize size)
+@@ -1638,7 +1660,7 @@ gst_buffer_resize (GstBuffer * buffer, gssize offset, gssize size)
+  * @buffer: a #GstBuffer.
+  * @size: the new size
+  *
+- * Set the total size of the memory blocks in @buffer.
++ * Sets the total size of the memory blocks in @buffer.
+  */
+ void
+ gst_buffer_set_size (GstBuffer * buffer, gssize size)
+@@ -1654,7 +1676,7 @@ gst_buffer_set_size (GstBuffer * buffer, gssize size)
+  * @offset: the offset adjustment
+  * @size: the new size or -1 to just adjust the offset
+  *
+- * Set the total size of the @length memory blocks starting at @idx in
++ * Sets the total size of the @length memory blocks starting at @idx in
+  * @buffer
+  *
+  * Returns: %TRUE if resizing succeeded, %FALSE otherwise.
+@@ -1760,8 +1782,7 @@ gst_buffer_resize_range (GstBuffer * buffer, guint idx, gint length,
+  * @info: (out caller-allocates): info about the mapping
+  * @flags: flags for the mapping
+  *
+- * This function fills @info with the #GstMapInfo of all merged memory
+- * blocks in @buffer.
++ * Fills @info with the #GstMapInfo of all merged memory blocks in @buffer.
+  *
+  * @flags describe the desired access of the memory. When @flags is
+  * #GST_MAP_WRITE, @buffer should be writable (as returned from
+@@ -1790,7 +1811,7 @@ gst_buffer_map (GstBuffer * buffer, GstMapInfo * info, GstMapFlags flags)
+  * @info: (out caller-allocates): info about the mapping
+  * @flags: flags for the mapping
+  *
+- * This function fills @info with the #GstMapInfo of @length merged memory blocks
++ * Fills @info with the #GstMapInfo of @length merged memory blocks
+  * starting at @idx in @buffer. When @length is -1, all memory blocks starting
+  * from @idx are merged and mapped.
+  *
+@@ -1887,7 +1908,7 @@ cannot_map:
+  * @buffer: a #GstBuffer.
+  * @info: a #GstMapInfo
+  *
+- * Release the memory previously mapped with gst_buffer_map().
++ * Releases the memory previously mapped with gst_buffer_map().
+  */
+ void
+ gst_buffer_unmap (GstBuffer * buffer, GstMapInfo * info)
+@@ -1895,12 +1916,7 @@ gst_buffer_unmap (GstBuffer * buffer, GstMapInfo * info)
+   g_return_if_fail (GST_IS_BUFFER (buffer));
+   g_return_if_fail (info != NULL);
+ 
+-  /* we need to check for NULL, it is possible that we tried to map a buffer
+-   * without memory and we should be able to unmap that fine */
+-  if (G_LIKELY (info->memory)) {
+-    gst_memory_unmap (info->memory, info);
+-    gst_memory_unref (info->memory);
+-  }
++  _gst_buffer_map_info_clear ((GstBufferMapInfo *) info);
+ }
+ 
+ /**
+@@ -1910,7 +1926,7 @@ gst_buffer_unmap (GstBuffer * buffer, GstMapInfo * info)
+  * @src: (array length=size) (element-type guint8): the source address
+  * @size: the size to fill
+  *
+- * Copy @size bytes from @src to @buffer at @offset.
++ * Copies @size bytes from @src to @buffer at @offset.
+  *
+  * Returns: The amount of bytes copied. This value can be lower than @size
+  *    when @buffer did not contain enough data.
+@@ -1963,7 +1979,7 @@ gst_buffer_fill (GstBuffer * buffer, gsize offset, gconstpointer src,
+  *     the destination address
+  * @size: the size to extract
+  *
+- * Copy @size bytes starting from @offset in @buffer to @dest.
++ * Copies @size bytes starting from @offset in @buffer to @dest.
+  *
+  * Returns: The amount of bytes extracted. This value can be lower than @size
+  *    when @buffer did not contain enough data.
+@@ -2013,7 +2029,7 @@ gst_buffer_extract (GstBuffer * buffer, gsize offset, gpointer dest, gsize size)
+  * @mem: (array length=size) (element-type guint8): the memory to compare
+  * @size: the size to compare
+  *
+- * Compare @size bytes starting from @offset in @buffer with the memory in @mem.
++ * Compares @size bytes starting from @offset in @buffer with the memory in @mem.
+  *
+  * Returns: 0 if the memory is equal.
+  */
+@@ -2066,7 +2082,7 @@ gst_buffer_memcmp (GstBuffer * buffer, gsize offset, gconstpointer mem,
+  * @val: the value to set
+  * @size: the size to set
+  *
+- * Fill @buf with @size bytes with @val starting from @offset.
++ * Fills @buf with @size bytes with @val starting from @offset.
+  *
+  * Returns: The amount of bytes filled. This value can be lower than @size
+  *    when @buffer did not contain enough data.
+@@ -2125,10 +2141,8 @@ gst_buffer_memset (GstBuffer * buffer, gsize offset, guint8 val, gsize size)
+  * duration and offset end fields are also copied. If not they will be set
+  * to #GST_CLOCK_TIME_NONE and #GST_BUFFER_OFFSET_NONE.
+  *
+- * MT safe.
+- *
+- * Returns: (transfer full): the new #GstBuffer or %NULL if the arguments were
+- *     invalid.
++ * Returns: (transfer full) (nullable): the new #GstBuffer or %NULL if copying
++ *     failed.
+  */
+ GstBuffer *
+ gst_buffer_copy_region (GstBuffer * buffer, GstBufferCopyFlags flags,
+@@ -2155,7 +2169,7 @@ gst_buffer_copy_region (GstBuffer * buffer, GstBufferCopyFlags flags,
+  * @buf1: (transfer full): the first source #GstBuffer to append.
+  * @buf2: (transfer full): the second source #GstBuffer to append.
+  *
+- * Append all the memory from @buf2 to @buf1. The result buffer will contain a
++ * Appends all the memory from @buf2 to @buf1. The result buffer will contain a
+  * concatenation of the memory of @buf1 and @buf2.
+  *
+  * Returns: (transfer full): the new #GstBuffer that contains the memory
+@@ -2174,7 +2188,7 @@ gst_buffer_append (GstBuffer * buf1, GstBuffer * buf2)
+  * @offset: the offset in @buf2
+  * @size: the size or -1 of @buf2
+  *
+- * Append @size bytes at @offset from @buf2 to @buf1. The result buffer will
++ * Appends @size bytes at @offset from @buf2 to @buf1. The result buffer will
+  * contain a concatenation of the memory of @buf1 and the requested region of
+  * @buf2.
+  *
+@@ -2218,14 +2232,13 @@ gst_buffer_append_region (GstBuffer * buf1, GstBuffer * buf2, gssize offset,
+  * @buffer: a #GstBuffer
+  * @api: the #GType of an API
+  *
+- * Get the metadata for @api on buffer. When there is no such metadata, %NULL is
++ * Gets the metadata for @api on buffer. When there is no such metadata, %NULL is
+  * returned. If multiple metadata with the given @api are attached to this
+  * buffer only the first one is returned.  To handle multiple metadata with a
+  * given API use gst_buffer_iterate_meta() or gst_buffer_foreach_meta() instead
+- * and check the meta->info.api member for the API type.
++ * and check the `meta->info.api` member for the API type.
+  *
+- * Returns: (transfer none) (nullable): the metadata for @api on
+- * @buffer.
++ * Returns: (transfer none) (nullable): the metadata for @api on @buffer.
+  */
+ GstMeta *
+ gst_buffer_get_meta (GstBuffer * buffer, GType api)
+@@ -2275,7 +2288,7 @@ gst_buffer_get_n_meta (GstBuffer * buffer, GType api_type)
+  * @info: a #GstMetaInfo
+  * @params: params for @info
+  *
+- * Add metadata for @info to @buffer using the parameters in @params.
++ * Adds metadata for @info to @buffer using the parameters in @params.
+  *
+  * Returns: (transfer none) (nullable): the metadata for the api in @info on @buffer.
+  */
+@@ -2338,7 +2351,7 @@ init_failed:
+  * @buffer: a #GstBuffer
+  * @meta: a #GstMeta
+  *
+- * Remove the metadata for @meta on @buffer.
++ * Removes the metadata for @meta on @buffer.
+  *
+  * Returns: %TRUE if the metadata existed and was removed, %FALSE if no such
+  * metadata was on @buffer.
+@@ -2392,7 +2405,7 @@ gst_buffer_remove_meta (GstBuffer * buffer, GstMeta * meta)
+  * @buffer: a #GstBuffer
+  * @state: (out caller-allocates): an opaque state pointer
+  *
+- * Retrieve the next #GstMeta after @current. If @state points
++ * Retrieves the next #GstMeta after @current. If @state points
+  * to %NULL, the first metadata is returned.
+  *
+  * @state will be updated with an opaque state pointer
+@@ -2428,7 +2441,7 @@ gst_buffer_iterate_meta (GstBuffer * buffer, gpointer * state)
+  * @state: (out caller-allocates): an opaque state pointer
+  * @meta_api_type: only return #GstMeta of this type
+  *
+- * Retrieve the next #GstMeta of type @meta_api_type after the current one
++ * Retrieves the next #GstMeta of type @meta_api_type after the current one
+  * according to @state. If @state points to %NULL, the first metadata of
+  * type @meta_api_type is returned.
+  *
+@@ -2471,10 +2484,10 @@ gst_buffer_iterate_meta_filtered (GstBuffer * buffer, gpointer * state,
+  * @func: (scope call): a #GstBufferForeachMetaFunc to call
+  * @user_data: (closure): user data passed to @func
+  *
+- * Call @func with @user_data for each meta in @buffer.
++ * Calls @func with @user_data for each meta in @buffer.
+  *
+  * @func can modify the passed meta pointer or its contents. The return value
+- * of @func define if this function returns or if the remaining metadata items
++ * of @func defines if this function returns or if the remaining metadata items
+  * in the buffer should be skipped.
+  *
+  * Returns: %FALSE when @func returned %FALSE for one of the metadata.
+@@ -2577,7 +2590,7 @@ GST_DEBUG_CATEGORY_STATIC (gst_parent_buffer_meta_debug);
+  * @buffer: (transfer none): a #GstBuffer
+  * @ref: (transfer none): a #GstBuffer to ref
+  *
+- * Add a #GstParentBufferMeta to @buffer that holds a reference on
++ * Adds a #GstParentBufferMeta to @buffer that holds a reference on
+  * @ref until the buffer is freed.
+  *
+  * Returns: (transfer none) (nullable): The #GstParentBufferMeta that was added to the buffer
+@@ -2663,7 +2676,7 @@ GType
+ gst_parent_buffer_meta_api_get_type (void)
+ {
+   static GType type = 0;
+-  static const gchar *tags[] = { NULL };
++  static const gchar *tags[] = { GST_META_TAG_MEMORY_REFERENCE_STR, NULL };
+ 
+   if (g_once_init_enter (&type)) {
+     GType _type = gst_meta_api_type_register ("GstParentBufferMetaAPI", tags);
+@@ -2676,7 +2689,7 @@ gst_parent_buffer_meta_api_get_type (void)
+ /**
+  * gst_parent_buffer_meta_get_info:
+  *
+- * Get the global #GstMetaInfo describing  the #GstParentBufferMeta meta.
++ * Gets the global #GstMetaInfo describing  the #GstParentBufferMeta meta.
+  *
+  * Returns: (transfer none): The #GstMetaInfo
+  *
+@@ -2710,7 +2723,7 @@ GST_DEBUG_CATEGORY_STATIC (gst_reference_timestamp_meta_debug);
+  * @timestamp: timestamp
+  * @duration: duration, or %GST_CLOCK_TIME_NONE
+  *
+- * Add a #GstReferenceTimestampMeta to @buffer that holds a @timestamp and
++ * Adds a #GstReferenceTimestampMeta to @buffer that holds a @timestamp and
+  * optionally @duration based on a specific timestamp @reference. See the
+  * documentation of #GstReferenceTimestampMeta for details.
+  *
+@@ -2746,7 +2759,7 @@ gst_buffer_add_reference_timestamp_meta (GstBuffer * buffer,
+  * @buffer: a #GstBuffer
+  * @reference: (allow-none): a reference #GstCaps
+  *
+- * Find the first #GstReferenceTimestampMeta on @buffer that conforms to
++ * Finds the first #GstReferenceTimestampMeta on @buffer that conforms to
+  * @reference. Conformance is tested by checking if the meta's reference is a
+  * subset of @reference.
+  *
+@@ -2848,7 +2861,7 @@ gst_reference_timestamp_meta_api_get_type (void)
+ /**
+  * gst_reference_timestamp_meta_get_info:
+  *
+- * Get the global #GstMetaInfo describing  the #GstReferenceTimestampMeta meta.
++ * Gets the global #GstMetaInfo describing the #GstReferenceTimestampMeta meta.
+  *
+  * Returns: (transfer none): The #GstMetaInfo
+  *
+@@ -2873,6 +2886,67 @@ gst_reference_timestamp_meta_get_info (void)
+   return meta_info;
+ }
+ 
++/**
++ * gst_buffer_add_custom_meta:
++ * @buffer: (transfer none): a #GstBuffer
++ * @name: the registered name of the desired custom meta
++ *
++ * Creates and adds a #GstCustomMeta for the desired @name. @name must have
++ * been successfully registered with gst_meta_register_custom().
++ *
++ * Returns: (transfer none) (nullable): The #GstCustomMeta that was added to the buffer
++ *
++ * Since: 1.20
++ */
++GstCustomMeta *
++gst_buffer_add_custom_meta (GstBuffer * buffer, const gchar * name)
++{
++  GstCustomMeta *meta;
++  const GstMetaInfo *info;
++
++  g_return_val_if_fail (name != NULL, NULL);
++  g_return_val_if_fail (GST_IS_BUFFER (buffer), NULL);
++
++  info = gst_meta_get_info (name);
++
++  if (info == NULL || !gst_meta_info_is_custom (info))
++    return NULL;
++
++  meta = (GstCustomMeta *) gst_buffer_add_meta (buffer, info, NULL);
++
++  return meta;
++}
++
++/**
++ * gst_buffer_get_custom_meta:
++ * @buffer: a #GstBuffer
++ * @name: the registered name of the custom meta to retrieve.
++ *
++ * Finds the first #GstCustomMeta on @buffer for the desired @name.
++ *
++ * Returns: (transfer none) (nullable): the #GstCustomMeta
++ *
++ * Since: 1.20
++ */
++GstCustomMeta *
++gst_buffer_get_custom_meta (GstBuffer * buffer, const gchar * name)
++{
++  const GstMetaInfo *info;
++
++  g_return_val_if_fail (buffer != NULL, NULL);
++  g_return_val_if_fail (name != NULL, NULL);
++
++  info = gst_meta_get_info (name);
++
++  if (!info)
++    return NULL;
++
++  if (!gst_meta_info_is_custom (info))
++    return NULL;
++
++  return (GstCustomMeta *) gst_buffer_get_meta (buffer, info->api);
++}
++
+ /**
+  * gst_buffer_ref: (skip)
+  * @buf: a #GstBuffer.
+@@ -2883,7 +2957,7 @@ gst_reference_timestamp_meta_get_info (void)
+  * of @buf and its metadata, see gst_buffer_is_writable().
+  * It is important to note that keeping additional references to
+  * GstBuffer instances can potentially increase the number
+- * of memcpy operations in a pipeline.
++ * of `memcpy` operations in a pipeline.
+  *
+  * Returns: (transfer full): @buf
+  */
+@@ -2929,13 +3003,13 @@ gst_clear_buffer (GstBuffer ** buf_ptr)
+  * gst_buffer_copy: (skip)
+  * @buf: a #GstBuffer.
+  *
+- * Create a copy of the given buffer. This will only copy the buffer's
++ * Creates a copy of the given buffer. This will only copy the buffer's
+  * data to a newly allocated memory if needed (if the type of memory
+  * requires it), otherwise the underlying data is just referenced.
+  * Check gst_buffer_copy_deep() if you want to force the data
+  * to be copied to newly allocated memory.
+  *
+- * Returns: (transfer full): a new copy of @buf.
++ * Returns: (transfer full) (nullable): a new copy of @buf if the copy succeeded, %NULL otherwise.
+  */
+ GstBuffer *
+ gst_buffer_copy (const GstBuffer * buf)
+diff --git a/gst/gstbuffer.h b/gst/gstbuffer.h
+index c564905b0f..6a8b84fc69 100644
+--- a/gst/gstbuffer.h
++++ b/gst/gstbuffer.h
+@@ -47,7 +47,7 @@ typedef struct _GstBufferPool GstBufferPool;
+  * GST_BUFFER_FLAGS:
+  * @buf: a #GstBuffer.
+  *
+- * A flags word containing #GstBufferFlags flags set on this buffer.
++ * Returns a flags word containing #GstBufferFlags flags set on this buffer.
+  */
+ #define GST_BUFFER_FLAGS(buf)                   GST_MINI_OBJECT_FLAGS(buf)
+ /**
+@@ -80,25 +80,27 @@ typedef struct _GstBufferPool GstBufferPool;
+  * GST_BUFFER_PTS:
+  * @buf: a #GstBuffer.:
+  *
+- * The presentation timestamp (pts) in nanoseconds (as a #GstClockTime)
++ * Gets the presentation timestamp (pts) in nanoseconds (as a #GstClockTime)
+  * of the data in the buffer. This is the timestamp when the media should be
+  * presented to the user.
++ *
+  * Value will be %GST_CLOCK_TIME_NONE if the pts is unknown.
+  */
+ #define GST_BUFFER_PTS(buf)                     (GST_BUFFER_CAST(buf)->pts)
+ /**
+  * GST_BUFFER_DTS:
+- * @buf: a #GstBuffer.:
++ * @buf: a #GstBuffer.
+  *
+- * The decoding timestamp (dts) in nanoseconds (as a #GstClockTime)
++ * Gets the decoding timestamp (dts) in nanoseconds (as a #GstClockTime)
+  * of the data in the buffer. This is the timestamp when the media should be
+  * decoded or processed otherwise.
++ *
+  * Value will be %GST_CLOCK_TIME_NONE if the dts is unknown.
+  */
+ #define GST_BUFFER_DTS(buf)                     (GST_BUFFER_CAST(buf)->dts)
+ /**
+  * GST_BUFFER_DTS_OR_PTS:
+- * @buf: a #GstBuffer.:
++ * @buf: a #GstBuffer.
+  *
+  * Returns the buffer decoding timestamp (dts) if valid, else the buffer
+  * presentation time (pts)
+@@ -110,7 +112,8 @@ typedef struct _GstBufferPool GstBufferPool;
+  * GST_BUFFER_DURATION:
+  * @buf: a #GstBuffer.
+  *
+- * The duration in nanoseconds (as a #GstClockTime) of the data in the buffer.
++ * Gets the duration in nanoseconds (as a #GstClockTime) of the data in the buffer.
++ *
+  * Value will be %GST_CLOCK_TIME_NONE if the duration is unknown.
+  */
+ #define GST_BUFFER_DURATION(buf)                (GST_BUFFER_CAST(buf)->duration)
+@@ -118,14 +121,14 @@ typedef struct _GstBufferPool GstBufferPool;
+  * GST_BUFFER_OFFSET:
+  * @buf: a #GstBuffer.
+  *
+- * The offset in the source file of the beginning of this buffer.
++ * Gets the offset in the source file of the beginning of this buffer.
+  */
+ #define GST_BUFFER_OFFSET(buf)                  (GST_BUFFER_CAST(buf)->offset)
+ /**
+  * GST_BUFFER_OFFSET_END:
+  * @buf: a #GstBuffer.
+  *
+- * The offset in the source file of the end of this buffer.
++ * Gets the offset in the source file of the end of this buffer.
+  */
+ #define GST_BUFFER_OFFSET_END(buf)              (GST_BUFFER_CAST(buf)->offset_end)
+ 
+@@ -195,7 +198,9 @@ typedef struct _GstBufferPool GstBufferPool;
+  * @GST_BUFFER_FLAG_CORRUPTED:     the buffer data is corrupted.
+  * @GST_BUFFER_FLAG_MARKER:        the buffer contains a media specific marker. for
+  *                                 video this is the end of a frame boundary, for audio
+- *                                 this is the start of a talkspurt.
++ *                                 this is the start of a talkspurt. for RTP
++ *                                 packets this matches the marker flag in the
++ *                                 RTP packet header.
+  * @GST_BUFFER_FLAG_HEADER:        the buffer contains header information that is
+  *                                 needed to decode the following data.
+  * @GST_BUFFER_FLAG_GAP:           the buffer has been created to fill a gap in the
+@@ -207,14 +212,6 @@ typedef struct _GstBufferPool GstBufferPool;
+  * @GST_BUFFER_FLAG_DELTA_UNIT:    this unit cannot be decoded independently.
+  * @GST_BUFFER_FLAG_TAG_MEMORY:    this flag is set when memory of the buffer
+  *                                 is added/removed
+- * @GST_BUFFER_FLAG_SYNC_AFTER:    Elements which write to disk or permanent
+- *                                 storage should ensure the data is synced after
+- *                                 writing the contents of this buffer. (Since: 1.6)
+- * @GST_BUFFER_FLAG_NON_DROPPABLE: This buffer is important and should not be dropped.
+- *                                 This can be used to mark important buffers, e.g. to flag
+- *                                 RTP packets carrying keyframes or codec setup data for RTP
+- *                                 Forward Error Correction purposes, or to prevent still video
+- *                                 frames from being dropped by elements due to QoS. (Since: 1.14)
+  * @GST_BUFFER_FLAG_LAST:          additional media specific flags can be added starting from
+  *                                 this flag.
+  *
+@@ -232,7 +229,29 @@ typedef enum {
+   GST_BUFFER_FLAG_DROPPABLE     = (GST_MINI_OBJECT_FLAG_LAST << 8),
+   GST_BUFFER_FLAG_DELTA_UNIT    = (GST_MINI_OBJECT_FLAG_LAST << 9),
+   GST_BUFFER_FLAG_TAG_MEMORY    = (GST_MINI_OBJECT_FLAG_LAST << 10),
++
++  /**
++   * GST_BUFFER_FLAG_SYNC_AFTER:
++   *
++   * Elements which write to disk or permanent storage should ensure the data
++   * is synced after writing the contents of this buffer.
++   *
++   * Since: 1.6
++   */
+   GST_BUFFER_FLAG_SYNC_AFTER    = (GST_MINI_OBJECT_FLAG_LAST << 11),
++
++  /**
++   * GST_BUFFER_FLAG_NON_DROPPABLE:
++   *
++   * This buffer is important and should not be dropped.
++   *
++   * This can be used to mark important buffers, e.g. to flag RTP packets
++   * carrying keyframes or codec setup data for RTP Forward Error Correction
++   * purposes, or to prevent still video frames from being dropped by elements
++   * due to QoS.
++   *
++   * Since: 1.14
++   */
+   GST_BUFFER_FLAG_NON_DROPPABLE = (GST_MINI_OBJECT_FLAG_LAST << 12),
+ 
+   GST_BUFFER_FLAG_LAST          = (GST_MINI_OBJECT_FLAG_LAST << 16)
+@@ -297,9 +316,13 @@ GstBuffer * gst_buffer_new_wrapped_full    (GstMemoryFlags flags, gpointer data,
+                                             GDestroyNotify notify);
+ GST_API
+ GstBuffer * gst_buffer_new_wrapped         (gpointer data, gsize size);
++
+ GST_API
+ GstBuffer * gst_buffer_new_wrapped_bytes   (GBytes * bytes);
+ 
++GST_API
++GstBuffer * gst_buffer_new_memdup           (gconstpointer data, gsize size);
++
+ /* memory blocks */
+ 
+ GST_API
+@@ -466,8 +489,6 @@ GstBuffer * gst_buffer_copy_deep (const GstBuffer * buf);
+  *   merged
+  * @GST_BUFFER_COPY_META: flag indicating that buffer meta should be
+  *   copied
+- * @GST_BUFFER_COPY_DEEP: flag indicating that memory should always be
+- *   copied instead of reffed (Since: 1.2)
+  *
+  * A set of flags that can be provided to the gst_buffer_copy_into()
+  * function to specify which items should be copied.
+@@ -479,6 +500,14 @@ typedef enum {
+   GST_BUFFER_COPY_META           = (1 << 2),
+   GST_BUFFER_COPY_MEMORY         = (1 << 3),
+   GST_BUFFER_COPY_MERGE          = (1 << 4),
++
++  /**
++   * GST_BUFFER_COPY_DEEP:
++   *
++   * flag indicating that memory should always be copied instead of reffed
++   *
++   * Since: 1.2
++   */
+   GST_BUFFER_COPY_DEEP           = (1 << 5)
+ } GstBufferCopyFlags;
+ 
+@@ -538,8 +567,8 @@ gboolean        gst_buffer_copy_into            (GstBuffer *dest, GstBuffer *src
+  * that it returns. Don't access the argument after calling this function unless
+  * you have an additional reference to it.
+  *
+- * Returns: (transfer full): a writable buffer which may or may not be the
+- *     same as @buf
++ * Returns: (transfer full) (nullable): a writable buffer (which may or may not be the
++ *     same as @buf) or %NULL if copying is required but not possible.
+  */
+ #define         gst_buffer_make_writable(buf)   GST_BUFFER_CAST (gst_mini_object_make_writable (GST_MINI_OBJECT_CAST (buf)))
+ 
+@@ -617,6 +646,14 @@ gboolean        gst_buffer_foreach_meta         (GstBuffer *buffer,
+                                                  GstBufferForeachMetaFunc func,
+                                                  gpointer user_data);
+ 
++GST_API
++GstCustomMeta * gst_buffer_add_custom_meta      (GstBuffer *buffer,
++                                                 const gchar *name);
++
++GST_API
++GstCustomMeta * gst_buffer_get_custom_meta      (GstBuffer *buffer,
++                                                 const gchar *name);
++
+ /**
+  * gst_value_set_buffer:
+  * @v: a #GValue to receive the data
+@@ -682,7 +719,7 @@ GType gst_parent_buffer_meta_api_get_type (void);
+  * gst_buffer_get_parent_buffer_meta:
+  * @b: a #GstBuffer
+  *
+- * Find and return a #GstParentBufferMeta if one exists on the
++ * Finds and returns a #GstParentBufferMeta if one exists on the
+  * buffer
+  */
+ #define gst_buffer_get_parent_buffer_meta(b) \
+@@ -713,10 +750,18 @@ typedef struct _GstReferenceTimestampMeta GstReferenceTimestampMeta;
+  * captured.
+  *
+  * The reference is stored as a #GstCaps in @reference. Examples of valid
+- * references would be "timestamp/x-drivername-stream" for timestamps that are locally
+- * generated by some driver named "drivername" when generating the stream,
+- * e.g. based on a frame counter, or "timestamp/x-ntp, host=pool.ntp.org,
+- * port=123" for timestamps based on a specific NTP server.
++ * references would be
++ *
++ *  * `timestamp/x-drivername-stream`: for timestamps that are locally
++ *    generated by some driver named `drivername` when generating the stream,
++ *    e.g. based on a frame counter
++ *  * `timestamp/x-ntp, host=pool.ntp.org, port=123`: for timestamps based on a
++ *    specific NTP server. Note that the host/port parameters might not always
++ *    be given.
++ *  * `timestamp/x-ptp, version=IEEE1588-2008, domain=1`: for timestamps based
++ *    on a given PTP clock.
++ *  * `timestamp/x-unix`: for timestamps based on the UNIX epoch according to
++ *    the local clock.
+  *
+  * Since: 1.14
+  */
+@@ -753,6 +798,42 @@ G_DEFINE_AUTOPTR_CLEANUP_FUNC(GstBuffer, gst_buffer_unref)
+ 
+ G_DEFINE_AUTOPTR_CLEANUP_FUNC(GstBufferPool, gst_object_unref)
+ 
++/**
++ * GstBufferMapInfo: (skip):
++ *
++ * Alias for #GstMapInfo to be used with g_auto():
++ * ```c
++ * void my_func(GstBuffer *buf)
++ * {
++ *   g_auto(GstBufferMapInfo) map = GST_MAP_INFO_INIT;
++ *   if (!gst_buffer_map(buf, &map, GST_MAP_READWRITE))
++ *     return;
++ *   ...
++ *   // No need to call gst_buffer_unmap()
++ * }
++ * ```
++ *
++ * #GstMapInfo cannot be used with g_auto() because it is ambiguous whether it
++ * needs to be unmapped using gst_buffer_unmap() or gst_memory_unmap().
++ *
++ * See also #GstMemoryMapInfo.
++ *
++ * Since: 1.22
++ */
++typedef GstMapInfo GstBufferMapInfo;
++
++static inline void _gst_buffer_map_info_clear(GstBufferMapInfo *info)
++{
++  /* we need to check for NULL, it is possible that we tried to map a buffer
++   * without memory and we should be able to unmap that fine */
++  if (G_LIKELY (info->memory)) {
++    gst_memory_unmap (info->memory, info);
++    gst_memory_unref (info->memory);
++  }
++}
++
++G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC(GstBufferMapInfo, _gst_buffer_map_info_clear)
++
+ G_END_DECLS
+ 
+ #endif /* __GST_BUFFER_H__ */
+diff --git a/gst/gstelement.c b/gst/gstelement.c
+index c2902ee81b..154b612fba 100644
+--- a/gst/gstelement.c
++++ b/gst/gstelement.c
+@@ -101,12 +101,10 @@
+ #include "gstquark.h"
+ #include "gsttracerutils.h"
+ #include "gstvalue.h"
+-#include "gst-i18n-lib.h"
++#include <glib/gi18n-lib.h>
+ #include "glib-compat-private.h"
+ 
+-#ifndef GST_DISABLE_GST_DEBUG
+ #include "printf/printf.h"
+-#endif
+ 
+ /* Element signals and args */
+ enum
+@@ -152,7 +150,7 @@ static gboolean gst_element_default_query (GstElement * element,
+     GstQuery * query);
+ 
+ static GstPadTemplate
+-    * gst_element_class_get_request_pad_template (GstElementClass *
++    * gst_element_class_request_pad_simple_template (GstElementClass *
+     element_class, const gchar * name);
+ 
+ static void gst_element_call_async_func (gpointer data, gpointer user_data);
+@@ -166,6 +164,10 @@ static GThreadPool *gst_element_pool = NULL;
+ /* this is used in gstelementfactory.c:gst_element_register() */
+ GQuark __gst_elementclass_factory = 0;
+ 
++/* used for gst_element_type_set_skip_documentation() and
++ * gst_element_factory_get_skip_documentation() */
++GQuark __gst_elementclass_skip_doc = 0;
++
+ GType
+ gst_element_get_type (void)
+ {
+@@ -191,6 +193,8 @@ gst_element_get_type (void)
+ 
+     __gst_elementclass_factory =
+         g_quark_from_static_string ("GST_ELEMENTCLASS_FACTORY");
++    __gst_elementclass_skip_doc =
++        g_quark_from_static_string ("GST_ELEMENTCLASS_SKIP_DOCUMENTATION");
+     g_once_init_leave (&gst_element_type, _type);
+   }
+   return gst_element_type;
+@@ -413,7 +417,7 @@ gst_element_set_clock_func (GstElement * element, GstClock * clock)
+ /**
+  * gst_element_set_clock:
+  * @element: a #GstElement to set the clock for.
+- * @clock: (transfer none) (allow-none): the #GstClock to set for the element.
++ * @clock: (transfer none) (nullable): the #GstClock to set for the element.
+  *
+  * Sets the clock for the element. This function increases the
+  * refcount on the clock. Any previously set clock on the object
+@@ -488,6 +492,7 @@ gst_element_set_base_time (GstElement * element, GstClockTime time)
+   GstClockTime old;
+ 
+   g_return_if_fail (GST_IS_ELEMENT (element));
++  g_return_if_fail (GST_CLOCK_TIME_IS_VALID (time));
+ 
+   GST_OBJECT_LOCK (element);
+   old = element->base_time;
+@@ -742,6 +747,7 @@ gst_element_add_pad (GstElement * element, GstPad * pad)
+ {
+   gchar *pad_name;
+   gboolean active;
++  gboolean should_activate;
+ 
+   g_return_val_if_fail (GST_IS_ELEMENT (element), FALSE);
+   g_return_val_if_fail (GST_IS_PAD (pad), FALSE);
+@@ -766,10 +772,8 @@ gst_element_add_pad (GstElement * element, GstPad * pad)
+     goto had_parent;
+ 
+   /* check for active pads */
+-  if (!active && (GST_STATE (element) > GST_STATE_READY ||
+-          GST_STATE_NEXT (element) == GST_STATE_PAUSED)) {
+-    gst_pad_set_active (pad, TRUE);
+-  }
++  should_activate = !active && (GST_STATE (element) > GST_STATE_READY ||
++      GST_STATE_NEXT (element) == GST_STATE_PAUSED);
+ 
+   g_free (pad_name);
+ 
+@@ -791,6 +795,9 @@ gst_element_add_pad (GstElement * element, GstPad * pad)
+   element->pads_cookie++;
+   GST_OBJECT_UNLOCK (element);
+ 
++  if (should_activate)
++    gst_pad_set_active (pad, TRUE);
++
+   /* emit the PAD_ADDED signal */
+   g_signal_emit (element, gst_element_signals[PAD_ADDED], 0, pad);
+   GST_TRACER_ELEMENT_ADD_PAD (element, pad);
+@@ -1045,7 +1052,7 @@ gst_element_is_valid_request_template_name (const gchar * templ_name,
+     /* %s is not allowed for multiple specifiers, just a single specifier can be
+      * accepted in gst_pad_template_new() and can not be mixed with other
+      * specifier '%u' and '%d' */
+-    if (*(templ_name_ptr + 1) == 's' && g_strcmp0 (templ_name, name) == 0) {
++    if (*(templ_name_ptr + 1) == 's') {
+       return TRUE;
+     }
+ 
+@@ -1158,6 +1165,16 @@ _gst_element_request_pad (GstElement * element, GstPadTemplate * templ,
+   }
+ #endif
+ 
++#ifdef GST_ENABLE_EXTRA_CHECKS
++  {
++    if (!g_list_find (oclass->padtemplates, templ)) {
++      /* FIXME 2.0: Change this to g_return_val_if_fail() */
++      g_critical ("Element type %s does not have a pad template %s (%p)",
++          g_type_name (G_OBJECT_TYPE (element)), templ->name_template, templ);
++    }
++  }
++#endif
++
+   if (oclass->request_new_pad)
+     newpad = (oclass->request_new_pad) (element, templ, name, caps);
+ 
+@@ -1167,11 +1184,34 @@ _gst_element_request_pad (GstElement * element, GstPadTemplate * templ,
+   return newpad;
+ }
+ 
++#ifndef GST_REMOVE_DEPRECATED
+ /**
+  * gst_element_get_request_pad:
+  * @element: a #GstElement to find a request pad of.
+  * @name: the name of the request #GstPad to retrieve.
+  *
++ * The name of this function is confusing to people learning GStreamer.
++ * gst_element_request_pad_simple() aims at making it more explicit it is
++ * a simplified gst_element_request_pad().
++ *
++ * Deprecated: 1.20: Prefer using gst_element_request_pad_simple() which
++ * provides the exact same functionality.
++ *
++ * Returns: (transfer full) (nullable): requested #GstPad if found,
++ *     otherwise %NULL.  Release after usage.
++ */
++GstPad *
++gst_element_get_request_pad (GstElement * element, const gchar * name)
++{
++  return gst_element_request_pad_simple (element, name);
++}
++#endif
++
++/**
++ * gst_element_request_pad_simple:
++ * @element: a #GstElement to find a request pad of.
++ * @name: the name of the request #GstPad to retrieve.
++ *
+  * Retrieves a pad from the element by name (e.g. "src_\%d"). This version only
+  * retrieves request pads. The pad should be released with
+  * gst_element_release_request_pad().
+@@ -1180,11 +1220,18 @@ _gst_element_request_pad (GstElement * element, GstPadTemplate * templ,
+  * gst_element_request_pad() if the pads should have a specific name (e.g.
+  * @name is "src_1" instead of "src_\%u").
+  *
++ * Note that this function was introduced in GStreamer 1.20 in order to provide
++ * a better name to gst_element_get_request_pad(). Prior to 1.20, users
++ * should use gst_element_get_request_pad() which provides the same
++ * functionality.
++ *
+  * Returns: (transfer full) (nullable): requested #GstPad if found,
+  *     otherwise %NULL.  Release after usage.
++ *
++ * Since: 1.20
+  */
+ GstPad *
+-gst_element_get_request_pad (GstElement * element, const gchar * name)
++gst_element_request_pad_simple (GstElement * element, const gchar * name)
+ {
+   GstPadTemplate *templ = NULL;
+   GstPad *pad;
+@@ -1198,7 +1245,7 @@ gst_element_get_request_pad (GstElement * element, const gchar * name)
+ 
+   class = GST_ELEMENT_GET_CLASS (element);
+ 
+-  templ = gst_element_class_get_request_pad_template (class, name);
++  templ = gst_element_class_request_pad_simple_template (class, name);
+   if (templ) {
+     req_name = strstr (name, "%") ? NULL : name;
+     templ_found = TRUE;
+@@ -1714,9 +1761,9 @@ gst_element_get_metadata (GstElement * element, const gchar * key)
+  *
+  * Retrieves a list of the pad templates associated with @element_class. The
+  * list must not be modified by the calling code.
+- * > If you use this function in the #GInstanceInitFunc of an object class
++ * > If you use this function in the GInstanceInitFunc of an object class
+  * > that has subclasses, make sure to pass the g_class parameter of the
+- * > #GInstanceInitFunc here.
++ * > GInstanceInitFunc here.
+  *
+  * Returns: (transfer none) (element-type Gst.PadTemplate): the #GList of
+  *     pad templates.
+@@ -1756,9 +1803,9 @@ gst_element_get_pad_template_list (GstElement * element)
+  * @name: the name of the #GstPadTemplate to get.
+  *
+  * Retrieves a padtemplate from @element_class with the given name.
+- * > If you use this function in the #GInstanceInitFunc of an object class
++ * > If you use this function in the GInstanceInitFunc of an object class
+  * > that has subclasses, make sure to pass the g_class parameter of the
+- * > #GInstanceInitFunc here.
++ * > GInstanceInitFunc here.
+  *
+  * Returns: (transfer none) (nullable): the #GstPadTemplate with the
+  *     given name, or %NULL if none was found. No unreferencing is
+@@ -1811,7 +1858,7 @@ gst_element_get_pad_template (GstElement * element, const gchar * name)
+ }
+ 
+ static GstPadTemplate *
+-gst_element_class_get_request_pad_template (GstElementClass *
++gst_element_class_request_pad_simple_template (GstElementClass *
+     element_class, const gchar * name)
+ {
+   GstPadTemplate *tmpl;
+@@ -3846,7 +3893,8 @@ _priv_gst_element_cleanup (void)
+  * @name: Name of the first field to set
+  * @...: variable arguments in the same form as #GstStructure
+  *
+- * Create a #GstStructure to be used with #gst_element_message_full_with_details
++ * Create a #GstStructure to be used with #gst_element_message_full_with_details.
++ * %NULL terminator required.
+  *
+  * Since: 1.10
+  */
+diff --git a/gst/gstelement.h b/gst/gstelement.h
+index c1bfb45f2a..e319b4eded 100644
+--- a/gst/gstelement.h
++++ b/gst/gstelement.h
+@@ -28,6 +28,142 @@
+ 
+ G_BEGIN_DECLS
+ 
++/**
++ * _GST_ELEMENT_REGISTER_DEFINE_BEGIN: (attributes doc.skip=true)
++ */
++#define _GST_ELEMENT_REGISTER_DEFINE_BEGIN(element) \
++G_BEGIN_DECLS \
++gboolean G_PASTE (gst_element_register_, element) (GstPlugin * plugin) \
++{ \
++  {
++
++/**
++ * _GST_ELEMENT_REGISTER_DEFINE_END: (attributes doc.skip=true)
++ */
++#define _GST_ELEMENT_REGISTER_DEFINE_END(element_name, rank, type) \
++  } \
++  return gst_element_register (plugin, element_name, rank, type); \
++} \
++G_END_DECLS
++
++/**
++ * GST_ELEMENT_REGISTER_DEFINE_CUSTOM:
++ * @element: The element name in lower case, with words separated by '_'.
++ * Used to generate `gst_element_register_*(GstPlugin* plugin)`.
++ * @register_func: pointer to a method with the format: `gboolean register_func (GstPlugin* plugin);`
++ *
++ * A convenience macro to define the entry point of an
++ * element `gst_element_register_*(GstPlugin* plugin)` which uses
++ * register_func as the main registration method for the element.
++ * As an example, you may define the element named "streamer-filter"
++ * with the namespace `my` as following using `element_register_custom`:
++ *
++ * ```
++ * GST_ELEMENT_REGISTER_DEFINE_CUSTOM (my_element, element_register_custom)
++ * ```
++ *
++ * Since: 1.20
++ */
++#define GST_ELEMENT_REGISTER_DEFINE_CUSTOM(element, register_func) \
++G_BEGIN_DECLS \
++gboolean G_PASTE (gst_element_register_, element) (GstPlugin * plugin) \
++{ \
++  return register_func (plugin); \
++} \
++G_END_DECLS
++
++/**
++ * GST_ELEMENT_REGISTER_DEFINE:
++ * @e: The element name in lower case, with words separated by '_'.
++ * Used to generate `gst_element_register_*(GstPlugin* plugin)`.
++ * @e_n: The public name of the element
++ * @r: The #GstRank of the element (higher rank means more importance when autoplugging, see #GstRank)
++ * @t: The #GType of the element.
++ *
++ * A convenience macro to define the entry point of an
++ * element `gst_element_register_*(GstPlugin* plugin)`.
++ * As an example, you may define the element named "streamer-filter"
++ * with the namespace `my` as following:
++ *
++ * ```
++ * GST_ELEMENT_REGISTER_REGISTER_DEFINE (stream_filter, "stream-filter", GST_RANK_PRIMARY, MY_TYPE_STREAM_FILTER)
++ * ```
++ *
++ * Since: 1.20
++ */
++#define GST_ELEMENT_REGISTER_DEFINE(e, e_n, r, t) _GST_ELEMENT_REGISTER_DEFINE_BEGIN(e) _GST_ELEMENT_REGISTER_DEFINE_END(e_n, r, t)
++
++/**
++ * GST_ELEMENT_REGISTER_DEFINE_WITH_CODE:
++ * @e: The element name in lower case, with words separated by '_'.
++ * Used to generate `gst_element_register_*(GstPlugin* plugin)`.
++ * @e_n: The public name of the element
++ * @r: The #GstRank of the element (higher rank means more importance when autoplugging, see #GstRank)
++ * @t: The #GType of the element.
++ * @_c_: Custom code that gets inserted in the gst_element_register_*() function.
++ *
++ * A convenience macro to define the entry point of an
++ * element `gst_element_register_*(GstPlugin* plugin)` executing code
++ * before gst_element_register in `gst_element_register_*(GstPlugin* plugin)`.
++
++ * As an example, you may define the element named "stream-filter"
++ * with the namespace `my` as following:
++ *
++ * ```
++ * #define _pre_register_init \
++ *   my_stream_filter_pre_register (plugin);
++ * GST_ELEMENT_REGISTER_DEFINE_WITH_CODE (stream_filter, "stream-filter", GST_RANK_PRIMARY, MY_TYPE_STREAM_FILTER, _pre_register_init)
++ * ```
++ *
++ * Since: 1.20
++ */
++#define GST_ELEMENT_REGISTER_DEFINE_WITH_CODE(e, e_n, r, t, _c_) _GST_ELEMENT_REGISTER_DEFINE_BEGIN(e) {_c_;} _GST_ELEMENT_REGISTER_DEFINE_END(e_n, r, t)
++
++/**
++ * GST_ELEMENT_REGISTER_DECLARE:
++ * @element: The element name in lower case, with words separated by '_'.
++ *
++ * This macro can be used to declare a new element.
++ * It has to be used in combination with #GST_ELEMENT_REGISTER_DEFINE macros
++ * and must be placed outside any block to declare the element registration
++ * function.
++ * As an example, you may declare the element named "stream-filter"
++ * with the namespace `my` as following:
++ *
++ * ```
++ * GST_ELEMENT_REGISTER_DECLARE (stream_filter)
++ * ```
++ *
++ * Since: 1.20
++ */
++#define GST_ELEMENT_REGISTER_DECLARE(element) \
++G_BEGIN_DECLS \
++gboolean G_PASTE(gst_element_register_, element) (GstPlugin * plugin); \
++G_END_DECLS
++
++/**
++ * GST_ELEMENT_REGISTER:
++ * @element: The element name in lower case, with words separated by '_'.
++ * @plugin: The #GstPlugin where to register the element.
++ *
++ * This macro can be used to register an element into a #GstPlugin.
++ * This method will be usually called in the plugin init function
++ * but can also be called with a NULL plugin,
++ * for example with a static registration of the element.
++ * It has to be used in combination with #GST_ELEMENT_REGISTER_DECLARE.
++ *
++ * ```
++ * GstPlugin* plugin;
++ *
++ * ...
++ *
++ * GST_ELEMENT_REGISTER (stream_filter, plugin);
++ * ```
++ *
++ * Since: 1.20
++ */
++#define GST_ELEMENT_REGISTER(element, plugin) G_PASTE(gst_element_register_, element) (plugin)
++
+ /* gstelement.h and gstelementfactory.h include each other */
+ typedef struct _GstElement GstElement;
+ typedef struct _GstElementClass GstElementClass;
+@@ -348,7 +484,7 @@ typedef enum
+ #define GST_ELEMENT_START_TIME(elem)            (GST_ELEMENT_CAST(elem)->start_time)
+ 
+ GST_API
+-GstStructure *gst_make_element_message_details (const char *name, ...);
++GstStructure *gst_make_element_message_details (const char *name, ...) G_GNUC_NULL_TERMINATED;
+ 
+ #define GST_ELEMENT_MESSAGE_MAKE_DETAILS(args) gst_make_element_message_details args
+ 
+@@ -905,6 +1041,9 @@ GstPad*                 gst_element_get_static_pad      (GstElement *element, co
+ GST_API
+ GstPad*                 gst_element_get_request_pad     (GstElement *element, const gchar *name);
+ 
++GST_API
++GstPad*                 gst_element_request_pad_simple  (GstElement *element, const gchar *name);
++
+ GST_API
+ GstPad*                 gst_element_request_pad         (GstElement *element, GstPadTemplate *templ,
+ 							 const gchar * name, const GstCaps *caps);
+diff --git a/gst/gstevent.c b/gst/gstevent.c
+index 974ced3431..0bd4ac06e6 100644
+--- a/gst/gstevent.c
++++ b/gst/gstevent.c
+@@ -213,6 +213,33 @@ gst_event_type_get_flags (GstEventType type)
+   return ret;
+ }
+ 
++/**
++ * gst_event_type_to_sticky_ordering
++ * @type: a #GstEventType
++ *
++ * Converts the #GstEventType to an unsigned integer that
++ * represents the ordering of sticky events when re-sending them.
++ * A lower value represents a higher-priority event.
++ *
++ * Returns: an unsigned integer
++ * Since: 1.22
++ */
++/* FIXME 2.0: Remove the sticky event order overrides once
++ * the event type numbers are fixed */
++guint
++gst_event_type_to_sticky_ordering (GstEventType type)
++{
++  guint sticky_order = type;
++
++  /* Fix up the sticky event ordering for events where the
++   * type was chosen poorly */
++  if (type == GST_EVENT_INSTANT_RATE_CHANGE) {
++    sticky_order = GST_EVENT_SEGMENT + 1;
++  }
++
++  return sticky_order;
++}
++
+ static void
+ _gst_event_free (GstEvent * event)
+ {
+@@ -298,7 +325,7 @@ gst_event_init (GstEventImpl * event, GstEventType type)
+  * New custom events can also be created by subclassing the event type if
+  * needed.
+  *
+- * Returns: (transfer full) (nullable): the new custom event.
++ * Returns: (transfer full): the new custom event.
+  */
+ GstEvent *
+ gst_event_new_custom (GstEventType type, GstStructure * structure)
+@@ -354,15 +381,15 @@ gst_event_get_structure (GstEvent * event)
+ 
+ /**
+  * gst_event_writable_structure:
+- * @event: The #GstEvent.
++ * @event: A writable #GstEvent.
+  *
+  * Get a writable version of the structure.
+  *
+  * Returns: (transfer none): The structure of the event. The structure
+  * is still owned by the event, which means that you should not free
+  * it and that the pointer becomes invalid when you free the event.
+- * This function checks if @event is writable and will never return
+- * %NULL.
++ * This function ensures that @event is writable, and if so, will
++ * never return %NULL.
+  *
+  * MT safe.
+  */
+@@ -591,7 +618,7 @@ gst_event_new_flush_stop (gboolean reset_time)
+ /**
+  * gst_event_parse_flush_stop:
+  * @event: The event to parse
+- * @reset_time: (out): if time should be reset
++ * @reset_time: (out) (optional): if time should be reset
+  *
+  * Parse the FLUSH_STOP event and retrieve the @reset_time member.
+  */
+@@ -626,8 +653,7 @@ gst_event_parse_flush_stop (GstEvent * event, gboolean * reset_time)
+  *
+  * Note: The list of @streams can not be empty.
+  *
+- * Returns: (transfer full): a new select-streams event or %NULL in case of
+- * an error (like an empty streams list).
++ * Returns: (transfer full): a new select-streams event.
+  *
+  * Since: 1.10
+  */
+@@ -661,7 +687,7 @@ gst_event_new_select_streams (GList * streams)
+ /**
+  * gst_event_parse_select_streams:
+  * @event: The event to parse
+- * @streams: (out) (element-type utf8) (transfer full): the streams
++ * @streams: (out) (optional) (element-type utf8) (transfer full): the streams
+  *
+  * Parse the SELECT_STREAMS event and retrieve the contained streams.
+  *
+@@ -724,7 +750,7 @@ gst_event_new_stream_group_done (guint group_id)
+ /**
+  * gst_event_parse_stream_group_done:
+  * @event: a stream-group-done event.
+- * @group_id: (out): address of variable to store the group id into
++ * @group_id: (out) (optional): address of variable to store the group id into
+  *
+  * Parse a stream-group-done @event and store the result in the given
+  * @group_id location.
+@@ -804,9 +830,9 @@ gst_event_new_gap (GstClockTime timestamp, GstClockTime duration)
+ /**
+  * gst_event_parse_gap:
+  * @event: a #GstEvent of type #GST_EVENT_GAP
+- * @timestamp: (out) (allow-none): location where to store the
++ * @timestamp: (out) (optional): location where to store the
+  *     start time (pts) of the gap, or %NULL
+- * @duration: (out) (allow-none): location where to store the duration of
++ * @duration: (out) (optional): location where to store the duration of
+  *     the gap, or %NULL
+  *
+  * Extract timestamp and duration from a new GAP event.
+@@ -826,6 +852,51 @@ gst_event_parse_gap (GstEvent * event, GstClockTime * timestamp,
+       GST_QUARK (DURATION), GST_TYPE_CLOCK_TIME, duration, NULL);
+ }
+ 
++/**
++ * gst_event_set_gap_flags:
++ * @event: a #GstEvent of type #GST_EVENT_GAP
++ * @flags: a #GstGapFlags
++ *
++ * Sets @flags on @event to give additional information about the reason for
++ * the #GST_EVENT_GAP.
++ *
++ * Since: 1.20
++ */
++void
++gst_event_set_gap_flags (GstEvent * event, GstGapFlags flags)
++{
++  g_return_if_fail (event != NULL);
++  g_return_if_fail (GST_EVENT_TYPE (event) == GST_EVENT_GAP);
++  g_return_if_fail (gst_event_is_writable (event));
++
++  gst_structure_id_set (GST_EVENT_STRUCTURE (event),
++      GST_QUARK (GAP_FLAGS), GST_TYPE_GAP_FLAGS, flags, NULL);
++}
++
++/**
++ * gst_event_parse_gap_flags:
++ * @event: a #GstEvent of type #GST_EVENT_GAP
++ * @flags: (out) (optional): a #GstGapFlags or %NULL
++ *
++ * Retrieve the gap flags that may have been set on a gap event with
++ * gst_event_set_gap_flags().
++ *
++ * Since: 1.20
++ */
++void
++gst_event_parse_gap_flags (GstEvent * event, GstGapFlags * flags)
++{
++  g_return_if_fail (event != NULL);
++  g_return_if_fail (GST_EVENT_TYPE (event) == GST_EVENT_GAP);
++
++  /* Initialize to 0 for GAP events that don't have the field set */
++  if (flags)
++    *flags = 0;
++
++  gst_structure_id_get (GST_EVENT_STRUCTURE (event),
++      GST_QUARK (GAP_FLAGS), GST_TYPE_GAP_FLAGS, flags, NULL);
++}
++
+ /**
+  * gst_event_new_caps:
+  * @caps: (transfer none): a #GstCaps
+@@ -834,7 +905,7 @@ gst_event_parse_gap (GstEvent * event, GstClockTime * timestamp,
+  * synchronized with the buffer flow and contains the format of the buffers
+  * that will follow after the event.
+  *
+- * Returns: (transfer full) (nullable): the new CAPS event.
++ * Returns: (transfer full): the new CAPS event.
+  */
+ GstEvent *
+ gst_event_new_caps (GstCaps * caps)
+@@ -856,7 +927,7 @@ gst_event_new_caps (GstCaps * caps)
+ /**
+  * gst_event_parse_caps:
+  * @event: The event to parse
+- * @caps: (out) (transfer none): A pointer to the caps
++ * @caps: (out) (optional) (transfer none): A pointer to the caps
+  *
+  * Get the caps from @event. The caps remains valid as long as @event remains
+  * valid.
+@@ -912,7 +983,7 @@ gst_event_parse_caps (GstEvent * event, GstCaps ** caps)
+  *
+  *   time + (TIMESTAMP(buf) - start) * ABS (rate * applied_rate)
+  *
+- * Returns: (transfer full) (nullable): the new SEGMENT event.
++ * Returns: (transfer full): the new SEGMENT event.
+  */
+ GstEvent *
+ gst_event_new_segment (const GstSegment * segment)
+@@ -937,7 +1008,7 @@ gst_event_new_segment (const GstSegment * segment)
+ /**
+  * gst_event_parse_segment:
+  * @event: The event to parse
+- * @segment: (out) (transfer none): a pointer to a #GstSegment
++ * @segment: (out) (optional) (transfer none): a pointer to a #GstSegment
+  *
+  * Parses a segment @event and stores the result in the given @segment location.
+  * @segment remains valid only until the @event is freed. Don't modify the segment
+@@ -1014,7 +1085,7 @@ gst_event_new_tag (GstTagList * taglist)
+ /**
+  * gst_event_parse_tag:
+  * @event: a tag event
+- * @taglist: (out) (transfer none): pointer to metadata list
++ * @taglist: (out) (optional) (transfer none): pointer to metadata list
+  *
+  * Parses a tag @event and stores the results in the given @taglist location.
+  * No reference to the taglist will be returned, it remains valid only until
+@@ -1076,10 +1147,10 @@ gst_event_new_buffer_size (GstFormat format, gint64 minsize,
+ /**
+  * gst_event_parse_buffer_size:
+  * @event: The event to query
+- * @format: (out): A pointer to store the format in
+- * @minsize: (out): A pointer to store the minsize in
+- * @maxsize: (out): A pointer to store the maxsize in
+- * @async: (out): A pointer to store the async-flag in
++ * @format: (out) (optional): A pointer to store the format in
++ * @minsize: (out) (optional): A pointer to store the minsize in
++ * @maxsize: (out) (optional): A pointer to store the maxsize in
++ * @async: (out) (optional): A pointer to store the async-flag in
+  *
+  * Get the format, minsize, maxsize and async-flag in the buffersize event.
+  */
+@@ -1161,7 +1232,7 @@ gst_event_parse_buffer_size (GstEvent * event, GstFormat * format,
+  * The application can use general event probes to intercept the QoS
+  * event and implement custom application specific QoS handling.
+  *
+- * Returns: (transfer full) (nullable): a new QOS event.
++ * Returns: (transfer full): a new QOS event.
+  */
+ GstEvent *
+ gst_event_new_qos (GstQOSType type, gdouble proportion,
+@@ -1191,10 +1262,10 @@ gst_event_new_qos (GstQOSType type, gdouble proportion,
+ /**
+  * gst_event_parse_qos:
+  * @event: The event to query
+- * @type: (out): A pointer to store the QoS type in
+- * @proportion: (out): A pointer to store the proportion in
+- * @diff: (out): A pointer to store the diff in
+- * @timestamp: (out): A pointer to store the timestamp in
++ * @type: (out) (optional): A pointer to store the QoS type in
++ * @proportion: (out) (optional): A pointer to store the proportion in
++ * @diff: (out) (optional): A pointer to store the diff in
++ * @timestamp: (out) (optional): A pointer to store the timestamp in
+  *
+  * Get the type, proportion, diff and timestamp in the qos event. See
+  * gst_event_new_qos() for more information about the different QoS values.
+@@ -1287,7 +1358,7 @@ gst_event_parse_qos (GstEvent * event, GstQOSType * type,
+  * #GST_QUERY_POSITION and update the playback segment current position with a
+  * #GST_SEEK_TYPE_SET to the desired position.
+  *
+- * Returns: (transfer full) (nullable): a new seek event.
++ * Returns: (transfer full): a new seek event.
+  */
+ GstEvent *
+ gst_event_new_seek (gdouble rate, GstFormat format, GstSeekFlags flags,
+@@ -1348,13 +1419,13 @@ gst_event_new_seek (gdouble rate, GstFormat format, GstSeekFlags flags,
+ /**
+  * gst_event_parse_seek:
+  * @event: a seek event
+- * @rate: (out): result location for the rate
+- * @format: (out): result location for the stream format
+- * @flags:  (out): result location for the #GstSeekFlags
+- * @start_type: (out): result location for the #GstSeekType of the start position
+- * @start: (out): result location for the start position expressed in @format
+- * @stop_type:  (out): result location for the #GstSeekType of the stop position
+- * @stop: (out): result location for the stop position expressed in @format
++ * @rate: (out) (optional): result location for the rate
++ * @format: (out) (optional): result location for the stream format
++ * @flags:  (out) (optional): result location for the #GstSeekFlags
++ * @start_type: (out) (optional): result location for the #GstSeekType of the start position
++ * @start: (out) (optional): result location for the start position expressed in @format
++ * @stop_type:  (out) (optional): result location for the #GstSeekType of the stop position
++ * @stop: (out) (optional): result location for the stop position expressed in @format
+  *
+  * Parses a seek @event and stores the results in the given result locations.
+  */
+@@ -1422,7 +1493,7 @@ gst_event_set_seek_trickmode_interval (GstEvent * event, GstClockTime interval)
+ 
+ /**
+  * gst_event_parse_seek_trickmode_interval:
+- * @interval: (out)
++ * @interval: (out) (optional): interval
+  *
+  * Retrieve the trickmode interval that may have been set on a
+  * seek event with gst_event_set_seek_trickmode_interval().
+@@ -1447,7 +1518,8 @@ gst_event_parse_seek_trickmode_interval (GstEvent * event,
+ /**
+  * gst_event_new_navigation:
+  * @structure: (transfer full): description of the event. The event will take
+- *     ownership of the structure.
++ *     ownership of the structure. See #GstNavigation for more specific
++ *     constructors.
+  *
+  * Create a new navigation event from the given description.
+  *
+@@ -1480,6 +1552,8 @@ gst_event_new_latency (GstClockTime latency)
+   GstEvent *event;
+   GstStructure *structure;
+ 
++  g_return_val_if_fail (GST_CLOCK_TIME_IS_VALID (latency), NULL);
++
+   GST_CAT_INFO (GST_CAT_EVENT,
+       "creating latency event %" GST_TIME_FORMAT, GST_TIME_ARGS (latency));
+ 
+@@ -1493,7 +1567,7 @@ gst_event_new_latency (GstClockTime latency)
+ /**
+  * gst_event_parse_latency:
+  * @event: The event to query
+- * @latency: (out): A pointer to store the latency in.
++ * @latency: (out) (optional): A pointer to store the latency in.
+  *
+  * Get the latency in the latency event.
+  */
+@@ -1531,7 +1605,7 @@ gst_event_parse_latency (GstEvent * event, GstClockTime * latency)
+  * The @intermediate flag instructs the pipeline that this step operation is
+  * part of a larger step operation.
+  *
+- * Returns: (transfer full) (nullable): a new #GstEvent
++ * Returns: (transfer full): a new #GstEvent
+  */
+ GstEvent *
+ gst_event_new_step (GstFormat format, guint64 amount, gdouble rate,
+@@ -1558,11 +1632,11 @@ gst_event_new_step (GstFormat format, guint64 amount, gdouble rate,
+ /**
+  * gst_event_parse_step:
+  * @event: The event to query
+- * @format: (out) (allow-none): a pointer to store the format in
+- * @amount: (out) (allow-none): a pointer to store the amount in
+- * @rate: (out) (allow-none): a pointer to store the rate in
+- * @flush: (out) (allow-none): a pointer to store the flush boolean in
+- * @intermediate: (out) (allow-none): a pointer to store the intermediate
++ * @format: (out) (optional): a pointer to store the format in
++ * @amount: (out) (optional): a pointer to store the amount in
++ * @rate: (out) (optional): a pointer to store the rate in
++ * @flush: (out) (optional): a pointer to store the flush boolean in
++ * @intermediate: (out) (optional): a pointer to store the intermediate
+  *     boolean in
+  *
+  * Parse the step event.
+@@ -1651,7 +1725,7 @@ gst_event_new_sink_message (const gchar * name, GstMessage * msg)
+ /**
+  * gst_event_parse_sink_message:
+  * @event: The event to query
+- * @msg: (out) (transfer full): a pointer to store the #GstMessage in.
++ * @msg: (out) (optional) (transfer full): a pointer to store the #GstMessage in.
+  *
+  * Parse the sink-message event. Unref @msg after usage.
+  */
+@@ -1715,7 +1789,7 @@ gst_event_new_stream_start (const gchar * stream_id)
+ /**
+  * gst_event_parse_stream_start:
+  * @event: a stream-start event.
+- * @stream_id: (out) (transfer none): pointer to store the stream-id
++ * @stream_id: (out) (optional) (transfer none): pointer to store the stream-id
+  *
+  * Parse a stream-id @event and store the result in the given @stream_id
+  * location. The string stored in @stream_id must not be modified and will
+@@ -1761,7 +1835,7 @@ gst_event_set_stream (GstEvent * event, GstStream * stream)
+ /**
+  * gst_event_parse_stream:
+  * @event: a stream-start event
+- * @stream: (out) (transfer full): address of variable to store the stream
++ * @stream: (out) (optional) (transfer full): address of variable to store the stream
+  *
+  * Parse a stream-start @event and extract the #GstStream from it.
+  *
+@@ -1801,7 +1875,7 @@ gst_event_set_stream_flags (GstEvent * event, GstStreamFlags flags)
+ /**
+  * gst_event_parse_stream_flags:
+  * @event: a stream-start event
+- * @flags: (out): address of variable where to store the stream flags
++ * @flags: (out) (optional): address of variable where to store the stream flags
+  *
+  * Since: 1.2
+  */
+@@ -1848,7 +1922,7 @@ gst_event_set_group_id (GstEvent * event, guint group_id)
+ /**
+  * gst_event_parse_group_id:
+  * @event: a stream-start event
+- * @group_id: (out): address of variable where to store the group id
++ * @group_id: (out) (optional): address of variable where to store the group id
+  *
+  * Returns: %TRUE if a group id was set on the event and could be parsed,
+  *   %FALSE otherwise.
+@@ -1873,7 +1947,7 @@ gst_event_parse_group_id (GstEvent * event, guint * group_id)
+ 
+ /**
+  * gst_event_new_stream_collection:
+- * @collection: Active collection for this data flow
++ * @collection: (transfer none): Active collection for this data flow
+  *
+  * Create a new STREAM_COLLECTION event. The stream collection event can only
+  * travel downstream synchronized with the buffer flow.
+@@ -1905,7 +1979,7 @@ gst_event_new_stream_collection (GstStreamCollection * collection)
+ /**
+  * gst_event_parse_stream_collection:
+  * @event: a stream-collection event
+- * @collection: (out): pointer to store the collection
++ * @collection: (out) (optional) (transfer full): pointer to store the collection.
+  *
+  * Retrieve new #GstStreamCollection from STREAM_COLLECTION event @event.
+  *
+@@ -1965,8 +2039,8 @@ gst_event_new_toc (GstToc * toc, gboolean updated)
+ /**
+  * gst_event_parse_toc:
+  * @event: a TOC event.
+- * @toc: (out) (transfer full): pointer to #GstToc structure.
+- * @updated: (out): pointer to store TOC updated flag.
++ * @toc: (out) (optional) (transfer full): pointer to #GstToc structure.
++ * @updated: (out) (optional): pointer to store TOC updated flag.
+  *
+  * Parse a TOC @event and store the results in the given @toc and @updated locations.
+  */
+@@ -2014,7 +2088,7 @@ gst_event_new_toc_select (const gchar * uid)
+ /**
+  * gst_event_parse_toc_select:
+  * @event: a TOC select event.
+- * @uid: (out) (transfer full) (allow-none): storage for the selection UID.
++ * @uid: (out) (transfer full) (optional): storage for the selection UID.
+  *
+  * Parse a TOC select @event and store the results in the given @uid location.
+  */
+@@ -2075,8 +2149,7 @@ gst_event_parse_toc_select (GstEvent * event, gchar ** uid)
+  * event of a particular @origin and @system_id will
+  * be stuck to the output pad of the sending element.
+  *
+- * Returns: a #GST_EVENT_PROTECTION event, if successful; %NULL
+- * if unsuccessful.
++ * Returns: (transfer full): a #GST_EVENT_PROTECTION event.
+  *
+  * Since: 1.6
+  */
+@@ -2110,11 +2183,11 @@ gst_event_new_protection (const gchar * system_id,
+ /**
+  * gst_event_parse_protection:
+  * @event: a #GST_EVENT_PROTECTION event.
+- * @system_id: (out) (allow-none) (transfer none): pointer to store the UUID
++ * @system_id: (out) (optional) (transfer none): pointer to store the UUID
+  * string uniquely identifying a content protection system.
+- * @data: (out) (allow-none) (transfer none): pointer to store a #GstBuffer
++ * @data: (out) (optional) (transfer none): pointer to store a #GstBuffer
+  * holding protection system specific information.
+- * @origin: (out) (allow-none) (transfer none): pointer to store a value that
++ * @origin: (out) (optional) (transfer none): pointer to store a value that
+  * indicates where the protection information carried by @event was extracted
+  * from.
+  *
+@@ -2178,8 +2251,8 @@ gst_event_new_segment_done (GstFormat format, gint64 position)
+ /**
+  * gst_event_parse_segment_done:
+  * @event: A valid #GstEvent of type GST_EVENT_SEGMENT_DONE.
+- * @format: (out) (allow-none): Result location for the format, or %NULL
+- * @position: (out) (allow-none): Result location for the position, or %NULL
++ * @format: (out) (optional): Result location for the format, or %NULL
++ * @position: (out) (optional): Result location for the position, or %NULL
+  *
+  * Extracts the position and format from the segment done message.
+  *
+@@ -2248,9 +2321,9 @@ gst_event_new_instant_rate_change (gdouble rate_multiplier,
+ /**
+  * gst_event_parse_instant_rate_change:
+  * @event: a #GstEvent of type #GST_EVENT_INSTANT_RATE_CHANGE
+- * @rate_multiplier: (out) (allow-none): location in which to store the rate
++ * @rate_multiplier: (out) (optional): location in which to store the rate
+  *     multiplier of the instant-rate-change event, or %NULL
+- * @new_flags: (out) (allow-none): location in which to store the new
++ * @new_flags: (out) (optional): location in which to store the new
+  *     segment flags of the instant-rate-change event, or %NULL
+  *
+  * Extract rate and flags from an instant-rate-change event.
+@@ -2324,11 +2397,11 @@ gst_event_new_instant_rate_sync_time (gdouble rate_multiplier,
+ /**
+  * gst_event_parse_instant_rate_sync_time:
+  * @event: a #GstEvent of type #GST_EVENT_INSTANT_RATE_CHANGE
+- * @rate_multiplier: (out) (allow-none): location where to store the rate of
++ * @rate_multiplier: (out) (optional): location where to store the rate of
+  *     the instant-rate-sync-time event, or %NULL
+- * @running_time: (out) (allow-none): location in which to store the running time
++ * @running_time: (out) (optional): location in which to store the running time
+  *     of the instant-rate-sync-time event, or %NULL
+- * @upstream_running_time: (out) (allow-none): location in which to store the
++ * @upstream_running_time: (out) (optional): location in which to store the
+  *     upstream running time of the instant-rate-sync-time event, or %NULL
+  *
+  * Extract the rate multiplier and running times from an instant-rate-sync-time event.
+@@ -2356,7 +2429,7 @@ gst_event_parse_instant_rate_sync_time (GstEvent * event,
+  * gst_event_replace: (skip)
+  * @old_event: (inout) (transfer full) (nullable): pointer to a
+  *     pointer to a #GstEvent to be replaced.
+- * @new_event: (allow-none) (transfer none): pointer to a #GstEvent that will
++ * @new_event: (nullable) (transfer none): pointer to a #GstEvent that will
+  *     replace the event pointed to by @old_event.
+  *
+  * Modifies a pointer to a #GstEvent to point to a different #GstEvent. The
+@@ -2395,7 +2468,7 @@ gst_event_steal (GstEvent ** old_event)
+  * gst_event_take: (skip)
+  * @old_event: (inout) (transfer full) (nullable): pointer to a
+  *     pointer to a #GstEvent to be stolen.
+- * @new_event: (allow-none) (transfer full): pointer to a #GstEvent that will
++ * @new_event: (nullable) (transfer full): pointer to a #GstEvent that will
+  *     replace the event pointed to by @old_event.
+  *
+  * Modifies a pointer to a #GstEvent to point to a different #GstEvent. This
+diff --git a/gst/gstevent.h b/gst/gstevent.h
+index f4f1ebeb06..a58eb40aa8 100644
+--- a/gst/gstevent.h
++++ b/gst/gstevent.h
+@@ -169,6 +169,7 @@ typedef enum {
+   GST_EVENT_GAP                   = GST_EVENT_MAKE_TYPE (160, _FLAG(DOWNSTREAM) | _FLAG(SERIALIZED)),
+ 
+   /* sticky downstream non-serialized */
++  /* FIXME 2.0: change to value 72 and move after the GST_EVENT_SEGMENT event */
+   GST_EVENT_INSTANT_RATE_CHANGE   = GST_EVENT_MAKE_TYPE (180, _FLAG(DOWNSTREAM) | _FLAG(STICKY)),
+ 
+   /* upstream events */
+@@ -374,6 +375,19 @@ typedef enum {
+   GST_QOS_TYPE_THROTTLE        = 2
+ } GstQOSType;
+ 
++/**
++ * GstGapFlags:
++ * @GST_GAP_FLAG_MISSING_DATA: The #GST_EVENT_GAP signals missing data,
++ *    for example because of packet loss.
++ *
++ * The different flags that can be set on #GST_EVENT_GAP events. See
++ * gst_event_set_gap_flags() for details.
++ *
++ * Since: 1.20
++ */
++typedef enum {
++  GST_GAP_FLAG_MISSING_DATA = (1<<0),
++} GstGapFlags;
+ 
+ /**
+  * GstEvent:
+@@ -404,6 +418,10 @@ GST_API
+ GstEventTypeFlags
+                 gst_event_type_get_flags        (GstEventType type);
+ 
++
++GST_API
++guint gst_event_type_to_sticky_ordering (GstEventType type) G_GNUC_CONST;
++
+ #ifndef GST_DISABLE_MINIOBJECT_INLINE_FUNCTIONS
+ /* refcounting */
+ static inline GstEvent *
+@@ -557,6 +575,14 @@ void            gst_event_parse_gap             (GstEvent     * event,
+                                                  GstClockTime * timestamp,
+                                                  GstClockTime * duration);
+ 
++GST_API
++void            gst_event_set_gap_flags           (GstEvent    * event,
++                                                   GstGapFlags   flags);
++
++GST_API
++void            gst_event_parse_gap_flags         (GstEvent    * event,
++                                                   GstGapFlags * flags);
++
+ /* Caps events */
+ 
+ GST_API
+diff --git a/gst/gstmeta.c b/gst/gstmeta.c
+index ab36cefffd..9fc619860f 100644
+--- a/gst/gstmeta.c
++++ b/gst/gstmeta.c
+@@ -57,15 +57,62 @@ static GRWLock lock;
+ 
+ GQuark _gst_meta_transform_copy;
+ GQuark _gst_meta_tag_memory;
++GQuark _gst_meta_tag_memory_reference;
++
++typedef struct
++{
++  GstCustomMeta meta;
++
++  GstStructure *structure;
++} GstCustomMetaImpl;
++
++typedef struct
++{
++  GstMetaInfo info;
++  GstCustomMetaTransformFunction custom_transform_func;
++  gpointer custom_transform_user_data;
++  GDestroyNotify custom_transform_destroy_notify;
++  gboolean is_custom;
++} GstMetaInfoImpl;
++
++static void
++free_info (gpointer data)
++{
++  g_slice_free (GstMetaInfoImpl, data);
++}
+ 
+ void
+ _priv_gst_meta_initialize (void)
+ {
+   g_rw_lock_init (&lock);
+-  metainfo = g_hash_table_new (g_str_hash, g_str_equal);
++  metainfo = g_hash_table_new_full (g_str_hash, g_str_equal, NULL, free_info);
+ 
+   _gst_meta_transform_copy = g_quark_from_static_string ("gst-copy");
+   _gst_meta_tag_memory = g_quark_from_static_string ("memory");
++  _gst_meta_tag_memory_reference =
++      g_quark_from_static_string ("memory-reference");
++}
++
++static gboolean
++notify_custom (gchar * key, GstMetaInfo * info, gpointer unused)
++{
++  GstMetaInfoImpl *impl = (GstMetaInfoImpl *) info;
++
++  if (impl->is_custom) {
++    if (impl->custom_transform_destroy_notify)
++      impl->custom_transform_destroy_notify (impl->custom_transform_user_data);
++  }
++  return TRUE;
++}
++
++void
++_priv_gst_meta_cleanup (void)
++{
++  if (metainfo != NULL) {
++    g_hash_table_foreach_remove (metainfo, (GHRFunc) notify_custom, NULL);
++    g_hash_table_unref (metainfo);
++    metainfo = NULL;
++  }
+ }
+ 
+ /**
+@@ -89,7 +136,7 @@ gst_meta_api_type_register (const gchar * api, const gchar ** tags)
+   GST_CAT_DEBUG (GST_CAT_META, "register API \"%s\"", api);
+   type = g_pointer_type_register_static (api);
+ 
+-  if (type != 0) {
++  if (type != G_TYPE_INVALID) {
+     gint i;
+ 
+     for (i = 0; tags[i]; i++) {
+@@ -104,6 +151,168 @@ gst_meta_api_type_register (const gchar * api, const gchar ** tags)
+   return type;
+ }
+ 
++static gboolean
++custom_init_func (GstMeta * meta, gpointer params, GstBuffer * buffer)
++{
++  GstCustomMetaImpl *cmeta = (GstCustomMetaImpl *) meta;
++
++  cmeta->structure = gst_structure_new_empty (g_type_name (meta->info->type));
++
++  gst_structure_set_parent_refcount (cmeta->structure,
++      &GST_MINI_OBJECT_REFCOUNT (buffer));
++
++  return TRUE;
++}
++
++static void
++custom_free_func (GstMeta * meta, GstBuffer * buffer)
++{
++  GstCustomMetaImpl *cmeta = (GstCustomMetaImpl *) meta;
++
++  gst_structure_set_parent_refcount (cmeta->structure, NULL);
++  gst_structure_free (cmeta->structure);
++}
++
++static gboolean
++custom_transform_func (GstBuffer * transbuf, GstMeta * meta,
++    GstBuffer * buffer, GQuark type, gpointer data)
++{
++  GstCustomMetaImpl *custom, *cmeta = (GstCustomMetaImpl *) meta;
++  GstMetaInfoImpl *info = (GstMetaInfoImpl *) meta->info;
++
++  if (info->custom_transform_func)
++    return info->custom_transform_func (transbuf, (GstCustomMeta *) meta,
++        buffer, type, data, info->custom_transform_user_data);
++
++  if (GST_META_TRANSFORM_IS_COPY (type)) {
++    custom =
++        (GstCustomMetaImpl *) gst_buffer_add_meta (transbuf, meta->info, NULL);
++    gst_structure_set_parent_refcount (custom->structure, NULL);
++    gst_structure_take (&custom->structure,
++        gst_structure_copy (cmeta->structure));
++    gst_structure_set_parent_refcount (custom->structure,
++        &GST_MINI_OBJECT_REFCOUNT (transbuf));
++  } else {
++    return FALSE;
++  }
++
++  return TRUE;
++}
++
++/**
++ * gst_custom_meta_get_structure:
++ *
++ * Retrieve the #GstStructure backing a custom meta, the structure's mutability
++ * is conditioned to the writability of the #GstBuffer @meta is attached to.
++ *
++ * Returns: (transfer none): the #GstStructure backing @meta
++ * Since: 1.20
++ */
++GstStructure *
++gst_custom_meta_get_structure (GstCustomMeta * meta)
++{
++  g_return_val_if_fail (meta != NULL, NULL);
++  g_return_val_if_fail (gst_meta_info_is_custom (((GstMeta *) meta)->info),
++      NULL);
++
++  return ((GstCustomMetaImpl *) meta)->structure;
++}
++
++/**
++ * gst_custom_meta_has_name:
++ *
++ * Checks whether the name of the custom meta is @name
++ *
++ * Returns: Whether @name is the name of the custom meta
++ * Since: 1.20
++ */
++gboolean
++gst_custom_meta_has_name (GstCustomMeta * meta, const gchar * name)
++{
++  g_return_val_if_fail (meta != NULL, FALSE);
++  g_return_val_if_fail (gst_meta_info_is_custom (((GstMeta *) meta)->info),
++      FALSE);
++
++  return gst_structure_has_name (((GstCustomMetaImpl *) meta)->structure, name);
++}
++
++/**
++ * gst_meta_register_custom:
++ * @name: the name of the #GstMeta implementation
++ * @tags: (array zero-terminated=1): tags for @api
++ * @transform_func: (scope notified) (nullable): a #GstMetaTransformFunction
++ * @user_data: (closure): user data passed to @transform_func
++ * @destroy_data: #GDestroyNotify for user_data
++ *
++ * Register a new custom #GstMeta implementation, backed by an opaque
++ * structure holding a #GstStructure.
++ *
++ * The registered info can be retrieved later with gst_meta_get_info() by using
++ * @name as the key.
++ *
++ * The backing #GstStructure can be retrieved with
++ * gst_custom_meta_get_structure(), its mutability is conditioned by the
++ * writability of the buffer the meta is attached to.
++ *
++ * When @transform_func is %NULL, the meta and its backing #GstStructure
++ * will always be copied when the transform operation is copy, other operations
++ * are discarded, copy regions are ignored.
++ *
++ * Returns: (transfer none): a #GstMetaInfo that can be used to
++ * access metadata.
++ * Since: 1.20
++ */
++const GstMetaInfo *
++gst_meta_register_custom (const gchar * name, const gchar ** tags,
++    GstCustomMetaTransformFunction transform_func,
++    gpointer user_data, GDestroyNotify destroy_data)
++{
++  gchar *api_name = g_strdup_printf ("%s-api", name);
++  GType api;
++  GstMetaInfoImpl *info;
++  GstMetaInfo *ret = NULL;
++
++  g_return_val_if_fail (tags != NULL, NULL);
++  g_return_val_if_fail (name != NULL, NULL);
++
++  api = gst_meta_api_type_register (api_name, tags);
++  g_free (api_name);
++  if (api == G_TYPE_INVALID)
++    goto done;
++
++  info = (GstMetaInfoImpl *) gst_meta_register (api, name,
++      sizeof (GstCustomMetaImpl),
++      custom_init_func, custom_free_func, custom_transform_func);
++
++  if (!info)
++    goto done;
++
++  info->is_custom = TRUE;
++  info->custom_transform_func = transform_func;
++  info->custom_transform_user_data = user_data;
++  info->custom_transform_destroy_notify = destroy_data;
++
++  ret = (GstMetaInfo *) info;
++
++done:
++  return ret;
++}
++
++/**
++ * gst_meta_info_is_custom:
++ *
++ * Returns: whether @info was registered as a #GstCustomMeta with
++ *   gst_meta_register_custom()
++ * Since:1.20
++ */
++gboolean
++gst_meta_info_is_custom (const GstMetaInfo * info)
++{
++  g_return_val_if_fail (info != NULL, FALSE);
++
++  return ((GstMetaInfoImpl *) info)->is_custom;
++}
++
+ /**
+  * gst_meta_api_type_has_tag:
+  * @api: an API
+@@ -158,7 +367,7 @@ gst_meta_api_type_get_tags (GType api)
+  * The same @info can be retrieved later with gst_meta_get_info() by using
+  * @impl as the key.
+  *
+- * Returns: (transfer none) (nullable): a #GstMetaInfo that can be used to
++ * Returns: (transfer none): a #GstMetaInfo that can be used to
+  * access metadata.
+  */
+ 
+@@ -182,16 +391,17 @@ gst_meta_register (GType api, const gchar * impl, gsize size,
+    * that this fails because it was already registered. Don't warn,
+    * glib did this for us already. */
+   type = g_pointer_type_register_static (impl);
+-  if (type == 0)
++  if (type == G_TYPE_INVALID)
+     return NULL;
+ 
+-  info = g_slice_new (GstMetaInfo);
++  info = (GstMetaInfo *) g_slice_new (GstMetaInfoImpl);
+   info->api = api;
+   info->type = type;
+   info->size = size;
+   info->init_func = init_func;
+   info->free_func = free_func;
+   info->transform_func = transform_func;
++  ((GstMetaInfoImpl *) info)->is_custom = FALSE;
+ 
+   GST_CAT_DEBUG (GST_CAT_META,
+       "register \"%s\" implementing \"%s\" of size %" G_GSIZE_FORMAT, impl,
+diff --git a/gst/gstmeta.h b/gst/gstmeta.h
+index d617ef8b79..44edbe0b4a 100644
+--- a/gst/gstmeta.h
++++ b/gst/gstmeta.h
+@@ -87,11 +87,21 @@ typedef enum {
+  * GST_META_TAG_MEMORY_STR:
+  *
+  * This metadata stays relevant as long as memory layout is unchanged.
++ * In hindsight, this tag should have been called "memory-layout".
+  *
+  * Since: 1.2
+  */
+ #define GST_META_TAG_MEMORY_STR "memory"
+ 
++/**
++ * GST_META_TAG_MEMORY_REFERENCE_STR:
++ *
++ * This metadata stays relevant until a deep copy is made.
++ *
++ * Since: 1.20.4
++ */
++#define GST_META_TAG_MEMORY_REFERENCE_STR "memory-reference"
++
+ /**
+  * GstMeta:
+  * @flags: extra flags for the metadata
+@@ -105,6 +115,17 @@ struct _GstMeta {
+   const GstMetaInfo *info;
+ };
+ 
++/**
++ * GstCustomMeta:
++ *
++ * Simple typing wrapper around #GstMeta
++ *
++ * Since: 1.20
++ */
++typedef struct {
++  GstMeta meta;
++} GstCustomMeta;
++
+ #include <gst/gstbuffer.h>
+ 
+ /**
+@@ -178,6 +199,30 @@ typedef gboolean (*GstMetaTransformFunction) (GstBuffer *transbuf,
+                                               GstMeta *meta, GstBuffer *buffer,
+                                               GQuark type, gpointer data);
+ 
++/**
++ * GstCustomMetaTransformFunction:
++ * @transbuf: a #GstBuffer
++ * @meta: a #GstCustomMeta
++ * @buffer: a #GstBuffer
++ * @type: the transform type
++ * @data: transform specific data.
++ * @user_data: user data passed when registering the meta
++ *
++ * Function called for each @meta in @buffer as a result of performing a
++ * transformation that yields @transbuf. Additional @type specific transform
++ * data is passed to the function as @data.
++ *
++ * Implementations should check the @type of the transform and parse
++ * additional type specific fields in @data that should be used to update
++ * the metadata on @transbuf.
++ *
++ * Returns: %TRUE if the transform could be performed
++ * Since: 1.20
++ */
++typedef gboolean (*GstCustomMetaTransformFunction) (GstBuffer *transbuf,
++                                                    GstCustomMeta *meta, GstBuffer *buffer,
++                                                    GQuark type, gpointer data, gpointer user_data);
++
+ /**
+  * GstMetaInfo:
+  * @api: tag identifying the metadata structure and api
+@@ -216,6 +261,21 @@ const GstMetaInfo *  gst_meta_register          (GType api, const gchar *impl,
+                                                  GstMetaInitFunction      init_func,
+                                                  GstMetaFreeFunction      free_func,
+                                                  GstMetaTransformFunction transform_func);
++
++GST_API
++const GstMetaInfo *  gst_meta_register_custom   (const gchar *name, const gchar **tags,
++                                                 GstCustomMetaTransformFunction transform_func,
++                                                 gpointer user_data, GDestroyNotify destroy_data);
++
++GST_API
++gboolean             gst_meta_info_is_custom    (const GstMetaInfo *info);
++
++GST_API
++GstStructure *       gst_custom_meta_get_structure (GstCustomMeta *meta);
++
++GST_API
++gboolean             gst_custom_meta_has_name (GstCustomMeta *meta, const gchar * name);
++
+ GST_API
+ const GstMetaInfo *  gst_meta_get_info          (const gchar * impl);
+ 
+@@ -232,6 +292,7 @@ gint                 gst_meta_compare_seqnum    (const GstMeta * meta1,
+ /* some default tags */
+ 
+ GST_API GQuark _gst_meta_tag_memory;
++GST_API GQuark _gst_meta_tag_memory_reference;
+ 
+ /**
+  * GST_META_TAG_MEMORY:
+diff --git a/gst/gstquark.c b/gst/gstquark.c
+index daf6a51120..304e274155 100644
+--- a/gst/gstquark.c
++++ b/gst/gstquark.c
+@@ -80,6 +80,7 @@ static const gchar *_quark_strings[] = {
+   "GstEventInstantRateChange",
+   "GstEventInstantRateSyncTime", "GstMessageInstantRateRequest",
+   "upstream-running-time", "base", "offset", "plugin-api", "plugin-api-flags",
++  "gap-flags", "GstQuerySelectable", "selectable"
+ };
+ 
+ GQuark _priv_gst_quark_table[GST_QUARK_MAX];
+diff --git a/gst/gstquark.h b/gst/gstquark.h
+index cc796bc49b..f7de510c9b 100644
+--- a/gst/gstquark.h
++++ b/gst/gstquark.h
+@@ -230,7 +230,10 @@ typedef enum _GstQuarkId
+   GST_QUARK_OFFSET = 199,
+   GST_QUARK_PLUGIN_API = 200,
+   GST_QUARK_PLUGIN_API_FLAGS = 201,
+-  GST_QUARK_MAX = 202
++  GST_QUARK_GAP_FLAGS = 202,
++  GST_QUARK_QUERY_SELECTABLE = 203,
++  GST_QUARK_SELECTABLE = 204,
++  GST_QUARK_MAX = 205
+ } GstQuarkId;
+ 
+ extern GQuark _priv_gst_quark_table[GST_QUARK_MAX];
+-- 
+2.38.1
+
