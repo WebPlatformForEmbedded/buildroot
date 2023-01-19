@@ -78,6 +78,7 @@ GST1_PLUGINS_BAD_CONF_OPTS += \
 	-Dgme=disabled \
 	-Dspandsp=disabled \
 	-Diqa=disabled \
+	-Dnvcodec=disabled \
 	-Dopencv=disabled
 
 GST1_PLUGINS_BAD_DEPENDENCIES = gst1-plugins-base gstreamer1
@@ -767,9 +768,16 @@ endif
 
 ifeq ($(BR2_PACKAGE_GST1_PLUGINS_BAD_PLUGIN_DASH_MPD_NO_INIT_DATA_XML_PARSING),y)
 define GST1_PLUGINS_BAD_APPLY_MPD_EXTRA_PATCHES_POST_HOOK
-	cd $(@D) && { for P in ../../../package/gstreamer1/gst1-plugins-bad/$(GST1_PLUGINS_BAD_VERSION)-mpd-extra/*.patch; do patch -p1 < "$$P" ; done; }
+	cd $(@D) && { for P in $(TOPDIR)/$(GST1_PLUGINS_BAD_PKGDIR)/$(GST1_PLUGINS_BAD_VERSION)-mpd-extra/*.patch; do patch -p1 < "$$P" ; done; }
 endef
 GST1_PLUGINS_BAD_POST_PATCH_HOOKS += GST1_PLUGINS_BAD_APPLY_MPD_EXTRA_PATCHES_POST_HOOK
+endif
+
+ifeq ($(BR2_PACKAGE_WPEWEBKIT_USE_GSTREAMER_WEBRTC),y)
+define GST1_PLUGINS_BAD_APPLY_GSTWEBRTC_PATCHES_POST_HOOK
+        cd $(@D) && { for P in $(TOPDIR)/$(GST1_PLUGINS_BAD_PKGDIR)/$(GST1_PLUGINS_BAD_VERSION)-gstwebrtc/*.patch; do patch -p1 < "$$P" ; done; }
+endef
+GST1_PLUGINS_BAD_POST_PATCH_HOOKS += GST1_PLUGINS_BAD_APPLY_GSTWEBRTC_PATCHES_POST_HOOK
 endif
 
 # Use the following command to extract license info for plugins.

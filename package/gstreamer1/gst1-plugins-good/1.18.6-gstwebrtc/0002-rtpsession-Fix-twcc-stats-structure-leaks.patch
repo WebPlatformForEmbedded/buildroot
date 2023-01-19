@@ -1,0 +1,62 @@
+From 987794cf36786f60226093d79826c0cfaec0c987 Mon Sep 17 00:00:00 2001
+From: Philippe Normand <philn@igalia.com>
+Date: Thu, 19 Dec 2024 15:18:27 +0100
+Subject: [PATCH 2/2] rtpsession: Fix twcc stats structure leaks
+
+Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/8115>
+---
+ gst/rtpmanager/gstrtpsession.c | 2 ++
+ gst/rtpmanager/rtpsession.c    | 9 +++++++--
+ gst/rtpmanager/rtpsession.h    | 3 +++
+ 3 files changed, 12 insertions(+), 2 deletions(-)
+
+diff --git a/gst/rtpmanager/gstrtpsession.c b/gst/rtpmanager/gstrtpsession.c
+index a4fa9199a..4bbbd676e 100644
+--- a/gst/rtpmanager/gstrtpsession.c
++++ b/gst/rtpmanager/gstrtpsession.c
+@@ -2964,6 +2964,8 @@ gst_rtp_session_notify_twcc (RTPSession * sess,
+     event = gst_event_new_custom (GST_EVENT_CUSTOM_UPSTREAM, twcc_packets);
+     gst_pad_push_event (send_rtp_sink, event);
+     gst_object_unref (send_rtp_sink);
++  } else {
++    gst_structure_free (twcc_packets);
+   }
+ 
+   g_object_notify (G_OBJECT (rtpsession), "twcc-stats");
+diff --git a/gst/rtpmanager/rtpsession.c b/gst/rtpmanager/rtpsession.c
+index a73954e4b..1cd880b4b 100644
+--- a/gst/rtpmanager/rtpsession.c
++++ b/gst/rtpmanager/rtpsession.c
+@@ -2974,8 +2974,13 @@ rtp_session_process_twcc (RTPSession * sess, guint32 sender_ssrc,
+ 
+   RTP_SESSION_UNLOCK (sess);
+   if (sess->callbacks.notify_twcc)
+-    sess->callbacks.notify_twcc (sess, twcc_packets_s, twcc_stats_s,
+-        sess->notify_twcc_user_data);
++    sess->callbacks.notify_twcc (sess, g_steal_pointer (&twcc_packets_s),
++        g_steal_pointer (&twcc_stats_s), sess->notify_twcc_user_data);
++  else {
++    gst_structure_free (twcc_packets_s);
++    gst_structure_free (twcc_stats_s);
++  }
++
+   RTP_SESSION_LOCK (sess);
+ }
+ 
+diff --git a/gst/rtpmanager/rtpsession.h b/gst/rtpmanager/rtpsession.h
+index 84b2948dc..a9111fb0a 100644
+--- a/gst/rtpmanager/rtpsession.h
++++ b/gst/rtpmanager/rtpsession.h
+@@ -159,6 +159,9 @@ typedef void (*RTPSessionNotifyNACK) (RTPSession *sess,
+ 
+ /**
+  * RTPSessionNotifyTWCC:
++ * @sess: an #RTPSession
++ * @twcc_packets: (transfer full): TWCC packets #GstStructure
++ * @twcc_stats: (transfer full): TWCC stats #GstStructure
+  * @user_data: user data specified when registering
+  *
+  * Notifies of Transport-wide congestion control packets and stats.
+-- 
+2.47.1
+
