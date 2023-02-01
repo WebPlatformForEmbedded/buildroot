@@ -367,13 +367,25 @@ config BR2_PACKAGE_WPEWEBKIT_MULTIMEDIA
 
 if BR2_PACKAGE_WPEWEBKIT_MULTIMEDIA
 
+choice
+	bool "WebRTC support"
+	default BR2_PACKAGE_WPEWEBKIT_USE_LIBWEBRTC
+	help
+	  Which WebRTC backend to enable
+
 config BR2_PACKAGE_WPEWEBKIT_USE_LIBWEBRTC
 	bool "LibWebRTC"
 	select BR2_PACKAGE_PULSEAUDIO
 	select BR2_PACKAGE_LIBEVENT
-	default y
-	help
-	  Enable LibWebRTC
+
+config BR2_PACKAGE_WPEWEBKIT_USE_GSTREAMER_WEBRTC
+	bool "GstWebRTC"
+	select BR2_PACKAGE_GST1_FULL_PLUGINS_BAD_PLUGIN_WEBRTC
+
+config BR2_PACKAGE_WPEWEBKIT_NO_WEBRTC
+  bool "none"
+
+endchoice # WebRTC support
 
 config BR2_PACKAGE_WPEWEBKIT_USE_GSTREAMER_GL
 	bool "use gstreamer-gl"
