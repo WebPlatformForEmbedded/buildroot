@@ -1,0 +1,17 @@
+comment "WPEFramework PackageManager plugin needs wpeframework"
+	depends on !BR2_PACKAGE_WPEFRAMEWORK
+
+menuconfig BR2_PACKAGE_WPEFRAMEWORK_PACKAGEMANAGER
+    bool "PackageManager"
+    depends on BR2_PACKAGE_WPEFRAMEWORK
+    help
+    	The PackageManager plugin allows installation of packages on the system from a remote repository in a Firebolt system
+    	
+if BR2_PACKAGE_WPEFRAMEWORK_PACKAGEMANAGER 
+config BR2_PACKAGE_WPEFRAMEWORK_PACKAGEMANAGER_AUTOSTART
+    bool "Start Automatically"
+    default y
+    help
+      Select this to start the plugin automatically when starting WPEFramework
+
+endif

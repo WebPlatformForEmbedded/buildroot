@@ -1,0 +1,26 @@
+################################################################################
+#
+# wpeframework-packagemanager
+#
+################################################################################
+WPEFRAMEWORK_PACKAGEMANAGER_VERSION = ce5b5406da0e41008f5b782b48eae50f9e83a782
+WPEFRAMEWORK_PACKAGEMANAGER_SITE_METHOD = git
+WPEFRAMEWORK_PACKAGEMANAGER_SITE = git@github.com:rdkcentral/PackageManager.git
+
+
+WPEFRAMEWORK_PACKAGEMANAGER_DEPENDENCIES = wpeframework wpeframework-interfaces
+
+WPEFRAMEWORK_PACKAGEMANAGER_CONF_OPTS += -DBUILD_REFERENCE=${WPEFRAMEWORK_PACKAGEMANAGER_VERSION}
+
+WPEFRAMEWORK_PACKAGEMANAGER_CONF_OPTS += -DLEGACY_CONFIG_GENERATOR=OFF
+
+ifeq ($(BR2_CMAKE_HOST_DEPENDENCY),)
+WPEFRAMEWORK_PACKAGEMANAGER_CONF_OPTS += \
+       -DCMAKE_MODULE_PATH=$(HOST_DIR)/share/cmake/Modules
+endif
+
+ifeq ($(BR2_PACKAGE_WPEFRAMEWORK_PACKAGEMANAGER_AUTOSTART),y)
+WPEFRAMEWORK_PACKAGEMANAGER_CONF_OPTS += -DPLUGIN_PACKAGEMANAGER_AUTOSTART=true
+endif
+
+$(eval $(cmake-package))
