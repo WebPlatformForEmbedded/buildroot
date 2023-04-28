@@ -166,6 +166,22 @@ config BR2_PACKAGE_WPEFRAMEWORK_PERFORMANCE_MONITOR
     help
         Enable the performance monitor
 
+menu "ProxyStub Generator options"
+
+config BR2_PACKAGE_WPEFRAMEWORK_TOOLS_PROXYSTUB_SECURITY
+    bool "Enable security checks in proxystubs"
+        default n
+    help
+      Adds security code to generated proxystub.
+
+config BR2_PACKAGE_WPEFRAMEWORK_TOOLS_PROXYSTUB_COHERENCY
+    bool "Enable coherency checks in proxystubs"
+        default n
+    help
+      Adds coherency checking code to generated proxystubs.
+
+endmenu
+
 menu "Platform Device Groups"
 
 comment "This should match the groups applied to the respective platforms device resourses."
