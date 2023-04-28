@@ -1,5 +1,0 @@
-config BR2_PACKAGE_WPEFRAMEWORK_TOOLS
-	bool "wpeframework-tools"
-	help
-	  WPE Framework Tooling
-
