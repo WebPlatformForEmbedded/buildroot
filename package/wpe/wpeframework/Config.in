@@ -88,6 +88,10 @@ config BR2_PACKAGE_WPEFRAMEWORK_DATA_PATH
     string "data path"
     default "/usr/share/WPEFramework"
 
+config BR2_PACKAGE_WPEFRAMEWORK_INSTALL_PATH
+    string "install path"
+    default "/usr/share/WPEFramework"
+
 config BR2_PACKAGE_WPEFRAMEWORK_SYSTEM_PATH
     string "system path"
     default "/usr/lib/wpeframework/plugins"
