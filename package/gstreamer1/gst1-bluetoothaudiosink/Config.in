@@ -1,4 +1,4 @@
 config BR2_PACKAGE_GST1_BLUETOOTHAUDIOSINK
-        bool "gst1-bluetoothaudiosink"
-        help
-          GStreamer plug-in for playing audio through Bluetooth sink devices.
+    bool "gst1-bluetoothaudiosink"
+    help
+      GStreamer plug-in for playing audio through Bluetooth sink devices.

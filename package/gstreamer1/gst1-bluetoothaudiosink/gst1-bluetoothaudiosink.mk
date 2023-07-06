@@ -1,4 +1,10 @@
-GST1_BLUETOOTHAUDIOSINK_VERSION = 6019efe30dc0db009d18876c15f49a8fe2d86635
+################################################################################
+#
+# gst-bluetoohaudiosink
+#
+################################################################################
+
+GST1_BLUETOOTHAUDIOSINK_VERSION = 5ca928e8cebca5158659741578ca02a2422091e6
 GST1_BLUETOOTHAUDIOSINK_SITE = git@github.com:WebPlatformForEmbedded/gstbluetoothaudiosink.git
 GST1_BLUETOOTHAUDIOSINK_SITE_METHOD = git
 GST1_BLUETOOTHAUDIOSINK_INSTALL_STAGING = YES
