@@ -25,6 +25,11 @@ WPEFRAMEWORK_NETFLIX_SITE_METHOD = git
 WPEFRAMEWORK_NETFLIX_SITE = git@github.com:WebPlatformForEmbedded/WPEPluginNetflix.git
 WPEFRAMEWORK_NETFLIX_INSTALL_STAGING = YES
 
+ifeq ($(BR2_CMAKE_HOST_DEPENDENCY),)
+WPEFRAMEWORK_NETFLIX_CONF_OPTS += \
+       -DCMAKE_MODULE_PATH=$(HOST_DIR)/share/cmake/Modules
+endif
+
 # wpeframework-netflix binary package config
 WPEFRAMEWORK_NETFLIX_OPKG_NAME = "wpeframework-netflix"
 WPEFRAMEWORK_NETFLIX_OPKG_VERSION = "1.0.0"
