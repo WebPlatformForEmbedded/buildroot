@@ -14,6 +14,7 @@ BR2_ROOTFS_POST_BUILD_SCRIPT="board/raspberrypi4/post-build.sh"
 BR2_ROOTFS_POST_IMAGE_SCRIPT="board/raspberrypi4/post-image.sh"
 BR2_ROOTFS_POST_SCRIPT_ARGS="--tvmode-720 --gpu_mem_1024=256"
 BR2_LINUX_KERNEL=y
+BR2_LINUX_KERNEL_CONFIG_FRAGMENT_FILES="board/raspberrypi/default-cpu-governor.fragment"
 BR2_LINUX_KERNEL_CUSTOM_TARBALL=y
 BR2_LINUX_KERNEL_CUSTOM_TARBALL_LOCATION="$(call github,raspberrypi,linux,64d0a9870ac14d5eb5253f67d984ae348eec1393)/linux-64d0a9870ac14d5eb5253f67d984ae348eec1393.tar.gz"
 BR2_LINUX_KERNEL_DEFCONFIG="bcm2711"

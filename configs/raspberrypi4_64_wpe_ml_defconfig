@@ -11,6 +11,7 @@ BR2_ROOTFS_POST_BUILD_SCRIPT="board/raspberrypi4-64/post-build.sh"
 BR2_ROOTFS_POST_IMAGE_SCRIPT="board/raspberrypi4-64/post-image.sh"
 BR2_ROOTFS_POST_SCRIPT_ARGS="--add-pi3-miniuart-bt-overlay --aarch64 --add-vc4-fkms-v3d-overlay"
 BR2_LINUX_KERNEL=y
+BR2_LINUX_KERNEL_CONFIG_FRAGMENT_FILES="board/raspberrypi/default-cpu-governor.fragment"
 BR2_LINUX_KERNEL_CUSTOM_TARBALL=y
 BR2_LINUX_KERNEL_CUSTOM_TARBALL_LOCATION="$(call github,raspberrypi,linux,5188f0cf6c768cc791b3283ab6a72cc02b4a2f99)/linux-5188f0cf6c768cc791b3283ab6a72cc02b4a2f99.tar.gz"
 BR2_LINUX_KERNEL_DEFCONFIG="bcm2711"
