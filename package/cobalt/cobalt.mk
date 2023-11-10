@@ -52,12 +52,12 @@ export COBALT_EXECUTABLE_TYPE = executable
 endif
 
 define COBALT_BUILD_CMDS
-    $(@D)/src/cobalt/build/gyp_cobalt -C $(COBALT_BUILD_TYPE) $(COBALT_PLATFORM)
-    $(HOST_DIR)/usr/bin/ninja -C $(@D)/src/out/$(COBALT_PLATFORM)_$(COBALT_BUILD_TYPE) cobalt_deploy
+    $(@D)/cobalt/build/gyp_cobalt -C $(COBALT_BUILD_TYPE) $(COBALT_PLATFORM)
+    $(HOST_DIR)/usr/bin/ninja -C $(@D)/out/$(COBALT_PLATFORM)_$(COBALT_BUILD_TYPE) cobalt_deploy
 endef
 
 define COBALT_INSTALL_TARGET_CMDS
-    cp -a $(@D)/src/out/$(COBALT_PLATFORM)_$(COBALT_BUILD_TYPE)/content $(TARGET_DIR)/usr/share
+    cp -a $(@D)/out/$(COBALT_PLATFORM)_$(COBALT_BUILD_TYPE)/content $(TARGET_DIR)/usr/share
 endef
 
 
