@@ -58,7 +58,7 @@ case "$1" in
 		ln -s $SOURCE/usr/share/mime $DESTINATION/share/mime
 		ln -s $SOURCE/usr/share/X11 $DESTINATION/share/X11
 		ln -s $SOURCE/usr/share/WPEFramework $DESTINATION/share/WPEFramework
-		ln -s $SOURCE/usr/share/content $DESTINATION/share/content
+		ln -sf $SOURCE/usr/share/content $DESTINATION/share/
 		ln -s $SOURCE/usr/bin/content $DESTINATION/bin/content
 		ln -s $SOURCE/usr/share/fonts $DESTINATION/share/fonts
 		ln -s $SOURCE/etc/ssl $DESTINATION/etc/ssl
