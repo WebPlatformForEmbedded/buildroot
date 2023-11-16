@@ -175,3 +175,4 @@ libWPEFrameworkInputSwitch.so
 playready
 MeteringCertificate.bin
 cobalt.json
+icudt68l.dat
