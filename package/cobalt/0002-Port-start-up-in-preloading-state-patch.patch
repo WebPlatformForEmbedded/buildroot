@@ -1,0 +1,52 @@
+From fd8a7dfe469b3b326c7654b6032be5b472960bc7 Mon Sep 17 00:00:00 2001
+From: Artur Gebicz <a.gebicz@metrological.com>
+Date: Wed, 22 Nov 2023 13:09:24 +0000
+Subject: [PATCH 08/11] Port start up in preloading state patch
+
+Fixes issue reported by MCA with blank screen observed on Cobalt
+activation.  Changed start up from Starting state to Preloading state to
+avoid initializing resources and immediately deinitializing due to going
+straight to suspend mode.  Like in Starting state application is running
+but in Preloading state is not visible and receive no input.
+---
+ third_party/starboard/wpe/shared/application_wpe.cc | 10 ++++++++++
+ third_party/starboard/wpe/shared/application_wpe.h  |  2 ++
+ 2 files changed, 12 insertions(+)
+
+diff --git a/third_party/starboard/wpe/shared/application_wpe.cc b/third_party/starboard/wpe/shared/application_wpe.cc
+index 968d444d89..97bd1b88bf 100644
+--- a/third_party/starboard/wpe/shared/application_wpe.cc
++++ b/third_party/starboard/wpe/shared/application_wpe.cc
+@@ -174,6 +174,16 @@ void Application::Stop() {
+   SbSystemRequestStop(0);
+ }
+ 
++bool Application::IsStartImmediate()
++{
++  return false;
++}
++
++bool Application::IsPreloadImmediate()
++{
++  return true;
++}
++
+ }  // namespace shared
+ }  // namespace wpe
+ }  // namespace starboard
+diff --git a/third_party/starboard/wpe/shared/application_wpe.h b/third_party/starboard/wpe/shared/application_wpe.h
+index a2652dd126..f9c3963423 100644
+--- a/third_party/starboard/wpe/shared/application_wpe.h
++++ b/third_party/starboard/wpe/shared/application_wpe.h
+@@ -58,6 +58,8 @@ class Application : public ::starboard::shared::starboard::QueueApplication {
+   void OnSuspend() override;
+   void OnResume() override;
+   void Inject(Event* e) override;
++  bool IsStartImmediate() override;
++  bool IsPreloadImmediate() override;
+ 
+   // --- QueueApplication overrides ---
+   bool MayHaveSystemEvents() override;
+-- 
+2.17.1
+

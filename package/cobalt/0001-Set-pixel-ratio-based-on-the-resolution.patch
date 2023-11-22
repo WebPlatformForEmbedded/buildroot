@@ -1,0 +1,36 @@
+From c07da13dc7d81a2ce2733b602690a603d3e5de94 Mon Sep 17 00:00:00 2001
+From: Artur Gebicz <a.gebicz@metrological.com>
+Date: Wed, 22 Nov 2023 10:50:59 +0000
+Subject: [PATCH 03/11] Set pixel ratio based on the resolution
+
+---
+ third_party/starboard/wpe/shared/window/window_get_size.cc | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/third_party/starboard/wpe/shared/window/window_get_size.cc b/third_party/starboard/wpe/shared/window/window_get_size.cc
+index 80cd39647b..4829e21aa4 100644
+--- a/third_party/starboard/wpe/shared/window/window_get_size.cc
++++ b/third_party/starboard/wpe/shared/window/window_get_size.cc
+@@ -17,6 +17,9 @@
+ 
+ #include "third_party/starboard/wpe/shared/window/window_internal.h"
+ 
++#define MAX_SUPPORTED_RESOLUTION_WIDTH 3840
++#define MAX_SUPPORTED_RESOLUTION_HEIGHT 2160
++
+ bool SbWindowGetSize(SbWindow window, SbWindowSize* size) {
+   if (!SbWindowIsValid(window)) {
+     SB_DLOG(ERROR) << __FUNCTION__ << ": Invalid window.";
+@@ -25,6 +28,8 @@ bool SbWindowGetSize(SbWindow window, SbWindowSize* size) {
+ 
+   size->width = static_cast<SbWindowPrivate*>(window)->window_->Width();
+   size->height = static_cast<SbWindowPrivate*>(window)->window_->Height();
+-  size->video_pixel_ratio = 1.0f;
++  size->video_pixel_ratio = std::max(
++    static_cast<float>(MAX_SUPPORTED_RESOLUTION_WIDTH / size->width),
++    static_cast<float>(MAX_SUPPORTED_RESOLUTION_HEIGHT / size->height));
+   return true;
+ }
+-- 
+2.17.1
+
