@@ -1,0 +1,124 @@
+diff --git a/Cobalt/Cobalt.cpp b/Cobalt/Cobalt.cpp
+index 5e65db4..7a79117 100644
+--- a/Cobalt/Cobalt.cpp
++++ b/Cobalt/Cobalt.cpp
+@@ -213,6 +213,10 @@ void Cobalt::Hidden(const bool hidden) {
+     event_visibilitychange(hidden);
+ }
+ 
++void Cobalt::Closure() {
++    PluginHost::WorkerPool::Instance().Submit(PluginHost::IShell::Job::Create(_service, PluginHost::IShell::DEACTIVATED, PluginHost::IShell::REQUESTED));
++}
++
+ void Cobalt::StateChange(const PluginHost::IStateControl::state state) {
+     switch (state) {
+     case PluginHost::IStateControl::RESUMED:
+diff --git a/Cobalt/Cobalt.h b/Cobalt/Cobalt.h
+index 63e78ed..0b995eb 100644
+--- a/Cobalt/Cobalt.h
++++ b/Cobalt/Cobalt.h
+@@ -76,6 +76,7 @@ private:
+         }
+         virtual void Closure() override
+         {
++            _parent.Closure();
+         }
+         virtual void Activated(RPC::IRemoteConnection*) override
+         {
+diff --git a/Cobalt/CobaltImplementation.cpp b/Cobalt/CobaltImplementation.cpp
+index dd56c55..30246b1 100644
+--- a/Cobalt/CobaltImplementation.cpp
++++ b/Cobalt/CobaltImplementation.cpp
+@@ -160,8 +160,11 @@ private:
+         CobaltWindow& operator=(const CobaltWindow&) = delete;
+ 
+     public:
+-        CobaltWindow()
++        CobaltWindow(CobaltImplementation &parent)
+             : Core::Thread(0, _T("Cobalt"))
++            , _parent(parent)
++            , _adminLock()
++            , _stopSource(StopSource::NO_STOP)
+             , _url{"https://www.youtube.com/tv"}
+             , _debugListenIp("0.0.0.0")
+             , _debugPort()
+@@ -170,7 +173,16 @@ private:
+         virtual ~CobaltWindow()
+         {
+             Block();
+-            third_party::starboard::wpe::shared::Stop();
++            bool alreadyStopped = false;
++            _adminLock.Lock();
++            if (_stopSource == StopSource::NO_STOP) {
++                _stopSource = StopSource::EXTERNAL_STOP;
++            } else {
++                alreadyStopped = true;
++            }
++            _adminLock.Unlock();
++            if (!alreadyStopped)
++                third_party::starboard::wpe::shared::Stop();
+             Wait(Thread::BLOCKED | Thread::STOPPED | Thread::STOPPING, Core::infinite);
+         }
+ 
+@@ -297,12 +309,31 @@ private:
+             const std::string cmdDebugListenIp = "--dev_servers_listen_ip=" + _debugListenIp;
+             const std::string cmdDebugPort = "--remote_debugging_port=" + std::to_string(_debugPort);
+             const char* argv[] = {"Cobalt", cmdURL.c_str(), cmdDebugListenIp.c_str(), cmdDebugPort.c_str()};
+-            while (IsRunning() == true) {
+-                StarboardMain(4, const_cast<char**>(argv));
++            StarboardMain(4, const_cast<char**>(argv));
++            bool stopAndNotify = false;
++            _adminLock.Lock();
++            if (_stopSource == StopSource::NO_STOP) {
++                _stopSource = StopSource::INTERNAL_STOP;
++                stopAndNotify = true;
++            }
++            _adminLock.Unlock();
++            if (stopAndNotify == true) {
++                Stop();
++                Wait(Thread::BLOCKED | Thread::STOPPED | Thread::STOPPING, Core::infinite);
++                _parent.NotifyClosure();
+             }
+             return (Core::infinite);
+         }
+ 
++        enum class StopSource {
++            NO_STOP,
++            EXTERNAL_STOP,
++            INTERNAL_STOP
++        };
++
++        CobaltImplementation &_parent;
++        mutable Core::CriticalSection _adminLock;
++        StopSource _stopSource;
+         string _url;
+         string _debugListenIp;
+         uint16_t _debugPort;
+@@ -314,6 +345,7 @@ private:
+ 
+ public:
+     CobaltImplementation() :
++            _window(*this),
+             _adminLock(),
+             _state(PluginHost::IStateControl::UNINITIALIZED),
+             _cobaltClients(),
+@@ -421,6 +453,19 @@ public:
+         return (_state);
+     }
+ 
++    void NotifyClosure() {
++        _adminLock.Lock();
++
++        std::list<Exchange::IBrowser::INotification*>::iterator index(_cobaltClients.begin());
++
++        while (index != _cobaltClients.end()) {
++            (*index)->Closure();
++            index++;
++        }
++
++        _adminLock.Unlock();
++    }
++
+     virtual uint32_t Request(const PluginHost::IStateControl::command command) {
+         uint32_t result = Core::ERROR_ILLEGAL_STATE;
+ 
