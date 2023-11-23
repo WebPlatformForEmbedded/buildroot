@@ -44,6 +44,12 @@ config BR2_PACKAGE_WPEFRAMEWORK_OUTOFPROCESSTEST
 	help
 		out of Process test plugin to teste several features of Thunder
 
+config BR2_PACKAGE_WPEFRAMEWORK_TESTAUTOMATIONTOOLS
+        bool "TestAutomationTools"
+        help
+
+		A plugin to use with test automation system
+
 config BR2_PACKAGE_WPEFRAMEWORK_TEST_RPCLINK
 	bool "RPC link test"
 	help
