@@ -1,0 +1,58 @@
+From 90ced6aadfaf76db153b0c123f04cbb10f8863df Mon Sep 17 00:00:00 2001
+From: Artur Gebicz <a.gebicz@metrological.com>
+Date: Mon, 27 Nov 2023 10:27:39 +0000
+Subject: [PATCH] Cobalt: Allow setting COBALT_PLATFORM_NAME
+
+---
+ Cobalt/Cobalt.config            | 3 +++
+ Cobalt/CobaltImplementation.cpp | 6 ++++++
+ 2 files changed, 9 insertions(+)
+
+diff --git a/Cobalt/Cobalt.config b/Cobalt/Cobalt.config
+index 276cc149..72e25df1 100644
+--- a/Cobalt/Cobalt.config
++++ b/Cobalt/Cobalt.config
+@@ -40,6 +40,9 @@ map()
+     if(PLUGIN_COBALT_OPERATOR_NAME)
+         kv(operatorname ${PLUGIN_COBALT_OPERATOR_NAME})
+     endif()
++    if(PLUGIN_COBALT_PLATFORM_NAME)
++        kv(platformname ${PLUGIN_COBALT_PLATFORM_NAME})
++    endif()
+     if(PLUGIN_COBALT_FRIENDLY_NAME)
+         kv(friendlyname ${PLUGIN_COBALT_FRIENDLY_NAME})
+     endif()
+diff --git a/Cobalt/CobaltImplementation.cpp b/Cobalt/CobaltImplementation.cpp
+index 30246b17..7f06d334 100644
+--- a/Cobalt/CobaltImplementation.cpp
++++ b/Cobalt/CobaltImplementation.cpp
+@@ -81,6 +81,7 @@ private:
+             Add(_T("modelname"), &ModelName);
+             Add(_T("modelyear"), &ModelYear);
+             Add(_T("operatorname"), &OperatorName);
++            Add(_T("platformname"), &PlatformName);
+             Add(_T("friendlyname"), &FriendlyName);
+             Add(_T("scope"), &CertificationScope);
+             Add(_T("secret"), &CertificationSecret);
+@@ -105,6 +106,7 @@ private:
+         Core::JSON::String ModelName;
+         Core::JSON::String ModelYear;
+         Core::JSON::String OperatorName;
++        Core::JSON::String PlatformName;
+         Core::JSON::String FriendlyName;
+         Core::JSON::String CertificationScope;
+         Core::JSON::String CertificationSecret;
+@@ -247,6 +249,10 @@ private:
+                 Core::SystemInfo::SetEnvironment(_T("COBALT_OPERATOR_NAME"), config.OperatorName.Value());
+             }
+ 
++            if (config.PlatformName.IsSet() == true) {
++                Core::SystemInfo::SetEnvironment(_T("COBALT_PLATFORM_NAME"), config.PlatformName.Value());
++            }
++
+             if (config.FriendlyName.IsSet() == true) {
+                 Core::SystemInfo::SetEnvironment(_T("COBALT_FRIENDLY_NAME"), config.FriendlyName.Value());
+             }
+-- 
+2.17.1
+

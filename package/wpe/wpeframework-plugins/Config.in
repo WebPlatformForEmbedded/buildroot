@@ -145,6 +145,10 @@ config BR2_PACKAGE_WPEFRAMEWORK_COBALT_OPERATOR_NAME
     string "operatorname"
     default ""
 
+config BR2_PACKAGE_WPEFRAMEWORK_COBALT_PLATFORM_NAME
+    string "platformname"
+    default ""
+
 config BR2_PACKAGE_WPEFRAMEWORK_COBALT_FRIENDLY_NAME
     string "friendlyname"
     default ""
