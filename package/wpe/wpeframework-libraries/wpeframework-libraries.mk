@@ -4,8 +4,7 @@
 #
 ################################################################################
 WPEFRAMEWORK_LIBRARIES_VERSION = R4.4.1
-WPEFRAMEWORK_LIBRARIES_SITE_METHOD = git
-WPEFRAMEWORK_LIBRARIES_SITE = git@github.com:WebPlatformForEmbedded/ThunderLibraries.git
+WPEFRAMEWORK_LIBRARIES_SITE = $(call github,WebPlatformForEmbedded,ThunderLibraries,$(WPEFRAMEWORK_LIBRARIES_VERSION))
 WPEFRAMEWORK_LIBRARIES_INSTALL_STAGING = YES
 WPEFRAMEWORK_LIBRARIES_DEPENDENCIES = wpeframework
 
