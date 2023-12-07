@@ -13,7 +13,7 @@ resources:
   type: docker-image
   check_every: 72h
   source:
-    repository: atlas.comcast.net/tpx-metrological-embedded
+    repository: hub.comcast.net/tpx-metrological-embedded
     username: ((service-account.username))
     password: ((service-account.password))
 
