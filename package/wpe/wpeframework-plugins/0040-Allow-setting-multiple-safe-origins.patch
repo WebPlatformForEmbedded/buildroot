@@ -1,0 +1,65 @@
+From 2f6361fa2973bd45cee08d39d4fd338ca6618e20 Mon Sep 17 00:00:00 2001
+From: Artur Gebicz <a.gebicz@metrological.com>
+Date: Fri, 8 Dec 2023 09:04:31 +0000
+Subject: [PATCH] Allow setting multiple safe origins
+
+YouTube certification requires that multiple origins will be supported
+when invoking the DIAL requests. The origins must be one of youtube.com
+or package:com.yts.app.
+
+To allow that, the Origin configuration variable is changed to read a
+comma separated list of origins. I.e: "origin":
+"youtube.com,package:com.yts.app". Providing single origin
+without comma is still possible
+---
+ DIALServer/DIALServer.cpp | 29 ++++++++++++++++++-----------
+ 1 file changed, 18 insertions(+), 11 deletions(-)
+
+diff --git a/DIALServer/DIALServer.cpp b/DIALServer/DIALServer.cpp
+index 949c3285..5e34264b 100644
+--- a/DIALServer/DIALServer.cpp
++++ b/DIALServer/DIALServer.cpp
+@@ -625,22 +625,29 @@ namespace Plugin {
+         bool safe = true;
+ 
+         if ((request.Origin.IsSet() == true) && (app.Origin().empty() == false)) { // Origin is set in the request
+-            Core::OptionalType<string> hostPortion (Core::URL(request.Origin.Value().c_str()).Host());
+-            Core::NodeId source(hostPortion.Value().c_str());
+-            if (source.IsLocalInterface() == true) {
+-                safe = true;
+-            } else {
+-                if (request.Origin.Value().find("https:") == 0) { // Valid format: https://www.youtube.com, https://dial.youtube.com
+-                    safe = ((hostPortion.Value().length() >= app.Origin().length()) && (hostPortion.Value().substr(hostPortion.Value().length() - app.Origin().length()) == app.Origin()));
+-            } else if (request.Origin.Value().find("package:") == 0) { // Valid format: package: com.youtube.app, package: com.google.ios.youtube
+-                    safe = (request.Origin.Value().find(app.Origin().substr(0,app.Origin().find("."))) != string::npos);
++            Core::TextSegmentIterator appOrigin(Core::TextFragment(app.Origin()), true, ',');
++
++            while (appOrigin.Next() == true) {
++                Core::OptionalType<string> hostPortion (Core::URL(request.Origin.Value().c_str()).Host());
++                Core::NodeId source(hostPortion.Value().c_str());
++                if (source.IsLocalInterface() == true) {
++                    safe = true;
+                 } else {
+-                    safe = false;
++                    if (request.Origin.Value().find("https:") == 0) { // Valid format: https://www.youtube.com, https://dial.youtube.com
++                        safe = ((hostPortion.Value().length() >= appOrigin.Current().Length())
++                            && (hostPortion.Value().substr(hostPortion.Value().length() - appOrigin.Current().Length()) == appOrigin.Current().Text()));
++                    } else if (request.Origin.Value().find("package:") == 0) { // valid format: package: com.youtube.app, package: com.google.ios.youtube
++                        safe = (request.Origin.Value().find(appOrigin.Current().Text().substr(0,appOrigin.Current().Text().find("."))) != string::npos);
++                    } else {
++                        safe = false;
++                    }
+                 }
++                if(safe == true) break;
+             }
+-        } else if ((request.Origin.IsSet() == false) && (app.Origin().empty() == false)) { // Origin is not set in the request but is manadatory
++        } else if ((request.Origin.IsSet() == false) && (app.Origin().empty() == false)) { // origin is not set in the request but is manadatory
+             safe = false;
+         }
++
+         return (safe);
+     }
+ 
+-- 
+2.17.1
+
