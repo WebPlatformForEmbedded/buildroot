@@ -4,7 +4,7 @@
 #
 ################################################################################
 
-COBALT_VERSION = 14174dfd793620757b1573f3d7b9490e974dd02d
+COBALT_VERSION = f2cecd6f655f11b75e627815fdb06653fb04eea6
 COBALT_SITE_METHOD = git
 COBALT_SITE = git@github.com:comcast-tpx-metrological/ml-cobalt.git
 COBALT_INSTALL_STAGING = YES
