@@ -141,3 +141,6 @@ libp11-kit.so
 libvpx.so
 libgstwesterossink.so
 libwesteros*
+cog
+cogctl
+libcogcore.so
