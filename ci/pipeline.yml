@@ -12,7 +12,7 @@ resources:
   icon: docker
   check_every: 72h
   source:
-    repository: hub.comcast.net/tpx-metrological-embedded/rootfs
+    repository: hub.comcast.net/tpx-metrological-embedded
     username: ((service-account.username))
     password: ((service-account.password))
 
