@@ -7,50 +7,9 @@ resources:
     uri: https://github.com/WebPlatformForEmbedded/buildroot/
     password: ((service-account.access-token))
 
-- name: thunder
-  type: git
-  icon: github
-  source:
-    uri: https://github.com/rdkcentral/Thunder/
-    password: ((service-account.access-token))
-
-- name: thunder-client-libraries
-  type: git
-  icon: github
-  source:
-    uri: https://github.com/rdkcentral/ThunderClientLibraries
-    password: ((service-account.access-token))
-
-- name: thunder-interfaces
-  type: git
-  icon: github
-  source:
-    uri: https://github.com/rdkcentral/ThunderInterfaces
-    password: ((service-account.access-token))
-
-- name: thunder-plugins
-  type: git
-  icon: github
-  source:
-    uri: https://github.com/rdkcentral/ThunderNanoServices
-    password: ((service-account.access-token))
-
-- name: thunder-rdk-services
-  type: git
-  icon: github
-  source:
-    uri: https://github.com/WebPlatformForEmbedded/ThunderNanoServicesRDK
-    password: ((service-account.access-token))
-
-- name: thunder-tools
-  type: git
-  icon: github
-  source:
-    uri: https://github.com/rdkcentral/ThunderTools
-    password: ((service-account.access-token))
-
 - name: buildroot-docker-image
   type: docker-image
+  icon: docker
   check_every: 72h
   source:
     repository: hub.comcast.net/tpx-metrological-embedded/rootfs
@@ -58,23 +17,11 @@ resources:
     password: ((service-account.password))
 
 jobs:
-- name: image-push
+- name: build-rootfs
   plan:
   - get: buildroot
     trigger: true
-  - get: thunder
-    trigger: true
-  - get: thunder-client-libraries
-    trigger: true
-  - get: thunder-interfaces
-    trigger: true
-  - get: thunder-plugins
-    trigger: true
-  - get: thunder-rdk-services
-    trigger: true
-  - get: thunder-tools
-    trigger: true
   - put: buildroot-docker-image
     params:
-      build: buildroot
+      image: output/images/rootfs.tar
       tag_as_latest: true
