@@ -5,18 +5,23 @@ RUN apt-get update
 RUN apt-get install -y file wget cpio rsync build-essential git subversion cvs unzip whois ncurses-dev bc mercurial pmount gcc-multilib g++-multilib libgmp3-dev libmpc-dev liblz4-tool
 
 # User & Workdir
-#ARG USER=metrological
-#RUN adduser --disabled-password $USER
-#WORKDIR $USER
+ARG USER=metrological
+RUN adduser --disabled-password $USER
+WORKDIR $USER
 
 # Copy Resources
-#COPY buildroot buildroot
-#COPY thunder thunder
-#COPY thunder-client-libraries thunder-client-libraries
-#COPY thunder-interfaces thunder-interfaces
-#COPY thunder-plugins thunder-plugins
-#COPY thunder-rdk-services thunder-rdk-services
-#COPY thunder-tools thunder-tools
+COPY arch arch
+COPY board board
+COPY boot boot
+COPY configs configs
+COPY fs fs
+COPY linux linux
+COPY package package
+COPY system system
+COPY toolchain toolchain
+COPY utils utils
+COPY Makefile .
+COPY Makefile.legacy .
 
 # Run Build
 #WORKDIR $USER/buildroot/
