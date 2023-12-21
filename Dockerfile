@@ -28,5 +28,7 @@ RUN apt-get install -y file wget cpio rsync build-essential git subversion cvs u
 #RUN echo WPEFRAMEWORK_TOOLS_OVERRIDE_SRCDIR=../thunder-tools >> local.mk
 
 ENV FORCE_UNSAFE_CONFIGURE=1
+RUN ls
+RUN pwd
 RUN make raspberrypi3_wpe_defconfig 
 RUN make
