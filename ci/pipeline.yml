@@ -23,5 +23,6 @@ jobs:
     trigger: true
   - put: buildroot-docker-image
     params:
+      build: buildroot
       image: output/images/rootfs.tar
       tag_as_latest: true
