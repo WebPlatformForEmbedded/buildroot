@@ -14,12 +14,16 @@ COPY arch arch
 COPY board board
 COPY boot boot
 COPY configs configs
+COPY docs docs
 COPY fs fs
 COPY linux linux
 COPY package package
+COPY support support
 COPY system system
 COPY toolchain toolchain
 COPY utils utils
+COPY Config.in .
+COPY Config.in.legacy .
 COPY Makefile .
 COPY Makefile.legacy .
 
