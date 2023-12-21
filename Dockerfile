@@ -7,7 +7,7 @@ RUN apt-get install -y file wget cpio rsync build-essential git subversion cvs u
 # User & Workdir
 ARG USER=metrological
 RUN adduser --disabled-password $USER
-WORKDIR $USER
+#WORKDIR $USER
 
 # Copy Resources
 #COPY buildroot buildroot
