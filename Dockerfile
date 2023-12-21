@@ -21,12 +21,12 @@ COPY thunder-tools thunder-tools
 
 # Run Build
 WORKDIR $USER/buildroot/
-echo WPEFRAMEWORK_OVERRIDE_SRCDIR=../thunder > local.mk
-echo WPEFRAMEWORK_CLIENTLIBRARIES_OVERRIDE_SRCDIR=../thunder-client-libraries >> local.mk
-echo WPEFRAMEWORK_INTERFACES_OVERRIDE_SRCDIR=../thunder-interfaces >> local.mk
-echo WPEFRAMEWORK_PLUGINS_OVERRIDE_SRCDIR=../thunder-plugins >> local.mk
-echo WPEFRAMEWORK_RDKSERVICES_OVERRIDE_SRCDIR=../thunder-rdk-services >> local.mk
-echo WPEFRAMEWORK_TOOLS_OVERRIDE_SRCDIR=../thunder-tools >> local.mk
+RUN echo WPEFRAMEWORK_OVERRIDE_SRCDIR=../thunder > local.mk
+RUN echo WPEFRAMEWORK_CLIENTLIBRARIES_OVERRIDE_SRCDIR=../thunder-client-libraries >> local.mk
+RUN echo WPEFRAMEWORK_INTERFACES_OVERRIDE_SRCDIR=../thunder-interfaces >> local.mk
+RUN echo WPEFRAMEWORK_PLUGINS_OVERRIDE_SRCDIR=../thunder-plugins >> local.mk
+RUN echo WPEFRAMEWORK_RDKSERVICES_OVERRIDE_SRCDIR=../thunder-rdk-services >> local.mk
+RUN echo WPEFRAMEWORK_TOOLS_OVERRIDE_SRCDIR=../thunder-tools >> local.mk
 
 ENV FORCE_UNSAFE_CONFIGURE=1
 RUN make raspberrypi3_wpe_defconfig 
