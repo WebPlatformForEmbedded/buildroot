@@ -19,7 +19,7 @@ WORKDIR $USER
 #COPY thunder-tools thunder-tools
 
 # Run Build
-WORKDIR $USER/buildroot/
+#WORKDIR $USER/buildroot/
 #RUN echo WPEFRAMEWORK_OVERRIDE_SRCDIR=../thunder > local.mk
 #RUN echo WPEFRAMEWORK_CLIENTLIBRARIES_OVERRIDE_SRCDIR=../thunder-client-libraries >> local.mk
 #RUN echo WPEFRAMEWORK_INTERFACES_OVERRIDE_SRCDIR=../thunder-interfaces >> local.mk
