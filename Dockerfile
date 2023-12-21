@@ -5,8 +5,8 @@ RUN apt-get update
 RUN apt-get install -y file wget cpio rsync build-essential git subversion cvs unzip whois ncurses-dev bc mercurial pmount gcc-multilib g++-multilib libgmp3-dev libmpc-dev liblz4-tool
 
 # User & Workdir
-ARG USER=metrological
-RUN adduser --disabled-password $USER
+#ARG USER=metrological
+#RUN adduser --disabled-password $USER
 #WORKDIR $USER
 
 # Copy Resources
