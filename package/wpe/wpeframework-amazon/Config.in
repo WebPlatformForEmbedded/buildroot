@@ -48,10 +48,10 @@ config BR2_PACKAGE_WPEFRAMEWORK_AMAZON_FRAGMENT_CACHE_SIZE
         
 endmenu
 
-config BR2_PACKAGE_WPEFRAMEWORK_AMAZON_AUTOSTART
+config BR2_PACKAGE_WPEFRAMEWORK_AMAZON_STARTMODE
     depends on BR2_PACKAGE_WPEFRAMEWORK_AMAZON
-    bool "autostart"
-    default n
+    string "Startup mode"
+    default "deactivated"
 
 config BR2_PACKAGE_WPEFRAMEWORK_AMAZON_INSTALL_PATH_OVERRIDE
 	string "override instalation path in config"
