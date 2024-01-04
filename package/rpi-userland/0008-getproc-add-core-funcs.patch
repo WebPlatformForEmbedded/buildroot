@@ -1,6 +1,6 @@
 --- a/interface/khronos/egl/egl_client_get_proc.c	2020-01-14 23:03:59.000000000 +0530
 +++ b/interface/khronos/egl/egl_client_get_proc.c	2021-06-08 15:39:22.943341684 +0530
-@@ -70,13 +70,119 @@ extern "C" {
+@@ -70,13 +70,475 @@ extern "C" {
  
  EGLAPI void EGLAPIENTRY (* eglGetProcAddress(const char *procname))(void)
  {
@@ -11,110 +11,466 @@
     /* TODO: any other functions we need to return here?    */
     if(!procname) return (void(*)(void)) NULL;
  
-+   if (!strcmp(procname, "glViewport"))
-+      return (void(*)(void))glViewport;
++   if (!strcmp(procname, "glActiveTexture"))
++      return (void(*)(void))glActiveTexture;
++   if (!strcmp(procname, "glAlphaFunc"))
++      return (void(*)(void))glAlphaFunc;
++   if (!strcmp(procname, "glAlphaFuncx"))
++      return (void(*)(void))glAlphaFuncx;
++   if (!strcmp(procname, "glAttachShader"))
++      return (void(*)(void))glAttachShader;
++   if (!strcmp(procname, "glBindAttribLocation"))
++      return (void(*)(void))glBindAttribLocation;
++   if (!strcmp(procname, "glBindBuffer"))
++      return (void(*)(void))glBindBuffer;
++   if (!strcmp(procname, "glBindFramebuffer"))
++      return (void(*)(void))glBindFramebuffer;
++   if (!strcmp(procname, "glBindRenderbuffer"))
++      return (void(*)(void))glBindRenderbuffer;
++   if (!strcmp(procname, "glBindTexture"))
++      return (void(*)(void))glBindTexture;
++   if (!strcmp(procname, "glBlendColor"))
++      return (void(*)(void))glBlendColor;
++   if (!strcmp(procname, "glBlendEquation"))
++      return (void(*)(void))glBlendEquation;
++   if (!strcmp(procname, "glBlendEquationSeparate"))
++      return (void(*)(void))glBlendEquationSeparate;
++   if (!strcmp(procname, "glBlendFunc"))
++      return (void(*)(void))glBlendFunc;
++   if (!strcmp(procname, "glBlendFuncSeparate"))
++      return (void(*)(void))glBlendFuncSeparate;
++   if (!strcmp(procname, "glBufferData"))
++      return (void(*)(void))glBufferData;
++   if (!strcmp(procname, "glBufferSubData"))
++      return (void(*)(void))glBufferSubData;
++   if (!strcmp(procname, "glCheckFramebufferStatus"))
++      return (void(*)(void))glCheckFramebufferStatus;
++   if (!strcmp(procname, "glClear"))
++      return (void(*)(void))glClear;
++   if (!strcmp(procname, "glClearColor"))
++      return (void(*)(void))glClearColor;
++   if (!strcmp(procname, "glClearColorx"))
++      return (void(*)(void))glClearColorx;
++   if (!strcmp(procname, "glClearDepthf"))
++      return (void(*)(void))glClearDepthf;
++   if (!strcmp(procname, "glClearDepthx"))
++      return (void(*)(void))glClearDepthx;
++   if (!strcmp(procname, "glClearStencil"))
++      return (void(*)(void))glClearStencil;
++   if (!strcmp(procname, "glClientActiveTexture"))
++      return (void(*)(void))glClientActiveTexture;
++   if (!strcmp(procname, "glClipPlanef"))
++      return (void(*)(void))glClipPlanef;
++   if (!strcmp(procname, "glClipPlanex"))
++      return (void(*)(void))glClipPlanex;
++   if (!strcmp(procname, "glColor4f"))
++      return (void(*)(void))glColor4f;
++   if (!strcmp(procname, "glColor4ub"))
++      return (void(*)(void))glColor4ub;
++   if (!strcmp(procname, "glColor4x"))
++      return (void(*)(void))glColor4x;
++   if (!strcmp(procname, "glColorMask"))
++      return (void(*)(void))glColorMask;
++   if (!strcmp(procname, "glColorPointer"))
++      return (void(*)(void))glColorPointer;
++   if (!strcmp(procname, "glCompileShader"))
++      return (void(*)(void))glCompileShader;
++   if (!strcmp(procname, "glCompressedTexImage2D"))
++      return (void(*)(void))glCompressedTexImage2D;
++   if (!strcmp(procname, "glCompressedTexSubImage2D"))
++      return (void(*)(void))glCompressedTexSubImage2D;
++   if (!strcmp(procname, "glCopyTexImage2D"))
++      return (void(*)(void))glCopyTexImage2D;
++   if (!strcmp(procname, "glCopyTexSubImage2D"))
++      return (void(*)(void))glCopyTexSubImage2D;
++   if (!strcmp(procname, "glCreateProgram"))
++      return (void(*)(void))glCreateProgram;
++   if (!strcmp(procname, "glCreateShader"))
++      return (void(*)(void))glCreateShader;
++   if (!strcmp(procname, "glCullFace"))
++      return (void(*)(void))glCullFace;
++   if (!strcmp(procname, "glDeleteBuffers"))
++      return (void(*)(void))glDeleteBuffers;
++   if (!strcmp(procname, "glDeleteFramebuffers"))
++      return (void(*)(void))glDeleteFramebuffers;
++   if (!strcmp(procname, "glDeleteProgram"))
++      return (void(*)(void))glDeleteProgram;
++   if (!strcmp(procname, "glDeleteRenderbuffers"))
++      return (void(*)(void))glDeleteRenderbuffers;
++   if (!strcmp(procname, "glDeleteShader"))
++      return (void(*)(void))glDeleteShader;
++   if (!strcmp(procname, "glDeleteTextures"))
++      return (void(*)(void))glDeleteTextures;
++   if (!strcmp(procname, "glDepthFunc"))
++      return (void(*)(void))glDepthFunc;
++   if (!strcmp(procname, "glDepthMask"))
++      return (void(*)(void))glDepthMask;
++   if (!strcmp(procname, "glDepthRangef"))
++      return (void(*)(void))glDepthRangef;
++   if (!strcmp(procname, "glDepthRangex"))
++      return (void(*)(void))glDepthRangex;
++   if (!strcmp(procname, "glDetachShader"))
++      return (void(*)(void))glDetachShader;
++   if (!strcmp(procname, "glDisable"))
++      return (void(*)(void))glDisable;
++   if (!strcmp(procname, "glDisableClientState"))
++      return (void(*)(void))glDisableClientState;
++   if (!strcmp(procname, "glDisableVertexAttribArray"))
++      return (void(*)(void))glDisableVertexAttribArray;
++   if (!strcmp(procname, "glDrawArrays"))
++      return (void(*)(void))glDrawArrays;
++   if (!strcmp(procname, "glDrawElements"))
++      return (void(*)(void))glDrawElements;
++   if (!strcmp(procname, "glEnable"))
++      return (void(*)(void))glEnable;
++   if (!strcmp(procname, "glEnableClientState"))
++      return (void(*)(void))glEnableClientState;
++   if (!strcmp(procname, "glEnableVertexAttribArray"))
++      return (void(*)(void))glEnableVertexAttribArray;
++   if (!strcmp(procname, "glFinish"))
++      return (void(*)(void))glFinish;
++   if (!strcmp(procname, "glFlush"))
++      return (void(*)(void))glFlush;
++   if (!strcmp(procname, "glFogf"))
++      return (void(*)(void))glFogf;
++   if (!strcmp(procname, "glFogfv"))
++      return (void(*)(void))glFogfv;
++   if (!strcmp(procname, "glFogx"))
++      return (void(*)(void))glFogx;
++   if (!strcmp(procname, "glFogxv"))
++      return (void(*)(void))glFogxv;
++   if (!strcmp(procname, "glFramebufferRenderbuffer"))
++      return (void(*)(void))glFramebufferRenderbuffer;
++   if (!strcmp(procname, "glFramebufferTexture2D"))
++      return (void(*)(void))glFramebufferTexture2D;
++   if (!strcmp(procname, "glFrontFace"))
++      return (void(*)(void))glFrontFace;
++   if (!strcmp(procname, "glFrustumf"))
++      return (void(*)(void))glFrustumf;
++   if (!strcmp(procname, "glFrustumx"))
++      return (void(*)(void))glFrustumx;
++   if (!strcmp(procname, "glGenBuffers"))
++      return (void(*)(void))glGenBuffers;
++   if (!strcmp(procname, "glGenerateMipmap"))
++      return (void(*)(void))glGenerateMipmap;
++   if (!strcmp(procname, "glGenFramebuffers"))
++      return (void(*)(void))glGenFramebuffers;
++   if (!strcmp(procname, "glGenRenderbuffers"))
++      return (void(*)(void))glGenRenderbuffers;
++   if (!strcmp(procname, "glGenTextures"))
++      return (void(*)(void))glGenTextures;
++   if (!strcmp(procname, "glGetActiveAttrib"))
++      return (void(*)(void))glGetActiveAttrib;
++   if (!strcmp(procname, "glGetActiveUniform"))
++      return (void(*)(void))glGetActiveUniform;
++   if (!strcmp(procname, "glGetAttachedShaders"))
++      return (void(*)(void))glGetAttachedShaders;
++   if (!strcmp(procname, "glGetAttribLocation"))
++      return (void(*)(void))glGetAttribLocation;
++   if (!strcmp(procname, "glGetBooleanv"))
++      return (void(*)(void))glGetBooleanv;
++   if (!strcmp(procname, "glGetBufferParameteriv"))
++      return (void(*)(void))glGetBufferParameteriv;
++   if (!strcmp(procname, "glGetClipPlanef"))
++      return (void(*)(void))glGetClipPlanef;
++   if (!strcmp(procname, "glGetClipPlanex"))
++      return (void(*)(void))glGetClipPlanex;
++   if (!strcmp(procname, "glGetError"))
++      return (void(*)(void))glGetError;
++   if (!strcmp(procname, "glGetFixedv"))
++      return (void(*)(void))glGetFixedv;
++   if (!strcmp(procname, "glGetFloatv"))
++      return (void(*)(void))glGetFloatv;
++   if (!strcmp(procname, "glGetFramebufferAttachmentParameteriv"))
++      return (void(*)(void))glGetFramebufferAttachmentParameteriv;
++   if (!strcmp(procname, "glGetIntegerv"))
++      return (void(*)(void))glGetIntegerv;
++   if (!strcmp(procname, "glGetLightfv"))
++      return (void(*)(void))glGetLightfv;
++   if (!strcmp(procname, "glGetLightxv"))
++      return (void(*)(void))glGetLightxv;
++   if (!strcmp(procname, "glGetMaterialfv"))
++      return (void(*)(void))glGetMaterialfv;
++   if (!strcmp(procname, "glGetMaterialxv"))
++      return (void(*)(void))glGetMaterialxv;
++   if (!strcmp(procname, "glGetPointerv"))
++      return (void(*)(void))glGetPointerv;
++   if (!strcmp(procname, "glGetProgramInfoLog"))
++      return (void(*)(void))glGetProgramInfoLog;
++   if (!strcmp(procname, "glGetProgramiv"))
++      return (void(*)(void))glGetProgramiv;
++   if (!strcmp(procname, "glGetRenderbufferParameteriv"))
++      return (void(*)(void))glGetRenderbufferParameteriv;
++   if (!strcmp(procname, "glGetShaderInfoLog"))
++      return (void(*)(void))glGetShaderInfoLog;
++   if (!strcmp(procname, "glGetShaderiv"))
++      return (void(*)(void))glGetShaderiv;
++   if (!strcmp(procname, "glGetShaderPrecisionFormat"))
++      return (void(*)(void))glGetShaderPrecisionFormat;
++   if (!strcmp(procname, "glGetShaderSource"))
++      return (void(*)(void))glGetShaderSource;
 +   if (!strcmp(procname, "glGetString"))
 +      return (void(*)(void))glGetString;
-+   if (!strcmp(procname, "glClear")) 
-+      return (void(*)(void))glClear;
-+   if (!strcmp(procname, "glClearColor")) 
-+      return (void(*)(void))glClearColor;
-+   if (!strcmp(procname, "glGetError")) 
-+      return (void(*)(void))glGetError;
-+   if (!strcmp(procname, "glCreateShader")) 
-+      return (void(*)(void))glCreateShader;
-+   if (!strcmp(procname, "glDeleteShader")) 
-+      return (void(*)(void))glDeleteShader;
-+   if (!strcmp(procname, "glShaderSource")) 
-+      return (void(*)(void))glShaderSource;
-+   if (!strcmp(procname, "glCompileShader")) 
-+      return (void(*)(void))glCompileShader;
-+   if (!strcmp(procname, "glGetShaderiv")) 
-+      return (void(*)(void))glGetShaderiv;
-+   if (!strcmp(procname, "glGetShaderInfoLog")) 
-+      return (void(*)(void))glGetShaderInfoLog;
-+   if (!strcmp(procname, "glCreateProgram")) 
-+      return (void(*)(void))glCreateProgram;
-+   if (!strcmp(procname, "glAttachShader")) 
-+      return (void(*)(void))glAttachShader;
-+   if (!strcmp(procname, "glDetachShader")) 
-+      return (void(*)(void))glDetachShader;
-+   if (!strcmp(procname, "glLinkProgram")) 
-+      return (void(*)(void))glLinkProgram;
-+   if (!strcmp(procname, "glUseProgram")) 
-+      return (void(*)(void))glUseProgram;
-+   if (!strcmp(procname, "glDeleteProgram")) 
-+      return (void(*)(void))glDeleteProgram;
-+   if (!strcmp(procname, "glGenTextures")) 
-+      return (void(*)(void))glGenTextures;
-+   if (!strcmp(procname, "glUniform1i")) 
-+      return (void(*)(void))glUniform1i;
-+   if (!strcmp(procname, "glUniform1f")) 
-+      return (void(*)(void))glUniform1f;
-+   if (!strcmp(procname, "glUniform2f")) 
-+      return (void(*)(void))glUniform2f;
-+   if (!strcmp(procname, "glUniform4f")) 
-+      return (void(*)(void))glUniform4f;
-+   if (!strcmp(procname, "glUniform4fv")) 
-+      return (void(*)(void))glUniform4fv;
-+   if (!strcmp(procname, "glTexImage2D")) 
-+      return (void(*)(void))glTexImage2D;
-+   if (!strcmp(procname, "glTexSubImage2D")) 
-+      return (void(*)(void))glTexSubImage2D;
-+   if (!strcmp(procname, "glBindTexture")) 
-+      return (void(*)(void))glBindTexture;
-+   if (!strcmp(procname, "glTexParameteri")) 
-+      return (void(*)(void))glTexParameteri;
-+   if (!strcmp(procname, "glPixelStorei")) 
-+      return (void(*)(void))glPixelStorei;
-+   if (!strcmp(procname, "glDeleteTextures")) 
-+      return (void(*)(void))glDeleteTextures;
-+   if (!strcmp(procname, "glBindFramebuffer")) 
-+      return (void(*)(void))glBindFramebuffer;
-+   if (!strcmp(procname, "glFramebufferTexture2D")) 
-+      return (void(*)(void))glFramebufferTexture2D;
-+   if (!strcmp(procname, "glGenFramebuffers")) 
-+      return (void(*)(void))glGenFramebuffers;
-+   if (!strcmp(procname, "glGenBuffers")) 
-+      return (void(*)(void))glGenBuffers;
-+   if (!strcmp(procname, "glDeleteFramebuffers")) 
-+      return (void(*)(void))glDeleteFramebuffers;
-+   if (!strcmp(procname, "glCheckFramebufferStatus")) 
-+      return (void(*)(void))glCheckFramebufferStatus;
-+   if (!strcmp(procname, "glBindBuffer")) 
-+      return (void(*)(void))glBindBuffer;
-+   if (!strcmp(procname, "glGetBooleanv")) 
-+      return (void(*)(void))glGetBooleanv;
-+   if (!strcmp(procname, "glGetIntegerv")) 
-+      return (void(*)(void))glGetIntegerv;
-+   if (!strcmp(procname, "glDisable")) 
-+      return (void(*)(void))glDisable;
-+   if (!strcmp(procname, "glEnable")) 
-+      return (void(*)(void))glEnable;
-+   if (!strcmp(procname, "glDeleteBuffers")) 
-+      return (void(*)(void))glDeleteBuffers ;
-+   if (!strcmp(procname, "glScissor")) 
-+      return (void(*)(void))glScissor;
-+   if (!strcmp(procname, "glEnableVertexAttribArray")) 
-+      return (void(*)(void))glEnableVertexAttribArray;
-+   if (!strcmp(procname, "glVertexAttribPointer")) 
-+      return (void(*)(void))glVertexAttribPointer;
-+   if (!strcmp(procname, "glBufferData")) 
-+      return (void(*)(void))glBufferData ;
-+   if (!strcmp(procname, "glGetAttribLocation")) 
-+      return (void(*)(void))glGetAttribLocation;
-+   if (!strcmp(procname, "glGetUniformLocation")) 
++   if (!strcmp(procname, "glGetTexEnvfv"))
++      return (void(*)(void))glGetTexEnvfv;
++   if (!strcmp(procname, "glGetTexEnviv"))
++      return (void(*)(void))glGetTexEnviv;
++   if (!strcmp(procname, "glGetTexEnvxv"))
++      return (void(*)(void))glGetTexEnvxv;
++   if (!strcmp(procname, "glGetTexParameterfv"))
++      return (void(*)(void))glGetTexParameterfv;
++   if (!strcmp(procname, "glGetTexParameteriv"))
++      return (void(*)(void))glGetTexParameteriv;
++   if (!strcmp(procname, "glGetTexParameterxv"))
++      return (void(*)(void))glGetTexParameterxv;
++   if (!strcmp(procname, "glGetUniformfv"))
++      return (void(*)(void))glGetUniformfv;
++   if (!strcmp(procname, "glGetUniformiv"))
++      return (void(*)(void))glGetUniformiv;
++   if (!strcmp(procname, "glGetUniformLocation"))
 +      return (void(*)(void))glGetUniformLocation;
-+   if (!strcmp(procname, "glBlendFunc")) 
-+      return (void(*)(void))glBlendFunc;
-+   if (!strcmp(procname, "glBlendFuncSeparate")) 
-+      return (void(*)(void))glBlendFuncSeparate;
-+   if (!strcmp(procname, "glDrawArrays")) 
-+      return (void(*)(void))glDrawArrays;
-+   if (!strcmp(procname, "glReadPixels")) 
++   if (!strcmp(procname, "glGetVertexAttribfv"))
++      return (void(*)(void))glGetVertexAttribfv;
++   if (!strcmp(procname, "glGetVertexAttribiv"))
++      return (void(*)(void))glGetVertexAttribiv;
++   if (!strcmp(procname, "glGetVertexAttribPointerv"))
++      return (void(*)(void))glGetVertexAttribPointerv;
++   if (!strcmp(procname, "glHint"))
++      return (void(*)(void))glHint;
++   if (!strcmp(procname, "glIsBuffer"))
++      return (void(*)(void))glIsBuffer;
++   if (!strcmp(procname, "glIsEnabled"))
++      return (void(*)(void))glIsEnabled;
++   if (!strcmp(procname, "glIsFramebuffer"))
++      return (void(*)(void))glIsFramebuffer;
++   if (!strcmp(procname, "glIsProgram"))
++      return (void(*)(void))glIsProgram;
++   if (!strcmp(procname, "glIsRenderbuffer"))
++      return (void(*)(void))glIsRenderbuffer;
++   if (!strcmp(procname, "glIsShader"))
++      return (void(*)(void))glIsShader;
++   if (!strcmp(procname, "glIsTexture"))
++      return (void(*)(void))glIsTexture;
++   if (!strcmp(procname, "glLightf"))
++      return (void(*)(void))glLightf;
++   if (!strcmp(procname, "glLightfv"))
++      return (void(*)(void))glLightfv;
++   if (!strcmp(procname, "glLightModelf"))
++      return (void(*)(void))glLightModelf;
++   if (!strcmp(procname, "glLightModelfv"))
++      return (void(*)(void))glLightModelfv;
++   if (!strcmp(procname, "glLightModelx"))
++      return (void(*)(void))glLightModelx;
++   if (!strcmp(procname, "glLightModelxv"))
++      return (void(*)(void))glLightModelxv;
++   if (!strcmp(procname, "glLightx"))
++      return (void(*)(void))glLightx;
++   if (!strcmp(procname, "glLightxv"))
++      return (void(*)(void))glLightxv;
++   if (!strcmp(procname, "glLineWidth"))
++      return (void(*)(void))glLineWidth;
++   if (!strcmp(procname, "glLineWidthx"))
++      return (void(*)(void))glLineWidthx;
++   if (!strcmp(procname, "glLinkProgram"))
++      return (void(*)(void))glLinkProgram;
++   if (!strcmp(procname, "glLoadIdentity"))
++      return (void(*)(void))glLoadIdentity;
++   if (!strcmp(procname, "glLoadMatrixf"))
++      return (void(*)(void))glLoadMatrixf;
++   if (!strcmp(procname, "glLoadMatrixx"))
++      return (void(*)(void))glLoadMatrixx;
++   if (!strcmp(procname, "glLogicOp"))
++      return (void(*)(void))glLogicOp;
++   if (!strcmp(procname, "glMaterialf"))
++      return (void(*)(void))glMaterialf;
++   if (!strcmp(procname, "glMaterialfv"))
++      return (void(*)(void))glMaterialfv;
++   if (!strcmp(procname, "glMaterialx"))
++      return (void(*)(void))glMaterialx;
++   if (!strcmp(procname, "glMaterialxv"))
++      return (void(*)(void))glMaterialxv;
++   if (!strcmp(procname, "glMatrixMode"))
++      return (void(*)(void))glMatrixMode;
++   if (!strcmp(procname, "glMultiTexCoord4f"))
++      return (void(*)(void))glMultiTexCoord4f;
++   if (!strcmp(procname, "glMultiTexCoord4x"))
++      return (void(*)(void))glMultiTexCoord4x;
++   if (!strcmp(procname, "glMultMatrixf"))
++      return (void(*)(void))glMultMatrixf;
++   if (!strcmp(procname, "glMultMatrixx"))
++      return (void(*)(void))glMultMatrixx;
++   if (!strcmp(procname, "glNormal3f"))
++      return (void(*)(void))glNormal3f;
++   if (!strcmp(procname, "glNormal3x"))
++      return (void(*)(void))glNormal3x;
++   if (!strcmp(procname, "glNormalPointer"))
++      return (void(*)(void))glNormalPointer;
++   if (!strcmp(procname, "glOrthof"))
++      return (void(*)(void))glOrthof;
++   if (!strcmp(procname, "glOrthox"))
++      return (void(*)(void))glOrthox;
++   if (!strcmp(procname, "glPixelStorei"))
++      return (void(*)(void))glPixelStorei;
++   if (!strcmp(procname, "glPointParameterf"))
++      return (void(*)(void))glPointParameterf;
++   if (!strcmp(procname, "glPointParameterfv"))
++      return (void(*)(void))glPointParameterfv;
++   if (!strcmp(procname, "glPointParameterx"))
++      return (void(*)(void))glPointParameterx;
++   if (!strcmp(procname, "glPointParameterxv"))
++      return (void(*)(void))glPointParameterxv;
++   if (!strcmp(procname, "glPointSize"))
++      return (void(*)(void))glPointSize;
++   if (!strcmp(procname, "glPointSizex"))
++      return (void(*)(void))glPointSizex;
++   if (!strcmp(procname, "glPolygonOffset"))
++      return (void(*)(void))glPolygonOffset;
++   if (!strcmp(procname, "glPolygonOffsetx"))
++      return (void(*)(void))glPolygonOffsetx;
++   if (!strcmp(procname, "glPopMatrix"))
++      return (void(*)(void))glPopMatrix;
++   if (!strcmp(procname, "glPushMatrix"))
++      return (void(*)(void))glPushMatrix;
++   if (!strcmp(procname, "glReadPixels"))
 +      return (void(*)(void))glReadPixels;
-+   if (!strcmp(procname, "glFlush")) 
-+      return (void(*)(void))glFlush;
++   if (!strcmp(procname, "glReleaseShaderCompiler"))
++      return (void(*)(void))glReleaseShaderCompiler;
++   if (!strcmp(procname, "glRenderbufferStorage"))
++      return (void(*)(void))glRenderbufferStorage;
++   if (!strcmp(procname, "glRotatef"))
++      return (void(*)(void))glRotatef;
++   if (!strcmp(procname, "glRotatex"))
++      return (void(*)(void))glRotatex;
++   if (!strcmp(procname, "glSampleCoverage"))
++      return (void(*)(void))glSampleCoverage;
++   if (!strcmp(procname, "glSampleCoveragex"))
++      return (void(*)(void))glSampleCoveragex;
++   if (!strcmp(procname, "glScalef"))
++      return (void(*)(void))glScalef;
++   if (!strcmp(procname, "glScalex"))
++      return (void(*)(void))glScalex;
++   if (!strcmp(procname, "glScissor"))
++      return (void(*)(void))glScissor;
++   if (!strcmp(procname, "glShadeModel"))
++      return (void(*)(void))glShadeModel;
++   if (!strcmp(procname, "glShaderBinary"))
++      return (void(*)(void))glShaderBinary;
++   if (!strcmp(procname, "glShaderSource"))
++      return (void(*)(void))glShaderSource;
++   if (!strcmp(procname, "glStencilFunc"))
++      return (void(*)(void))glStencilFunc;
++   if (!strcmp(procname, "glStencilFuncSeparate"))
++      return (void(*)(void))glStencilFuncSeparate;
++   if (!strcmp(procname, "glStencilMask"))
++      return (void(*)(void))glStencilMask;
++   if (!strcmp(procname, "glStencilMaskSeparate"))
++      return (void(*)(void))glStencilMaskSeparate;
++   if (!strcmp(procname, "glStencilOp"))
++      return (void(*)(void))glStencilOp;
++   if (!strcmp(procname, "glStencilOpSeparate"))
++      return (void(*)(void))glStencilOpSeparate;
++   if (!strcmp(procname, "glTexCoordPointer"))
++      return (void(*)(void))glTexCoordPointer;
++   if (!strcmp(procname, "glTexEnvf"))
++      return (void(*)(void))glTexEnvf;
++   if (!strcmp(procname, "glTexEnvfv"))
++      return (void(*)(void))glTexEnvfv;
++   if (!strcmp(procname, "glTexEnvi"))
++      return (void(*)(void))glTexEnvi;
++   if (!strcmp(procname, "glTexEnviv"))
++      return (void(*)(void))glTexEnviv;
++   if (!strcmp(procname, "glTexEnvx"))
++      return (void(*)(void))glTexEnvx;
++   if (!strcmp(procname, "glTexEnvxv"))
++      return (void(*)(void))glTexEnvxv;
++   if (!strcmp(procname, "glTexImage2D"))
++      return (void(*)(void))glTexImage2D;
++   if (!strcmp(procname, "glTexImage3DOES"))
++      return (void(*)(void))glTexImage3DOES;
++   if (!strcmp(procname, "glTexParameterf"))
++      return (void(*)(void))glTexParameterf;
++   if (!strcmp(procname, "glTexParameterfv"))
++      return (void(*)(void))glTexParameterfv;
++   if (!strcmp(procname, "glTexParameteri"))
++      return (void(*)(void))glTexParameteri;
++   if (!strcmp(procname, "glTexParameteriv"))
++      return (void(*)(void))glTexParameteriv;
++   if (!strcmp(procname, "glTexParameterx"))
++      return (void(*)(void))glTexParameterx;
++   if (!strcmp(procname, "glTexParameterxv"))
++      return (void(*)(void))glTexParameterxv;
++   if (!strcmp(procname, "glTexSubImage2D"))
++      return (void(*)(void))glTexSubImage2D;
++   if (!strcmp(procname, "glTexSubImage3DOES"))
++      return (void(*)(void))glTexSubImage3DOES;
++   if (!strcmp(procname, "glTranslatef"))
++      return (void(*)(void))glTranslatef;
++   if (!strcmp(procname, "glTranslatex"))
++      return (void(*)(void))glTranslatex;
++   if (!strcmp(procname, "glUniform1f"))
++      return (void(*)(void))glUniform1f;
++   if (!strcmp(procname, "glUniform1fv"))
++      return (void(*)(void))glUniform1fv;
++   if (!strcmp(procname, "glUniform1i"))
++      return (void(*)(void))glUniform1i;
++   if (!strcmp(procname, "glUniform1iv"))
++      return (void(*)(void))glUniform1iv;
++   if (!strcmp(procname, "glUniform2f"))
++      return (void(*)(void))glUniform2f;
++   if (!strcmp(procname, "glUniform2fv"))
++      return (void(*)(void))glUniform2fv;
++   if (!strcmp(procname, "glUniform2i"))
++      return (void(*)(void))glUniform2i;
++   if (!strcmp(procname, "glUniform2iv"))
++      return (void(*)(void))glUniform2iv;
++   if (!strcmp(procname, "glUniform3f"))
++      return (void(*)(void))glUniform3f;
++   if (!strcmp(procname, "glUniform3fv"))
++      return (void(*)(void))glUniform3fv;
++   if (!strcmp(procname, "glUniform3i"))
++      return (void(*)(void))glUniform3i;
++   if (!strcmp(procname, "glUniform3iv"))
++      return (void(*)(void))glUniform3iv;
++   if (!strcmp(procname, "glUniform4f"))
++      return (void(*)(void))glUniform4f;
++   if (!strcmp(procname, "glUniform4fv"))
++      return (void(*)(void))glUniform4fv;
++   if (!strcmp(procname, "glUniform4i"))
++      return (void(*)(void))glUniform4i;
++   if (!strcmp(procname, "glUniform4iv"))
++      return (void(*)(void))glUniform4iv;
++   if (!strcmp(procname, "glUniformMatrix2fv"))
++      return (void(*)(void))glUniformMatrix2fv;
++   if (!strcmp(procname, "glUniformMatrix3fv"))
++      return (void(*)(void))glUniformMatrix3fv;
++   if (!strcmp(procname, "glUniformMatrix4fv"))
++      return (void(*)(void))glUniformMatrix4fv;
++   if (!strcmp(procname, "glUseProgram"))
++      return (void(*)(void))glUseProgram;
++   if (!strcmp(procname, "glValidateProgram"))
++      return (void(*)(void))glValidateProgram;
++   if (!strcmp(procname, "glVertexAttrib1f"))
++      return (void(*)(void))glVertexAttrib1f;
++   if (!strcmp(procname, "glVertexAttrib1fv"))
++      return (void(*)(void))glVertexAttrib1fv;
++   if (!strcmp(procname, "glVertexAttrib2f"))
++      return (void(*)(void))glVertexAttrib2f;
++   if (!strcmp(procname, "glVertexAttrib2fv"))
++      return (void(*)(void))glVertexAttrib2fv;
++   if (!strcmp(procname, "glVertexAttrib3f"))
++      return (void(*)(void))glVertexAttrib3f;
++   if (!strcmp(procname, "glVertexAttrib3fv"))
++      return (void(*)(void))glVertexAttrib3fv;
++   if (!strcmp(procname, "glVertexAttrib4f"))
++      return (void(*)(void))glVertexAttrib4f;
++   if (!strcmp(procname, "glVertexAttrib4fv"))
++      return (void(*)(void))glVertexAttrib4fv;
++   if (!strcmp(procname, "glVertexAttribPointer"))
++      return (void(*)(void))glVertexAttribPointer;
++   if (!strcmp(procname, "glVertexPointer"))
++      return (void(*)(void))glVertexPointer;
++   if (!strcmp(procname, "glViewport"))
++      return (void(*)(void))glViewport;
 +   
 +/* Don't mangle the rest */
 +#include "interface/khronos/common/khrn_client_unmangle.h"

@@ -1,0 +1,565 @@
+From 03aaa3af5d89dbe38a71419fd5d0dc1d668eede6 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Th=C3=A9o=20Maillart?= <tmaillart@freebox.fr>
+Date: Fri, 21 Oct 2022 15:37:55 +0200
+Subject: [PATCH 1/4] playsinkconvertbin: ignore reconfigure in passthrough
+
+identity could make the whole reconfiguration fail if it sees the
+reconfigure flag on its src_pad
+---
+ gst/playback/gstplaysinkconvertbin.c | 28 ++++++++++++++++++++++++++++
+ 1 file changed, 28 insertions(+)
+
+diff --git a/gst/playback/gstplaysinkconvertbin.c b/gst/playback/gstplaysinkconvertbin.c
+index d4f6570..605b34a 100644
+--- a/gst/playback/gstplaysinkconvertbin.c
++++ b/gst/playback/gstplaysinkconvertbin.c
+@@ -264,6 +264,32 @@ gst_play_sink_convert_bin_sink_event (GstPad * pad, GstObject * parent,
+   return ret;
+ }
+ 
++static gboolean
++gst_play_sink_convert_bin_src_event (GstPad * pad, GstObject * parent,
++    GstEvent * event)
++{
++  GstPlaySinkConvertBin *self = GST_PLAY_SINK_CONVERT_BIN (parent);
++  gboolean ret;
++
++  switch (GST_EVENT_TYPE (event)) {
++    case GST_EVENT_RECONFIGURE:
++    {
++      /* in case of passthrough do not require pad reconfigure */
++      if (!self->raw)
++        return gst_pad_push_event (self->sinkpad, event);
++      break;
++    }
++    default:
++      break;
++  }
++
++  ret = gst_pad_event_default (pad, parent, gst_event_ref (event));
++
++  gst_event_unref (event);
++
++  return ret;
++}
++
+ static void
+ block_proxypad (GstPlaySinkConvertBin * self)
+ {
+@@ -690,6 +716,8 @@ gst_play_sink_convert_bin_init (GstPlaySinkConvertBin * self)
+   self->srcpad = gst_ghost_pad_new_no_target_from_template ("src", templ);
+   gst_pad_set_query_function (self->srcpad,
+       GST_DEBUG_FUNCPTR (gst_play_sink_convert_bin_query));
++  gst_pad_set_event_function (self->srcpad,
++      GST_DEBUG_FUNCPTR (gst_play_sink_convert_bin_src_event));
+   gst_element_add_pad (GST_ELEMENT_CAST (self), self->srcpad);
+   gst_object_unref (templ);
+ 
+-- 
+2.40.1
+
+
+From 9cca4d1e6d3e3719dfafabb69e904b18b629d687 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Th=C3=A9o=20Maillart?= <tmaillart@freebox.fr>
+Date: Tue, 11 Apr 2023 11:30:50 +0200
+Subject: [PATCH 2/4] decodebin3: handle reconfigure to instantiate decoder
+
+By handling reconfigure events we are able to perform audio
+passthrough at runtime i.e check if we can avoid decoding the stream.
+
+Signed-off-by: Xabier Rodriguez Calvar <calvaris@igalia.com>
+---
+ gst/playback/gstdecodebin3.c | 70 ++++++++++++++++++++++++++++++++++--
+ 1 file changed, 68 insertions(+), 2 deletions(-)
+
+diff --git a/gst/playback/gstdecodebin3.c b/gst/playback/gstdecodebin3.c
+index 9f47630..ad4b735 100644
+--- a/gst/playback/gstdecodebin3.c
++++ b/gst/playback/gstdecodebin3.c
+@@ -2137,15 +2137,77 @@ keyframe_waiter_probe (GstPad * pad, GstPadProbeInfo * info,
+   return GST_PAD_PROBE_DROP;
+ }
+ 
++static gboolean
++prefered_caps_differ (GstCaps * caps0, GstCaps * caps1)
++{
++  const gchar *caps0_name, *caps1_name;
++
++  if (gst_caps_get_size (caps0) == 0 || gst_caps_get_size (caps1) == 0)
++    return TRUE;
++
++  caps0_name = gst_structure_get_name (gst_caps_get_structure (caps0, 0));
++  caps1_name = gst_structure_get_name (gst_caps_get_structure (caps1, 0));
++
++  return g_strcmp0 (caps0_name, caps1_name) != 0;
++}
++
++static GstPadProbeReturn
++check_downstream_reconfigure (GstPad * pad, GstPadProbeInfo * info,
++    DecodebinOutputStream * output)
++{
++  if (gst_pad_has_current_caps (output->src_pad)) {
++    GstCaps *src_caps, *downstream_caps;
++    gboolean need_reconf;
++
++    /* check that we are using the format prefered downstream */
++    src_caps = gst_pad_get_current_caps (output->src_pad);
++    downstream_caps = gst_pad_peer_query_caps (output->src_pad, NULL);
++    GST_DEBUG_OBJECT (output->src_pad,
++        "downstream %" GST_PTR_FORMAT " current %" GST_PTR_FORMAT,
++        downstream_caps, src_caps);
++    need_reconf = prefered_caps_differ (src_caps, downstream_caps);
++    gst_caps_unref (src_caps);
++    gst_caps_unref (downstream_caps);
++    if (!need_reconf)
++      return GST_PAD_PROBE_REMOVE;
++  }
++
++  SELECTION_LOCK (output->dbin);
++  reconfigure_output_stream (output, output->slot);
++  SELECTION_UNLOCK (output->dbin);
++  return GST_PAD_PROBE_REMOVE;
++}
++
++static GstPadProbeReturn
++reconfigure_from_downstream_probe (GstPad * pad, GstPadProbeInfo * info,
++    DecodebinOutputStream * output)
++{
++  GstEvent *event = GST_PAD_PROBE_INFO_EVENT (info);
++
++  if (GST_EVENT_TYPE (event) != GST_EVENT_RECONFIGURE)
++    return GST_PAD_PROBE_OK;
++
++  GST_DEBUG_OBJECT (output->src_pad, "got a reconfigure from downstream");
++
++  gst_pad_add_probe (output->slot->src_pad,
++      GST_PAD_PROBE_TYPE_BLOCK_DOWNSTREAM,
++      (GstPadProbeCallback) check_downstream_reconfigure, output, NULL);
++  return GST_PAD_PROBE_OK;
++}
++
+ static void
+ reconfigure_output_stream (DecodebinOutputStream * output,
+     MultiQueueSlot * slot)
+ {
+   GstDecodebin3 *dbin = output->dbin;
+-  GstCaps *new_caps = (GstCaps *) gst_stream_get_caps (slot->active_stream);
++  GstCaps *new_caps = (GstCaps *) gst_stream_get_caps (slot->active_stream),
++    *downstream_caps;
+   gboolean needs_decoder;
+ 
+-  needs_decoder = gst_caps_can_intersect (new_caps, dbin->caps) != TRUE;
++  downstream_caps = gst_pad_peer_query_caps (output->src_pad, NULL);
++  needs_decoder = !gst_caps_can_intersect (new_caps, downstream_caps) ||
++    !gst_caps_can_intersect (new_caps, dbin->caps);
++  gst_caps_unref (downstream_caps);
+ 
+   GST_DEBUG_OBJECT (dbin,
+       "Reconfiguring output %p to slot %p, needs_decoder:%d", output, slot,
+@@ -2180,6 +2242,8 @@ reconfigure_output_stream (DecodebinOutputStream * output,
+       }
+       GST_DEBUG_OBJECT (dbin, "Reusing existing decoder for slot %p", slot);
+       if (output->linked == FALSE) {
++        /* when we were passthrough */
++        gst_ghost_pad_set_target ((GstGhostPad *) output->src_pad, NULL);
+         gst_pad_link_full (slot->src_pad, output->decoder_sink,
+             GST_PAD_LINK_CHECK_NOTHING);
+         output->linked = TRUE;
+@@ -2287,6 +2351,8 @@ reconfigure_output_stream (DecodebinOutputStream * output,
+ 
+     output->src_exposed = TRUE;
+     gst_element_add_pad (GST_ELEMENT_CAST (dbin), output->src_pad);
++    gst_pad_add_probe (output->src_pad, GST_PAD_PROBE_TYPE_EVENT_UPSTREAM,
++        (GstPadProbeCallback) reconfigure_from_downstream_probe, output, NULL);
+   }
+ 
+   if (output->decoder)
+-- 
+2.40.1
+
+
+From f8ff860d2499491987d497c4f7fa877906375fa4 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Th=C3=A9o=20Maillart?= <tmaillart@freebox.fr>
+Date: Fri, 21 Apr 2023 11:34:23 +0200
+Subject: [PATCH 3/4] uridecodebin3: do not duplicate caps property, just
+ passthrough
+
+Signed-off-by: Xabier Rodriguez Calvar <calvaris@igalia.com>
+---
+ gst/playback/gsturidecodebin3.c | 16 +++-------------
+ 1 file changed, 3 insertions(+), 13 deletions(-)
+
+diff --git a/gst/playback/gsturidecodebin3.c b/gst/playback/gsturidecodebin3.c
+index 0d7fc66..f6bda5b 100644
+--- a/gst/playback/gsturidecodebin3.c
++++ b/gst/playback/gsturidecodebin3.c
+@@ -191,7 +191,6 @@ struct _GstURIDecodeBin3
+   /* Properties */
+   GstElement *source;
+   guint64 connection_speed;     /* In bits/sec (0 = unknown) */
+-  GstCaps *caps;
+   guint64 buffer_duration;      /* When buffering, buffer duration (ns) */
+   guint buffer_size;            /* When buffering, buffer size (bytes) */
+   gboolean download;
+@@ -656,7 +655,6 @@ gst_uri_decode_bin3_init (GstURIDecodeBin3 * dec)
+   dec->uri = DEFAULT_PROP_URI;
+   dec->suburi = DEFAULT_PROP_SUBURI;
+   dec->connection_speed = DEFAULT_CONNECTION_SPEED;
+-  dec->caps = DEFAULT_CAPS;
+   dec->buffer_duration = DEFAULT_BUFFER_DURATION;
+   dec->buffer_size = DEFAULT_BUFFER_SIZE;
+   dec->download = DEFAULT_DOWNLOAD;
+@@ -664,6 +662,7 @@ gst_uri_decode_bin3_init (GstURIDecodeBin3 * dec)
+   dec->ring_buffer_max_size = DEFAULT_RING_BUFFER_MAX_SIZE;
+ 
+   dec->decodebin = gst_element_factory_make ("decodebin3", NULL);
++  g_object_set (dec->decodebin, "caps", DEFAULT_CAPS, NULL);
+   gst_bin_add (GST_BIN_CAST (dec), dec->decodebin);
+   dec->db_pad_added_id =
+       g_signal_connect (dec->decodebin, "pad-added",
+@@ -904,11 +903,7 @@ gst_uri_decode_bin3_set_property (GObject * object, guint prop_id,
+       dec->ring_buffer_max_size = g_value_get_uint64 (value);
+       break;
+     case PROP_CAPS:
+-      GST_OBJECT_LOCK (dec);
+-      if (dec->caps)
+-        gst_caps_unref (dec->caps);
+-      dec->caps = g_value_dup_boxed (value);
+-      GST_OBJECT_UNLOCK (dec);
++      g_object_set_property (G_OBJECT (dec->decodebin), pspec->name, value);
+       break;
+     default:
+       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+@@ -983,9 +978,7 @@ gst_uri_decode_bin3_get_property (GObject * object, guint prop_id,
+       g_value_set_uint64 (value, dec->ring_buffer_max_size);
+       break;
+     case PROP_CAPS:
+-      GST_OBJECT_LOCK (dec);
+-      g_value_set_boxed (value, dec->caps);
+-      GST_OBJECT_UNLOCK (dec);
++      g_object_get_property (G_OBJECT (dec->decodebin), pspec->name, value);
+       break;
+     default:
+       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+@@ -1121,9 +1114,6 @@ gst_uri_decode_bin3_change_state (GstElement * element,
+   GstURIDecodeBin3 *uridecodebin = (GstURIDecodeBin3 *) element;
+ 
+   switch (transition) {
+-    case GST_STATE_CHANGE_NULL_TO_READY:
+-      g_object_set (uridecodebin->decodebin, "caps", uridecodebin->caps, NULL);
+-      break;
+     case GST_STATE_CHANGE_READY_TO_PAUSED:
+       ret = activate_next_play_item (uridecodebin);
+       if (ret == GST_STATE_CHANGE_FAILURE)
+-- 
+2.40.1
+
+
+From 0c5b1a470d4e301dd9f8b5652786035d6611b648 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Th=C3=A9o=20Maillart?= <tmaillart@freebox.fr>
+Date: Wed, 19 Apr 2023 17:34:24 +0200
+Subject: [PATCH 4/4] playbin3: introduce audio-passthrough flag
+
+When enabled playbin3 merges the sink caps template to the
+decodebin3 caps, so that audio passthrough is possible.
+
+Signed-off-by: Xabier Rodriguez Calvar <calvaris@igalia.com>
+---
+ docs/plugins/gst_plugins_cache.json |  5 ++
+ gst/playback/gstplay-enum.c         |  8 +++
+ gst/playback/gstplay-enum.h         | 10 ++++
+ gst/playback/gstplaybin3.c          | 79 +++++++++++++++++++++++++++--
+ gst/playback/gstplaysink.c          | 60 +++++++++++++---------
+ gst/playback/gstplaysink.h          |  2 +
+ 6 files changed, 136 insertions(+), 28 deletions(-)
+
+diff --git a/docs/plugins/gst_plugins_cache.json b/docs/plugins/gst_plugins_cache.json
+index f140010..abf96b9 100644
+--- a/docs/plugins/gst_plugins_cache.json
++++ b/docs/plugins/gst_plugins_cache.json
+@@ -11342,6 +11342,11 @@
+                         "desc": "Force only software-based decoders (no effect for playbin3)",
+                         "name": "force-sw-decoders",
+                         "value": "0x00001000"
++                    },
++                    {
++                        "desc": "allow decodebin3 to produce any of sink caps",
++                        "name": "audio-passthrough",
++                        "value": "0x00002000"
+                     }
+                 ]
+             },
+diff --git a/gst/playback/gstplay-enum.c b/gst/playback/gstplay-enum.c
+index ccef2f0..60f415f 100644
+--- a/gst/playback/gstplay-enum.c
++++ b/gst/playback/gstplay-enum.c
+@@ -72,6 +72,14 @@ gst_play_flags_get_type (void)
+     {C_FLAGS (GST_PLAY_FLAG_FORCE_SW_DECODERS),
+           "Force only software-based decoders (no effect for playbin3)",
+         "force-sw-decoders"},
++    /**
++     * GstPlayFlags::audio-passthrough:
++     *
++     * Since: 1.23
++     */
++    {C_FLAGS (GST_PLAY_FLAG_AUDIO_PASSTHROUGH),
++          "allow decodebin3 to produce any of sink caps",
++        "audio-passthrough"},
+     {0, NULL, NULL}
+   };
+   static GType id = 0;
+diff --git a/gst/playback/gstplay-enum.h b/gst/playback/gstplay-enum.h
+index 122b67e..8a21462 100644
+--- a/gst/playback/gstplay-enum.h
++++ b/gst/playback/gstplay-enum.h
+@@ -62,6 +62,8 @@ GType gst_autoplug_select_result_get_type (void);
+  *   set.
+  * @GST_PLAY_FLAG_FORCE_SW_DECODERS: force to use only software-based
+  *   decoders ignoring those with hardware class.
++ * @GST_PLAY_FLAG_AUDIO_PASSTHROUGH: Allow encoded audio to flow out of
++ *   decodebin3 (Since 1.23).
+  *
+  * Extra flags to configure the behaviour of the sinks.
+  */
+@@ -79,6 +81,14 @@ typedef enum {
+   GST_PLAY_FLAG_SOFT_COLORBALANCE = (1 << 10),
+   GST_PLAY_FLAG_FORCE_FILTERS = (1 << 11),
+   GST_PLAY_FLAG_FORCE_SW_DECODERS = (1 << 12),
++  /**
++   * GST_PLAY_FLAG_AUDIO_PASSTHROUGH:
++   *
++   * Allow encoded audio to flow out of decodebin3
++   *
++   * Since: 1.23
++   */
++  GST_PLAY_FLAG_AUDIO_PASSTHROUGH = (1 << 13),
+ } GstPlayFlags;
+ 
+ #define GST_TYPE_PLAY_FLAGS (gst_play_flags_get_type())
+diff --git a/gst/playback/gstplaybin3.c b/gst/playback/gstplaybin3.c
+index a023e5a..90f539f 100644
+--- a/gst/playback/gstplaybin3.c
++++ b/gst/playback/gstplaybin3.c
+@@ -518,6 +518,8 @@ struct _GstPlayBin3
+   guint64 ring_buffer_max_size; /* 0 means disabled */
+ 
+   gboolean is_live;             /* Whether our current group is live */
++
++  gboolean allow_audio_passthrough;
+ };
+ 
+ struct _GstPlayBin3Class
+@@ -632,7 +634,7 @@ static void reconfigure_output (GstPlayBin3 * playbin);
+ static void pad_removed_cb (GstElement * decodebin, GstPad * pad,
+     GstSourceGroup * group);
+ 
+-static gint select_stream_cb (GstElement * decodebin,
++static gint select_stream_cb (GstElement * uridecodebin,
+     GstStreamCollection * collection, GstStream * stream,
+     GstSourceGroup * group);
+ 
+@@ -1548,6 +1550,8 @@ gst_play_bin3_set_flags (GstPlayBin3 * playbin, GstPlayFlags flags)
+     gst_play_sink_set_flags (playbin->playsink, flags);
+     gst_play_sink_reconfigure (playbin->playsink);
+   }
++
++  playbin->allow_audio_passthrough = flags & GST_PLAY_FLAG_AUDIO_PASSTHROUGH;
+ }
+ 
+ static GstPlayFlags
+@@ -3138,22 +3142,89 @@ pad_removed_cb (GstElement * decodebin, GstPad * pad, GstSourceGroup * group)
+   GST_PLAY_BIN3_UNLOCK (playbin);
+ }
+ 
++static void
++merge_element_to_decodebin_caps (GstElement * elt, GstElement * uridecodebin) {
++  GstPad *pad = gst_element_get_static_pad (elt, "sink");
++  GstCaps *decodebin_caps, *caps;
++
++  g_object_get (uridecodebin, "caps", &decodebin_caps, NULL);
++
++  decodebin_caps = gst_caps_make_writable (decodebin_caps);
++
++  caps = gst_pad_query_caps (pad, NULL);
++  gst_object_unref (pad);
++
++  GST_DEBUG_OBJECT (uridecodebin, "element caps template %" GST_PTR_FORMAT,
++      caps);
++
++  decodebin_caps = gst_caps_merge (decodebin_caps, caps);
++
++  GST_DEBUG_OBJECT(uridecodebin, "merged caps %" GST_PTR_FORMAT,
++      decodebin_caps);
++
++  g_object_set (uridecodebin, "caps", decodebin_caps, NULL);
++
++  gst_caps_unref (decodebin_caps);
++}
+ 
+ static gint
+-select_stream_cb (GstElement * decodebin, GstStreamCollection * collection,
++select_stream_cb (GstElement * uridecodebin, GstStreamCollection * collection,
+     GstStream * stream, GstSourceGroup * group)
+ {
+   GstStreamType stype = gst_stream_get_stream_type (stream);
+   GstElement *combiner = NULL;
+   GstPlayBin3 *playbin = group->playbin;
+ 
+-  if (stype & GST_STREAM_TYPE_AUDIO)
++  if (stype & GST_STREAM_TYPE_AUDIO) {
++    gboolean done = FALSE;
++    GValue item = { 0, };
++    GstElement *sink;
++    GstIterator *it;
++
+     combiner = playbin->audio_stream_combiner;
+-  else if (stype & GST_STREAM_TYPE_VIDEO)
++
++    if (!playbin->allow_audio_passthrough)
++      goto out;
++
++    sink = gst_play_sink_create_audio_sink (playbin->playsink);
++    if (!sink)
++      goto out;
++
++    if (!GST_IS_BIN (sink)) {
++      merge_element_to_decodebin_caps (sink, uridecodebin);
++      goto out;
++    }
++
++    it = gst_bin_iterate_recurse (GST_BIN (sink));
++    while (!done) {
++      switch (gst_iterator_next (it, &item)) {
++      case GST_ITERATOR_OK: {
++        GstElement *element = g_value_get_object (&item);
++
++        GST_DEBUG_OBJECT(playbin, "looking for sink %s",
++            GST_ELEMENT_NAME (element));
++
++        if (!(GST_OBJECT_FLAGS (element) & GST_ELEMENT_FLAG_SINK))
++          continue;
++
++        merge_element_to_decodebin_caps (element, uridecodebin);
++      } break;
++      case GST_ITERATOR_RESYNC:
++        gst_iterator_resync (it);
++        break;
++      case GST_ITERATOR_ERROR:
++      case GST_ITERATOR_DONE:
++        done = TRUE;
++      }
++    }
++
++    gst_iterator_free (it);
++  } else if (stype & GST_STREAM_TYPE_VIDEO)
+     combiner = playbin->video_stream_combiner;
+   else if (stype & GST_STREAM_TYPE_TEXT)
+     combiner = playbin->text_stream_combiner;
+ 
++ out:
+   if (combiner) {
+     GST_DEBUG_OBJECT (playbin, "Got a combiner, requesting stream activation");
+     return 1;
+diff --git a/gst/playback/gstplaysink.c b/gst/playback/gstplaysink.c
+index e626fcf..07edc4e 100644
+--- a/gst/playback/gstplaysink.c
++++ b/gst/playback/gstplaysink.c
+@@ -1462,7 +1462,7 @@ try_element (GstPlaySink * playsink, GstElement * element, gboolean unref)
+ {
+   GstStateChangeReturn ret;
+ 
+-  if (element) {
++  if (element && GST_STATE (element) != GST_STATE_READY) {
+     ret = gst_element_set_state (element, GST_STATE_READY);
+     if (ret == GST_STATE_CHANGE_FAILURE) {
+       GST_DEBUG_OBJECT (playsink, "failed state change..");
+@@ -2661,6 +2661,37 @@ notify_mute_cb (GObject * object, GParamSpec * pspec, GstPlaySink * playsink)
+   g_object_notify (G_OBJECT (playsink), "mute");
+ }
+ 
++GstElement *
++gst_play_sink_create_audio_sink (GstPlaySink * playsink)
++{
++  GstElement *elem;
++
++  if (playsink->audio_sink) {
++    elem = playsink->audio_sink;
++    GST_DEBUG_OBJECT (playsink, "trying configured audiosink %" GST_PTR_FORMAT,
++        elem);
++    if (try_element (playsink, elem, FALSE))
++      return playsink->audio_sink;
++    return NULL;
++  }
++
++  GST_DEBUG_OBJECT (playsink, "trying autoaudiosink");
++  elem = gst_element_factory_make ("autoaudiosink", "audiosink");
++  if (try_element (playsink, elem, TRUE))
++    return playsink->audio_sink = gst_object_ref (elem);
++
++  /* if default sink from config.h is different then try it too */
++  if (strcmp (DEFAULT_AUDIOSINK, "autoaudiosink") == 0)
++    return NULL;
++
++  GST_DEBUG_OBJECT (playsink, "trying " DEFAULT_AUDIOSINK);
++  elem = gst_element_factory_make (DEFAULT_AUDIOSINK, "audiosink");
++  if (try_element (playsink, elem, TRUE))
++    return playsink->audio_sink = gst_object_ref (elem);
++
++  return NULL;
++}
++
+ /* make the chain that contains the elements needed to perform
+  * audio playback.
+  *
+@@ -2691,31 +2722,12 @@ gen_audio_chain (GstPlaySink * playsink, gboolean raw)
+ 
+   GST_DEBUG_OBJECT (playsink, "making audio chain %p", chain);
+ 
+-  if (playsink->audio_sink) {
+-    GST_DEBUG_OBJECT (playsink, "trying configured audiosink %" GST_PTR_FORMAT,
+-        playsink->audio_sink);
+-    chain->sink = try_element (playsink, playsink->audio_sink, FALSE);
+-  } else {
+-    /* only try fallback if no specific sink was chosen */
+-    if (chain->sink == NULL) {
+-      GST_DEBUG_OBJECT (playsink, "trying autoaudiosink");
+-      elem = gst_element_factory_make ("autoaudiosink", "audiosink");
+-      chain->sink = try_element (playsink, elem, TRUE);
+-    }
+-    if (chain->sink == NULL) {
+-      /* if default sink from config.h is different then try it too */
+-      if (strcmp (DEFAULT_AUDIOSINK, "autoaudiosink")) {
+-        GST_DEBUG_OBJECT (playsink, "trying " DEFAULT_AUDIOSINK);
+-        elem = gst_element_factory_make (DEFAULT_AUDIOSINK, "audiosink");
+-        chain->sink = try_element (playsink, elem, TRUE);
+-      }
+-    }
+-    if (chain->sink)
+-      playsink->audio_sink = gst_object_ref (chain->sink);
+-  }
+-  if (chain->sink == NULL)
++  elem = gst_play_sink_create_audio_sink (playsink);
++  if (elem == NULL)
+     goto no_sinks;
+ 
++  chain->sink = elem;
++
+   chain->chain.bin = gst_bin_new ("abin");
+   bin = GST_BIN_CAST (chain->chain.bin);
+   gst_object_ref_sink (bin);
+diff --git a/gst/playback/gstplaysink.h b/gst/playback/gstplaysink.h
+index fa19d9d..0985f84 100644
+--- a/gst/playback/gstplaysink.h
++++ b/gst/playback/gstplaysink.h
+@@ -103,6 +103,8 @@ gboolean         gst_play_sink_reconfigure    (GstPlaySink * playsink);
+ 
+ gboolean         gst_play_sink_plugin_init    (GstPlugin * plugin);
+ 
++GstElement *    gst_play_sink_create_audio_sink (GstPlaySink *playsink);
++
+ G_END_DECLS
+ 
+ #endif /* __GST_PLAY_SINK_H__ */
+-- 
+2.40.1
+

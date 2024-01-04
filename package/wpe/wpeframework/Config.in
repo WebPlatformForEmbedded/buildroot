@@ -64,6 +64,10 @@ config BR2_PACKAGE_WPEFRAMEWORK_ETHERNETCARD_NAME
     string "ethernet card name"
     default "eth0"
 
+config BR2_PACKAGE_WPEFRAMEWORK_COMMUNICATOR
+    string "communicator"
+    default ""
+
 config BR2_PACKAGE_WPEFRAMEWORK_IDLE_TIME
     string "idle-time"
     default "180"
@@ -234,6 +238,18 @@ config BR2_PACKAGE_WPEFRAMEWORK_BROADCAST_SI_PARSING
           tuned streams.
 endif
 
+config BR2_PACKAGE_WPEFRAMEWORK_PRIVILEGED_REQUEST
+    bool "Privileged Request"
+    help
+      Library to share file descriptors between processes.
+
+config BR2_PACKAGE_WPEFRAMEWORK_LIBRARY_COMPOSITOR_BUFFER
+    select BR2_PACKAGE_WPEFRAMEWORK_LIBRARIES
+    select BR2_PACKAGE_WPEFRAMEWORK_PRIVILEGED_REQUEST
+    bool "Compositor Buffer"
+    help
+      Library to share graphical buffers between processes.
+
 config BR2_PACKAGE_WPEFRAMEWORK_CDM
     select BR2_PACKAGE_WPEFRAMEWORK_CLIENTLIBRARIES
     bool "CDM"
@@ -251,6 +267,7 @@ config BR2_PACKAGE_WPEFRAMEWORK_COMPOSITORCLIENT
 
 menuconfig BR2_PACKAGE_WPEFRAMEWORK_BLUETOOTHAUDIOSINK
     select BR2_PACKAGE_WPEFRAMEWORK_CLIENTLIBRARIES
+    select BR2_PACKAGE_WPEFRAMEWORK_BLUETOOTHAUDIO
     bool "BluetoothAudioSink"
         default n
     help
@@ -267,6 +284,28 @@ endif
 
 config BR2_PACKAGE_WPEFRAMEWORK_BLUETOOTHAUDIOSINK_EXAMPLEPLAYER
     bool "Example .wav player"
+    default y
+endif
+
+menuconfig BR2_PACKAGE_WPEFRAMEWORK_BLUETOOTHAUDIOSOURCE
+    select BR2_PACKAGE_WPEFRAMEWORK_CLIENTLIBRARIES
+    select BR2_PACKAGE_WPEFRAMEWORK_BLUETOOTHAUDIO
+    bool "BluetoothAudioSource"
+        default n
+    help
+      C-interface towards BluetoothAudioSource plugin for controlling the Bluetooth source and receiving audio data samples
+
+if BR2_PACKAGE_WPEFRAMEWORK_BLUETOOTHAUDIOSOURCE
+
+if BR2_PACKAGE_GSTREAMER1
+config BR2_PACKAGE_WPEFRAMEWORK_BLUETOOTHAUDIOSOURCE_GSTREAMERSINK
+    select BR2_PACKAGE_GST1_BLUETOOTHAUDIOSOURCE
+    bool "GStreamer audio source"
+    default n
+endif
+
+config BR2_PACKAGE_WPEFRAMEWORK_BLUETOOTHAUDIOSOURCE_EXAMPLERECORDER
+    bool "Example .wav recorder"
     default y
 endif
 
@@ -411,6 +450,12 @@ config BR2_PACKAGE_WPEFRAMEWORK_VIRTUALINPUT
     help
       If the dynamic uinput system can not be used for security reasons, this
       allows for relaying keys to plugins
+
+config BR2_PACKAGE_WPEFRAMEWORK_LOCALTRACER
+    bool "LocalTracer"
+        default n
+    help
+      Use tracing without the need of Thunder running. 
 
 config BR2_PACKAGE_WPEFRAMEWORK_INSTALL_INITD_DEPRECATED
     bool "Init.d script from package config (deprecated)"
