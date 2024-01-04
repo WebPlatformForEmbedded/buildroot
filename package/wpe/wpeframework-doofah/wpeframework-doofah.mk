@@ -1,4 +1,4 @@
-################################################################################
+ ################################################################################
 #
 # wpeframework-doofah
 #
@@ -17,8 +17,8 @@ WPEFRAMEWORK_DOOFAH_CONF_OPTS += \
        -DCMAKE_MODULE_PATH=$(HOST_DIR)/share/cmake/Modules
 endif
 
-ifeq ($(BR2_PACKAGE_WPEFRAMEWORK_DOOFAH_AUTOSTART),y)
-WPEFRAMEWORK_DOOFAH_CONF_OPTS += -DPLUGIN_DOOFAH_AUTOSTART=true
+ifneq ($(BR2_PACKAGE_WPEFRAMEWORK_DOOFAH_STARTMODE),"")
+WPEFRAMEWORK_DOOFAH_CONF_OPTS += -DPLUGIN_DOOFAH_STARTMODE=$(BR2_PACKAGE_WPEFRAMEWORK_DOOFAH_STARTMODE)
 endif
 
 ifneq ($(BR2_PACKAGE_WPEFRAMEWORK_DOOFAH_CONNECTOR_CONFIG),"")

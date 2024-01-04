@@ -15,10 +15,10 @@ if BR2_PACKAGE_WPEFRAMEWORK_AVS
     help
       The plugin name
 
-  config BR2_PACKAGE_WPEFRAMEWORK_AVS_AUTOSTART
-    bool "Autostart"
+  config BR2_PACKAGE_WPEFRAMEWORK_AVS_STARTMODE
+    string "Startup mode"
     help
-      Autostart the AVS plugin
+      startup mode of the AVS plugin
 
   choice BR2_PACKAGE_WPEFRAMEWORK_AVS_PLATFORM
     bool "Platform"
@@ -129,9 +129,9 @@ menuconfig BR2_PACKAGE_WPEFRAMEWORK_BACKOFFICE
     help
         BackOffice Plugin
 if BR2_PACKAGE_WPEFRAMEWORK_BACKOFFICE
-config BR2_PACKAGE_WPEFRAMEWORK_BACKOFFICE_AUTOSTART
-    bool "Start Automatically"
-    default y
+config BR2_PACKAGE_WPEFRAMEWORK_BACKOFFICE_STARTMODE
+    string "Startup mode"
+    default "activated"
     help
       Select this to start the plugin automatically when starting WPEFramework
 
@@ -189,9 +189,9 @@ menuconfig BR2_PACKAGE_WPEFRAMEWORK_BLUETOOTH
       A Bluetooth plugin to interact with Bluetooth devices.
 
 if BR2_PACKAGE_WPEFRAMEWORK_BLUETOOTH
-config BR2_PACKAGE_WPEFRAMEWORK_BLUETOOTH_AUTOSTART
-    bool "Start Automatically"
-    default y
+config BR2_PACKAGE_WPEFRAMEWORK_BLUETOOTH_STARTMODE
+    string "Startup mode"
+    default "activated"
     help
       Select this to start the plugin automatically when starting WPEFramework
 
@@ -398,9 +398,9 @@ config BR2_PACKAGE_WPEFRAMEWORK_COBALT_SINGLE_PLAYBACKRATE
     help
       Select this to enable only 1x playback rate.
 
-config BR2_PACKAGE_WPEFRAMEWORK_COBALT_AUTOSTART
-    bool "Start Automatically"
-    default n
+config BR2_PACKAGE_WPEFRAMEWORK_COBALT_STARTMODE
+    string "Startup mode"
+    default "deactivated"
     help
       Select this to start the plugin automatically when starting WPEFramework
 
@@ -454,9 +454,9 @@ menuconfig BR2_PACKAGE_WPEFRAMEWORK_COMPOSITOR
 
 if BR2_PACKAGE_WPEFRAMEWORK_COMPOSITOR
 
-config BR2_PACKAGE_WPEFRAMEWORK_COMPOSITOR_AUTOSTART
-    bool "Start Automatically"
-    default y
+config BR2_PACKAGE_WPEFRAMEWORK_COMPOSITOR_STARTMODE
+    string "Startup mode"
+    default "activated"
     help
       Select this to start the plugin automatically when starting WPEFramework
 
@@ -950,9 +950,9 @@ config BR2_PACKAGE_WPEFRAMEWORK_POWER
 
 if BR2_PACKAGE_WPEFRAMEWORK_POWER
 
-config BR2_PACKAGE_WPEFRAMEWORK_POWER_AUTOSTART
-    bool "autostart"
-    default y
+config BR2_PACKAGE_WPEFRAMEWORK_POWER_STARTMODE
+    string "Startup mode"
+    default "activated"
 
 config BR2_PACKAGE_WPEFRAMEWORK_POWER_GPIOPIN
     string "gpiopin"
@@ -969,9 +969,9 @@ config BR2_PACKAGE_WPEFRAMEWORK_PLUGINPROCESSCONTAINERS
     default n
 
 if BR2_PACKAGE_WPEFRAMEWORK_PLUGINPROCESSCONTAINERS
-config BR2_PACKAGE_WPEFRAMEWORK_PLUGINPROCESSCONTAINERS_AUTOSTART
-    bool "autostart"
-    default y
+config BR2_PACKAGE_WPEFRAMEWORK_PLUGINPROCESSCONTAINERS_STARTMODE
+    string "Startup mode"
+    default "activated"
 endif
 
 menuconfig BR2_PACKAGE_WPEFRAMEWORK_PROCESSMONITOR
@@ -982,9 +982,9 @@ menuconfig BR2_PACKAGE_WPEFRAMEWORK_PROCESSMONITOR
 
 if BR2_PACKAGE_WPEFRAMEWORK_PROCESSMONITOR
 
-config BR2_PACKAGE_WPEFRAMEWORK_PROCESSMONITOR_AUTOSTART
-    bool "autostart"
-    default n
+config BR2_PACKAGE_WPEFRAMEWORK_PROCESSMONITOR_STARTMODE
+    string "Startup mode"
+    default "deactivated"
 
 config BR2_PACKAGE_WPEFRAMEWORK_PROCESSMONITOR_EXITTIMEOUT
     string "exit-timeout"
@@ -1256,9 +1256,9 @@ menuconfig BR2_PACKAGE_WPEFRAMEWORK_SPARK
 
 if BR2_PACKAGE_WPEFRAMEWORK_SPARK
 
-config BR2_PACKAGE_WPEFRAMEWORK_SPARK_AUTOSTART
-    bool "autostart"
-    default n
+config BR2_PACKAGE_WPEFRAMEWORK_SPARK_STARTMODE
+    string "Startup mode"
+    default "deactivated"
 endif
 
 menuconfig BR2_PACKAGE_WPEFRAMEWORK_SWITCHBOARD
@@ -1367,9 +1367,9 @@ menuconfig BR2_PACKAGE_WPEFRAMEWORK_WEBKITBROWSER
 
 if BR2_PACKAGE_WPEFRAMEWORK_WEBKITBROWSER
 
-config BR2_PACKAGE_WPEFRAMEWORK_WEBKITBROWSER_AUTOSTART
-    bool "autostart"
-    default y
+config BR2_PACKAGE_WPEFRAMEWORK_WEBKITBROWSER_STARTMODE
+    string "Startup mode"
+    default "activated"
 
 config BR2_PACKAGE_WPEFRAMEWORK_WEBKITBROWSER_INJECTEDBUNDLE_INTERFACES
     bool "injectedbundle"
@@ -1572,8 +1572,8 @@ menuconfig BR2_PACKAGE_WPEFRAMEWORK_APPS
 
 if BR2_PACKAGE_WPEFRAMEWORK_APPS
 
-config BR2_PACKAGE_WPEFRAMEWORK_APPS_AUTOSTART
-    bool "autostart"
+config BR2_PACKAGE_WPEFRAMEWORK_APPS_STARTMODE
+    string "Startup mode"
 
 config BR2_PACKAGE_WPEFRAMEWORK_APPS_USERAGENT
     string "useragent"
@@ -1589,8 +1589,8 @@ menuconfig BR2_PACKAGE_WPEFRAMEWORK_UX
 
 if BR2_PACKAGE_WPEFRAMEWORK_UX
 
-config BR2_PACKAGE_WPEFRAMEWORK_UX_AUTOSTART
-    bool "autostart"
+config BR2_PACKAGE_WPEFRAMEWORK_UX_STARTMODE
+    string "Startup mode"
 
 config BR2_PACKAGE_WPEFRAMEWORK_UX_USERAGENT
     string "useragent"
@@ -1606,8 +1606,8 @@ menuconfig BR2_PACKAGE_WPEFRAMEWORK_RESIDENTAPP
 
 if BR2_PACKAGE_WPEFRAMEWORK_RESIDENTAPP
 
-config BR2_PACKAGE_WPEFRAMEWORK_RESIDENTAPP_AUTOSTART
-    bool "autostart"
+config BR2_PACKAGE_WPEFRAMEWORK_RESIDENTAPP_STARTMODE
+    string "Startup mode"
 
 config BR2_PACKAGE_WPEFRAMEWORK_RESIDENTAPP_USERAGENT
     string "useragent"
@@ -1645,9 +1645,9 @@ menuconfig BR2_PACKAGE_WPEFRAMEWORK_WEBPA
       WPE Platform WebPA plugin
 
 if BR2_PACKAGE_WPEFRAMEWORK_WEBPA
-config BR2_PACKAGE_WPEFRAMEWORK_WEBPA_AUTOSTART
-    bool "autostart"
-    default n
+config BR2_PACKAGE_WPEFRAMEWORK_WEBPA_STARTMODE
+    string "Startup mode"
+    default "deactivated"
 config BR2_PACKAGE_WPEFRAMEWORK_WEBPA_SERVICE
     bool "parodus service"
     default y

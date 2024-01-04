@@ -8,9 +8,9 @@ menuconfig BR2_PACKAGE_WPEFRAMEWORK_PACKAGEMANAGER
     	The PackageManager plugin allows installation of packages on the system from a remote repository in a Firebolt system
     	
 if BR2_PACKAGE_WPEFRAMEWORK_PACKAGEMANAGER 
-config BR2_PACKAGE_WPEFRAMEWORK_PACKAGEMANAGER_AUTOSTART
-    bool "Start Automatically"
-    default y
+config BR2_PACKAGE_WPEFRAMEWORK_PACKAGEMANAGER_STARTMODE
+    string "Startup mode"
+    default "activated"
     help
       Select this to start the plugin automatically when starting WPEFramework
 
