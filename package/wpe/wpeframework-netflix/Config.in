@@ -9,7 +9,7 @@ if BR2_PACKAGE_WPEFRAMEWORK_NETFLIX
 config BR2_PACKAGE_WPEFRAMEWORK_PLUGIN_NETFLIX_STARTMODE
     depends on BR2_PACKAGE_WPEFRAMEWORK_NETFLIX
     string "Startup mode"
-    default "deactivated"
+    default "Deactivated"
 
 menu "DPI options"
   config BR2_PACKAGE_WPEFRAMEWORK_PLUGIN_NETFLIX_MODEL
