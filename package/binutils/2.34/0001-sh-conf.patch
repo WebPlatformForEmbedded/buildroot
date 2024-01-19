@@ -1,0 +1,28 @@
+diff --git a/configure b/configure
+index 91dc42f6c7..92f70a4ce6 100755
+--- a/configure
++++ b/configure
+@@ -3915,7 +3915,7 @@ case "${target}" in
+   nvptx*-*-*)
+     noconfigdirs="$noconfigdirs target-libssp target-libstdc++-v3 target-libobjc"
+     ;;
+-  sh-*-*)
++  sh*-*-*)
+     case "${target}" in
+       sh*-*-elf)
+          ;;
+diff --git a/configure.ac b/configure.ac
+index 4bd869a63a..139e0aa6ab 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -1159,7 +1159,7 @@ case "${target}" in
+   nvptx*-*-*)
+     noconfigdirs="$noconfigdirs target-libssp target-libstdc++-v3 target-libobjc"
+     ;;
+-  sh-*-*)
++  sh*-*-*)
+     case "${target}" in
+       sh*-*-elf)
+          ;;
+-- 
+2.24.1
