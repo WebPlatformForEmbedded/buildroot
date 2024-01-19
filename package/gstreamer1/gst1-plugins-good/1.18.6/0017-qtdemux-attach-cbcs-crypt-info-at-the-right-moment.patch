@@ -1,0 +1,49 @@
+From 5114fb41700b236d645838922d3e166791be464c Mon Sep 17 00:00:00 2001
+From: Xabier Rodriguez Calvar <calvaris@igalia.com>
+Date: Fri, 21 Jul 2023 12:48:08 +0200
+Subject: [PATCH] qtdemux: attach cbcs crypt info at the right moment
+
+Before it was always added but that can cause issues when the stream begins
+unencrypted.
+
+Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5085>
+---
+ .../gst-plugins-good/gst/isomp4/qtdemux.c     | 21 +++++++++++++------
+ 1 file changed, 15 insertions(+), 6 deletions(-)
+
+diff --git a/gst/isomp4/qtdemux.c b/gst/isomp4/qtdemux.c
+index 1568264c49..3879742a2b 100644
+--- a/gst/isomp4/qtdemux.c
++++ b/gst/isomp4/qtdemux.c
+@@ -6530,13 +6530,22 @@ gst_qtdemux_push_buffer (GstQTDemux * qtdemux, QtDemuxStream * stream,
+ 
+     if (info->crypto_info == NULL) {
+       if (stream->protection_scheme_type == FOURCC_cbcs) {
+-        crypto_info = qtdemux_get_cenc_sample_properties (qtdemux, stream, 0);
+-        if (!crypto_info || !gst_buffer_add_protection_meta (buf, crypto_info)) {
+-          GST_ERROR_OBJECT (qtdemux,
+-              "failed to attach cbcs metadata to buffer");
+-          qtdemux_gst_structure_free (crypto_info);
++        if (CUR_STREAM (stream)->fourcc == FOURCC_enca ||
++            CUR_STREAM (stream)->fourcc == FOURCC_encs ||
++            CUR_STREAM (stream)->fourcc == FOURCC_enct ||
++            CUR_STREAM (stream)->fourcc == FOURCC_encv) {
++          crypto_info = qtdemux_get_cenc_sample_properties (qtdemux, stream, 0);
++          if (!crypto_info
++              || !gst_buffer_add_protection_meta (buf, crypto_info)) {
++            GST_ERROR_OBJECT (qtdemux,
++                "failed to attach cbcs metadata to buffer");
++            qtdemux_gst_structure_free (crypto_info);
++          } else {
++            GST_TRACE_OBJECT (qtdemux, "added cbcs protection metadata");
++          }
+         } else {
+-          GST_TRACE_OBJECT (qtdemux, "added cbcs protection metadata");
++          GST_TRACE_OBJECT (qtdemux,
++              "cbcs stream is not encrypted yet, not adding protection metadata");
+         }
+       } else {
+         GST_DEBUG_OBJECT (qtdemux,
+-- 
+2.40.1
+

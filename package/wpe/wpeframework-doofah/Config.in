@@ -9,9 +9,9 @@ menuconfig BR2_PACKAGE_WPEFRAMEWORK_DOOFAH
     	workbench
 
 if BR2_PACKAGE_WPEFRAMEWORK_DOOFAH 
-config BR2_PACKAGE_WPEFRAMEWORK_DOOFAH_AUTOSTART
-    bool "Start Automatically"
-    default y
+config BR2_PACKAGE_WPEFRAMEWORK_DOOFAH_STARTMODE
+    string "Startup mode"
+    default "activated"
     help
       Select this to start the plugin automatically when starting WPEFramework
 

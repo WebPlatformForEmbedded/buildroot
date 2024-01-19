@@ -311,4 +311,12 @@ else
 GST1_PLUGINS_BASE_CONF_OPTS += -Dvorbis=disabled
 endif
 
+ifeq ($(BR2_PACKAGE_WPEWEBKIT2_38),y)
+define GST1_PLUGINS_BASE_APPLY_WPEWEBKIT_EXTRA_PATCHES_POST_HOOK
+        cd $(@D) && { for P in ../../../package/gstreamer1/gst1-plugins-base/$(GST1_PLUGINS_BASE_VERSION)-wpe-2.38/*.patch; do patch -p1 < "$$P" ; done; }
+endef
+endif
+
+GST1_PLUGINS_BASE_POST_PATCH_HOOKS += GST1_PLUGINS_BASE_APPLY_WPEWEBKIT_EXTRA_PATCHES_POST_HOOK
+
 $(eval $(meson-package))

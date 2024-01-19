@@ -1,0 +1,24 @@
+diff --git a/gst/playback/gstdecodebin3.c b/gst/playback/gstdecodebin3.c
+index ad4b735..dde33ae 100644
+--- a/gst/playback/gstdecodebin3.c
++++ b/gst/playback/gstdecodebin3.c
+@@ -2201,13 +2201,16 @@ reconfigure_output_stream (DecodebinOutputStream * output,
+ {
+   GstDecodebin3 *dbin = output->dbin;
+   GstCaps *new_caps = (GstCaps *) gst_stream_get_caps (slot->active_stream),
+-    *downstream_caps;
++    *downstream_caps, *upstream_caps;
+   gboolean needs_decoder;
+ 
+   downstream_caps = gst_pad_peer_query_caps (output->src_pad, NULL);
+-  needs_decoder = !gst_caps_can_intersect (new_caps, downstream_caps) ||
+-    !gst_caps_can_intersect (new_caps, dbin->caps);
++  upstream_caps = gst_pad_peer_query_caps (slot->sink_pad, NULL);
++  needs_decoder = !gst_caps_can_intersect(downstream_caps, upstream_caps) &&
++    (!gst_caps_can_intersect(new_caps, downstream_caps) ||
++     !gst_caps_can_intersect(new_caps, dbin->caps));
+   gst_caps_unref (downstream_caps);
++  gst_caps_unref (upstream_caps);
+ 
+   GST_DEBUG_OBJECT (dbin,
+       "Reconfiguring output %p to slot %p, needs_decoder:%d", output, slot,

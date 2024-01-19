@@ -26,7 +26,15 @@ endif
 # cairo can use C++11 atomics when available, so we need to link with
 # libatomic for the architectures who need libatomic.
 ifeq ($(BR2_TOOLCHAIN_HAS_LIBATOMIC),y)
-CAIRO_CONF_ENV += LIBS="-latomic"
+CAIRO_LIBS += -latomic
+endif
+
+ifeq ($(BR2_TOOLCHAIN_GCC_AT_LEAST_10),y)
+CAIRO_LIBS += -lpthread
+endif
+
+ifneq ($(CAIRO_LIBS),)
+CAIRO_CONF_ENV += LIBS="$(CAIRO_LIBS)"
 endif
 
 CAIRO_CONF_OPTS = \

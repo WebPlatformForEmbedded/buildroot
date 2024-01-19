@@ -4,6 +4,8 @@ source "package/gstreamer1/gstreamer1/Config.in"
 if BR2_PACKAGE_GSTREAMER1
 source "package/gstreamer1/gst1-bcm/Config.in"
 source "package/gstreamer1/gst1-aamp/Config.in"
+source "package/gstreamer1/gst1-bluetoothaudiosink/Config.in"
+source "package/gstreamer1/gst1-bluetoothaudiosource/Config.in"
 source "package/gstreamer1/gstreamer1-mm/Config.in"
 source "package/gstreamer1/gst1-cencdecrypt/Config.in"
 source "package/gstreamer1/gst1-plugins-base/Config.in"
