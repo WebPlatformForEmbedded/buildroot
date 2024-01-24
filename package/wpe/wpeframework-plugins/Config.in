@@ -131,7 +131,7 @@ menuconfig BR2_PACKAGE_WPEFRAMEWORK_BACKOFFICE
 if BR2_PACKAGE_WPEFRAMEWORK_BACKOFFICE
 config BR2_PACKAGE_WPEFRAMEWORK_BACKOFFICE_STARTMODE
     string "Startup mode"
-    default "activated"
+    default "Activated"
     help
       Select this to start the plugin automatically when starting WPEFramework
 
@@ -191,7 +191,7 @@ menuconfig BR2_PACKAGE_WPEFRAMEWORK_BLUETOOTH
 if BR2_PACKAGE_WPEFRAMEWORK_BLUETOOTH
 config BR2_PACKAGE_WPEFRAMEWORK_BLUETOOTH_STARTMODE
     string "Startup mode"
-    default "activated"
+    default "Activated"
     help
       Select this to start the plugin automatically when starting WPEFramework
 
@@ -400,7 +400,7 @@ config BR2_PACKAGE_WPEFRAMEWORK_COBALT_SINGLE_PLAYBACKRATE
 
 config BR2_PACKAGE_WPEFRAMEWORK_COBALT_STARTMODE
     string "Startup mode"
-    default "deactivated"
+    default "Deactivated"
     help
       Select this to start the plugin automatically when starting WPEFramework
 
@@ -456,7 +456,7 @@ if BR2_PACKAGE_WPEFRAMEWORK_COMPOSITOR
 
 config BR2_PACKAGE_WPEFRAMEWORK_COMPOSITOR_STARTMODE
     string "Startup mode"
-    default "activated"
+    default "Activated"
     help
       Select this to start the plugin automatically when starting WPEFramework
 
@@ -952,7 +952,7 @@ if BR2_PACKAGE_WPEFRAMEWORK_POWER
 
 config BR2_PACKAGE_WPEFRAMEWORK_POWER_STARTMODE
     string "Startup mode"
-    default "activated"
+    default "Activated"
 
 config BR2_PACKAGE_WPEFRAMEWORK_POWER_GPIOPIN
     string "gpiopin"
@@ -971,7 +971,7 @@ config BR2_PACKAGE_WPEFRAMEWORK_PLUGINPROCESSCONTAINERS
 if BR2_PACKAGE_WPEFRAMEWORK_PLUGINPROCESSCONTAINERS
 config BR2_PACKAGE_WPEFRAMEWORK_PLUGINPROCESSCONTAINERS_STARTMODE
     string "Startup mode"
-    default "activated"
+    default "Activated"
 endif
 
 menuconfig BR2_PACKAGE_WPEFRAMEWORK_PROCESSMONITOR
@@ -984,7 +984,7 @@ if BR2_PACKAGE_WPEFRAMEWORK_PROCESSMONITOR
 
 config BR2_PACKAGE_WPEFRAMEWORK_PROCESSMONITOR_STARTMODE
     string "Startup mode"
-    default "deactivated"
+    default "Deactivated"
 
 config BR2_PACKAGE_WPEFRAMEWORK_PROCESSMONITOR_EXITTIMEOUT
     string "exit-timeout"
@@ -1258,7 +1258,7 @@ if BR2_PACKAGE_WPEFRAMEWORK_SPARK
 
 config BR2_PACKAGE_WPEFRAMEWORK_SPARK_STARTMODE
     string "Startup mode"
-    default "deactivated"
+    default "Deactivated"
 endif
 
 menuconfig BR2_PACKAGE_WPEFRAMEWORK_SWITCHBOARD
@@ -1369,7 +1369,7 @@ if BR2_PACKAGE_WPEFRAMEWORK_WEBKITBROWSER
 
 config BR2_PACKAGE_WPEFRAMEWORK_WEBKITBROWSER_STARTMODE
     string "Startup mode"
-    default "activated"
+    default "Activated"
 
 config BR2_PACKAGE_WPEFRAMEWORK_WEBKITBROWSER_INJECTEDBUNDLE_INTERFACES
     bool "injectedbundle"
@@ -1647,7 +1647,7 @@ menuconfig BR2_PACKAGE_WPEFRAMEWORK_WEBPA
 if BR2_PACKAGE_WPEFRAMEWORK_WEBPA
 config BR2_PACKAGE_WPEFRAMEWORK_WEBPA_STARTMODE
     string "Startup mode"
-    default "deactivated"
+    default "Deactivated"
 config BR2_PACKAGE_WPEFRAMEWORK_WEBPA_SERVICE
     bool "parodus service"
     default y

@@ -11,7 +11,7 @@ menuconfig BR2_PACKAGE_WPEFRAMEWORK_DOOFAH
 if BR2_PACKAGE_WPEFRAMEWORK_DOOFAH 
 config BR2_PACKAGE_WPEFRAMEWORK_DOOFAH_STARTMODE
     string "Startup mode"
-    default "activated"
+    default "Activated"
     help
       Select this to start the plugin automatically when starting WPEFramework
 

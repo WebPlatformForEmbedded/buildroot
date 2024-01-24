@@ -10,7 +10,7 @@ menuconfig BR2_PACKAGE_WPEFRAMEWORK_PACKAGEMANAGER
 if BR2_PACKAGE_WPEFRAMEWORK_PACKAGEMANAGER 
 config BR2_PACKAGE_WPEFRAMEWORK_PACKAGEMANAGER_STARTMODE
     string "Startup mode"
-    default "activated"
+    default "Activated"
     help
       Select this to start the plugin automatically when starting WPEFramework
 
