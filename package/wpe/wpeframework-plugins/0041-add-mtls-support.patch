@@ -1,0 +1,65 @@
+diff --git a/WebKitBrowser/WebKitBrowserPlugin.json b/WebKitBrowser/WebKitBrowserPlugin.json
+index c6e9e25..32b3e0f 100644
+--- a/WebKitBrowser/WebKitBrowserPlugin.json
++++ b/WebKitBrowser/WebKitBrowserPlugin.json
+@@ -19,6 +19,14 @@
+             "type": "string",
+             "description": "The UserAgent used during communication with the web server"
+           },
++          "clientcert": {
++            "type": "string",
++            "description": "Path to the client certificate .pem file"
++          },
++          "clientcertkey": {
++            "type": "string",
++            "description": "Path to the client certificate's key file"
++          },
+           "url": {
+             "type": "string",
+             "description": "The URL that is loaded upon starting the browser"
+diff --git a/WebKitBrowser/WebKitImplementation.cpp b/WebKitBrowser/WebKitImplementation.cpp
+index ad223ca..10ca536 100755
+--- a/WebKitBrowser/WebKitImplementation.cpp
++++ b/WebKitBrowser/WebKitImplementation.cpp
+@@ -406,6 +406,8 @@ static GSourceFuncs _handlerIntervention =
+                 : Core::JSON::Container()
+                 , UserAgent()
+                 , URL(_T("http://www.google.com"))
++                , ClientCert()
++                , ClientCertKey()
+                 , Whitelist()
+                 , PageGroup(_T("WPEPageGroup"))
+                 , CookieStorage()
+@@ -445,6 +447,8 @@ static GSourceFuncs _handlerIntervention =
+             {
+                 Add(_T("useragent"), &UserAgent);
+                 Add(_T("url"), &URL);
++                Add(_T("clientcert"), &ClientCert);
++                Add(_T("clientcertkey"), &ClientCertKey);
+                 Add(_T("whitelist"), &Whitelist);
+                 Add(_T("pagegroup"), &PageGroup);
+                 Add(_T("cookiestorage"), &CookieStorage);
+@@ -491,6 +495,8 @@ static GSourceFuncs _handlerIntervention =
+         public:
+             Core::JSON::String UserAgent;
+             Core::JSON::String URL;
++            Core::JSON::String ClientCert;
++            Core::JSON::String ClientCertKey;
+             Core::JSON::String Whitelist;
+             Core::JSON::String PageGroup;
+             Core::JSON::String CookieStorage;
+@@ -838,6 +844,14 @@ static GSourceFuncs _handlerIntervention =
+             Core::SystemInfo::SetEnvironment(_T("QUEUEPLAYER_FLUSH_MODE"), _T("3"), false);
+             Core::SystemInfo::SetEnvironment(_T("HOME"), service->PersistentPath());
+ 
++            if (_config.ClientCert.IsSet() == true) {
++                Core::SystemInfo::SetEnvironment(_T("CLIENT_CERT_PATH"), _config.ClientCert.Value(), !environmentOverride);
++            }
++
++            if (_config.ClientCertKey.IsSet() == true) {
++                Core::SystemInfo::SetEnvironment(_T("CLIENT_CERT_KEY_PATH"), _config.ClientCertKey.Value(), !environmentOverride);
++            }
++
+             if (_config.ClientIdentifier.IsSet() == true) {
+                 string value(service->Callsign() + ',' + _config.ClientIdentifier.Value());
+                 Core::SystemInfo::SetEnvironment(_T("CLIENT_IDENTIFIER"), value, !environmentOverride);

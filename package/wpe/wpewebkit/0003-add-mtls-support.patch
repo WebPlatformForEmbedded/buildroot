@@ -1,0 +1,76 @@
+diff --git a/Source/WebCore/platform/network/soup/SoupNetworkSession.cpp b/Source/WebCore/platform/network/soup/SoupNetworkSession.cpp
+index 1802b1edea..e6c3e5bb76 100644
+--- a/Source/WebCore/platform/network/soup/SoupNetworkSession.cpp
++++ b/Source/WebCore/platform/network/soup/SoupNetworkSession.cpp
+@@ -168,6 +168,51 @@ static HashMap<String, HostTLSCertificateSet, ASCIICaseInsensitiveHash>& clientC
+     return certificates;
+ }
+ 
++typedef struct _GetTlsCertInteraction GetTlsCertInteraction;
++typedef struct _GetTlsCertInteractionClass GetTlsCertInteractionClass;
++
++static GType _get_tls_cert_interaction_get_type(void) G_GNUC_CONST;
++static GetTlsCertInteraction* _get_tls_cert_interaction_new(GTlsCertificate *cert);
++
++struct _GetTlsCertInteraction
++{
++	GTlsInteraction parent_instance;
++	GRefPtr<GTlsCertificate> cert;
++};
++
++struct _GetTlsCertInteractionClass
++{
++	GTlsInteractionClass parent_class;
++};
++
++G_DEFINE_TYPE(GetTlsCertInteraction, _get_tls_cert_interaction, G_TYPE_TLS_INTERACTION);
++
++static GTlsInteractionResult request_certificate(GTlsInteraction* interaction, GTlsConnection* connection, GTlsCertificateRequestFlags flags, GCancellable* cancellable, GError** error)
++{
++	GetTlsCertInteraction* self = (GetTlsCertInteraction*) interaction;
++    if (self->cert)
++	    g_tls_connection_set_certificate(connection, self->cert.get());
++
++	return G_TLS_INTERACTION_HANDLED;
++}
++
++static void _get_tls_cert_interaction_init(GetTlsCertInteraction*)
++{
++}
++
++static void _get_tls_cert_interaction_class_init(GetTlsCertInteractionClass* klass)
++{
++	GTlsInteractionClass* interaction_class = G_TLS_INTERACTION_CLASS(klass);
++	interaction_class->request_certificate = request_certificate;
++}
++
++GetTlsCertInteraction* _get_tls_cert_interaction_new(GRefPtr<GTlsCertificate> cert)
++{
++    GetTlsCertInteraction* instance = static_cast<GetTlsCertInteraction*>(g_object_new(_get_tls_cert_interaction_get_type(), NULL));
++	instance->cert = cert;
++	return instance;
++}
++
+ SoupNetworkSession::SoupNetworkSession(PAL::SessionID sessionID, SoupCookieJar* cookieJar)
+     : m_soupSession(adoptGRef(soup_session_async_new()))
+ #if ENABLE(NETWORK_CHANGE_DETECTION)
+@@ -199,6 +244,19 @@ SoupNetworkSession::SoupNetworkSession(PAL::SessionID sessionID, SoupCookieJar*
+         SOUP_SESSION_SSL_STRICT, TRUE,
+         nullptr);
+ 
++    const char* certPath = getenv("CLIENT_CERT_PATH");
++    const char* keyPath = getenv("CLIENT_CERT_KEY_PATH");
++    if (certPath && *certPath && keyPath && *keyPath) {
++        GError *error = NULL;
++	    GRefPtr<GTlsCertificate> clientCert = adoptGRef(g_tls_certificate_new_from_files(certPath, keyPath, &error));
++        if (!clientCert) {
++            LOG(Network, "SoupNetworkSession: Failed opening client certificate and/or key: %s", error->message);
++        } else {
++            GRefPtr<GetTlsCertInteraction> tlsInteraction = adoptGRef(_get_tls_cert_interaction_new(clientCert));
++            g_object_set(m_soupSession.get(), SOUP_SESSION_TLS_INTERACTION, tlsInteraction.get(), NULL);
++        }
++    }
++
+     setupCustomProtocols();
+ 
+     if (!initialAcceptLanguages().isNull())
