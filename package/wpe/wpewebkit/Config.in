@@ -66,7 +66,7 @@ if BR2_PACKAGE_WPEWEBKIT
 
 choice
         bool "version"
-        default BR2_PACKAGE_WPEWEBKIT2_28
+        default BR2_PACKAGE_WPEWEBKIT2_38
         help
           Choose the WPEWEBKIT version to be built.
 
