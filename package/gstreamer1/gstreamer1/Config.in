@@ -24,7 +24,7 @@ config BR2_PACKAGE_GSTREAMER1_GIT
 
 choice
         bool "version"
-        default BR2_PACKAGE_GSTREAMER1_16
+        default BR2_PACKAGE_GSTREAMER1_18
 
         help
           Choose the GStreamer version to be built.
