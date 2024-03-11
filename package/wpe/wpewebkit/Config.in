@@ -288,6 +288,13 @@ config BR2_PACKAGE_WPEWEBKIT_MULTIMEDIA
 
 if BR2_PACKAGE_WPEWEBKIT_MULTIMEDIA
 
+config BR2_PACKAGE_WPEWEBKIT_USE_LIBWEBRTC
+	bool "LibWebRTC"
+	select BR2_PACKAGE_PULSEAUDIO
+	default y
+	help
+	  Enable LibWebRTC
+
 config BR2_PACKAGE_WPEWEBKIT_USE_GSTREAMER_GL
 	bool "use gstreamer-gl"
 	default y
