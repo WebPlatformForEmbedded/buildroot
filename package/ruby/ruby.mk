@@ -12,11 +12,12 @@ RUBY_SOURCE = ruby-$(RUBY_VERSION).tar.xz
 RUBY_DEPENDENCIES = host-pkgconf host-ruby
 HOST_RUBY_DEPENDENCIES = host-pkgconf host-openssl
 RUBY_MAKE_ENV = $(TARGET_MAKE_ENV)
-RUBY_CONF_OPTS = --disable-install-doc --disable-rpath --disable-rubygems
+RUBY_CONF_OPTS = --disable-install-doc --disable-rpath --disable-rubygems --disable-dtrace
 HOST_RUBY_CONF_OPTS = \
 	--disable-install-doc \
 	--with-out-ext=curses,readline \
-	--without-gmp
+	--without-gmp \
+	--disable-dtrace
 RUBY_LICENSE = Ruby or BSD-2-Clause, BSD-3-Clause, others
 RUBY_LICENSE_FILES = LEGAL COPYING BSDL
 # 0001-fix-default-coroutine-selection.patch
