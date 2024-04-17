@@ -515,6 +515,12 @@ define GST1_PLUGINS_GOOD_APPLY_WPEWEBKIT_EXTRA_PATCHES_POST_HOOK
 endef
 endif
 
+ifeq ($(BR2_PACKAGE_WPEWEBKIT2_38),y)
+define GST1_PLUGINS_GOOD_APPLY_WPEWEBKIT_EXTRA_PATCHES_POST_HOOK
+        cd $(@D) && { for P in ../../../package/gstreamer1/gst1-plugins-good/$(GST1_PLUGINS_GOOD_VERSION)-wpe-2.38/*.patch; do patch -p1 < "$$P" ; done; }
+endef
+endif
+
 GST1_PLUGINS_GOOD_POST_PATCH_HOOKS += GST1_PLUGINS_GOOD_APPLY_WPEWEBKIT_EXTRA_PATCHES_POST_HOOK
 
 $(eval $(meson-package))
