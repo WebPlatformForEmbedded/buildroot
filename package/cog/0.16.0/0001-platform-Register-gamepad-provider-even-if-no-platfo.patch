@@ -1,0 +1,62 @@
+From 3ed251babe1681cc05583cbf4d2b770807addc37 Mon Sep 17 00:00:00 2001
+From: Philippe Normand <philn@igalia.com>
+Date: Mon, 22 Apr 2024 15:18:11 +0100
+Subject: [PATCH] platform: Register gamepad provider even if no platform
+ backend was created
+
+---
+ core/cog-platform.c | 14 +++++++++++++-
+ 1 file changed, 13 insertions(+), 1 deletion(-)
+
+diff --git a/core/cog-platform.c b/core/cog-platform.c
+index 57b16a5..653de8a 100644
+--- a/core/cog-platform.c
++++ b/core/cog-platform.c
+@@ -8,6 +8,7 @@
+ 
+ #include "cog-platform.h"
+ #include "cog-modules.h"
++#include "cog-gamepad.h"
+ 
+ G_DEFINE_QUARK(COG_PLATFORM_ERROR, cog_platform_error)
+ G_DEFINE_QUARK(COG_PLATFORM_EGL_ERROR, cog_platform_egl_error)
+@@ -70,6 +71,12 @@ cog_platform_get_default(void)
+     return default_platform;
+ }
+ 
++static struct wpe_view_backend *
++gamepad_provider_get_view_backend_for_gamepad(void *provider G_GNUC_UNUSED, void *gamepad G_GNUC_UNUSED)
++{
++    return NULL;
++}
++
+ CogPlatform *
+ cog_platform_new(const char *name, GError **error)
+ {
+@@ -79,6 +86,7 @@ cog_platform_new(const char *name, GError **error)
+     if (platform_type == G_TYPE_INVALID) {
+         g_set_error_literal(error, COG_PLATFORM_ERROR, COG_PLATFORM_ERROR_NO_MODULE,
+                             "Could not find an usable platform module");
++        cog_gamepad_setup(gamepad_provider_get_view_backend_for_gamepad);
+         return NULL;
+     }
+ 
+@@ -86,10 +94,14 @@ cog_platform_new(const char *name, GError **error)
+     if (G_IS_INITABLE(self)) {
+         if (!g_initable_init(G_INITABLE(self),
+                              NULL, /* cancellable */
+-                             error))
++                             error)) {
++            cog_gamepad_setup(gamepad_provider_get_view_backend_for_gamepad);
+             return NULL;
++        }
+     }
+ 
++    /* Each platform backend registers its gamepad provider, so no need to call
++       cog_gamepad_setup() here. */
+     return g_steal_pointer(&self);
+ }
+ 
+-- 
+2.44.0
+
