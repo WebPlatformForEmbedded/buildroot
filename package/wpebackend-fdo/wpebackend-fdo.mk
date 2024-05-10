@@ -4,7 +4,7 @@
 #
 ################################################################################
 
-ifeq ($(BR2_PACKAGE_WPEWEBKIT2_38),y)
+ifeq ($(BR2_PACKAGE_WPEWEBKIT2_38)$(BR2_PACKAGE_WPEWEBKIT_NEXT),y)
 WPEBACKEND_FDO_VERSION = 1.14.0
 else
 WPEBACKEND_FDO_VERSION = 1.4.1
@@ -17,4 +17,8 @@ WPEBACKEND_FDO_LICENSE = BSD-2-Clause
 WPEBACKEND_FDO_LICENSE_FILES = COPYING
 WPEBACKEND_FDO_DEPENDENCIES = libglib2 wpebackend wayland
 
+ifeq ($(BR2_PACKAGE_WPEWEBKIT2_38)$(BR2_PACKAGE_WPEWEBKIT_NEXT),y)
+$(eval $(meson-package))
+else
 $(eval $(cmake-package))
+endif
