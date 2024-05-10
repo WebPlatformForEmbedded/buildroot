@@ -4,29 +4,23 @@
 #
 ################################################################################
 
-KMSCUBE_VERSION = 76bb57d539cb43d267e561024c34e031bf351e04
+KMSCUBE_VERSION = ea6c5d1eeefbfb0a1c27ab74a6e4621f1d9adf4c
 KMSCUBE_SITE = https://gitlab.freedesktop.org/mesa/kmscube/-/archive/$(KMSCUBE_VERSION)
 KMSCUBE_LICENSE = MIT
-KMSCUBE_DEPENDENCIES = host-pkgconf mesa3d libdrm
-KMSCUBE_AUTORECONF = YES
+KMSCUBE_LICENSE_FILES = COPYING
+KMSCUBE_DEPENDENCIES = host-pkgconf libdrm libegl libgbm libgles
 
-ifeq ($(BR2_PACKAGE_LIBYXOPE)x,yx)
-KMSCUBE_DEPENDENCIES += libyxope
-override KMSCUBE_LIBGBM_LDFLAGS += $(shell $(PKG_CONFIG_HOST_BINARY) --libs gbm)
-override KMSCUBE_LIBEGL_LDFLAGS += $(shell $(PKG_CONFIG_HOST_BINARY) --libs egl)
-KMSCUBE_CONF_OPTS += GBM_LIBS="$(KMSCUBE_LIBGBM_LDFLAGS) -lRealgbm" EGL_LIBS="$(KMSCUBE_LIBEGL_LDFLAGS) -lRealEGL"
+ifeq ($(BR2_PACKAGE_KMSCUBE_GSTREAMER),y)
+KMSCUBE_DEPENDENCIES += gst1-plugins-base gstreamer1 libglib2
+KMSCUBE_CONF_OPTS += -Dgstreamer=enabled
+else
+KMSCUBE_CONF_OPTS += -Dgstreamer=disabled
 endif
 
-ifeq ($(BR2_PACKAGE_KMSCUBE_LIBEPOXY)x,yx)
-KMSCUBE_DEPENDENCIES += libepoxy
-KMSCUBE_POST_PATCH_HOOKS += KMSCUBE_POST_PATCH_FIXUP
-override KMSCUBE_LIBGBM_LDFLAGS += $(shell $(PKG_CONFIG_HOST_BINARY) --libs gbm)
-override KMSCUBE_LIBEPOXY_LDFLAGS += $(shell $(PKG_CONFIG_HOST_BINARY) --libs epoxy)
-KMSCUBE_CONF_OPTS += GBM_LIBS="$(KMSCUBE_LIBGBM_LDFLAGS) -lRealgbm" EGL_LIBS="$(KMSCUBE_LIBEPOXY_LDFLAGS)"
-define KMSCUBE_POST_PATCH_FIXUP
-[ -d $(KMSCUBE_PKGDIR)/$(KMSCUBE_VERSION) ] && \
-$(APPLY_PATCHES) $(@D) $(KMSCUBE_PKGDIR)/$(KMSCUBE_VERSION) *.patch.hooked
-endef
+ifeq ($(BR2_PACKAGE_LIBPNG),y)
+KMSCUBE_DEPENDENCIES += libpng
+# libpng is automatically detected in meson, there is no build
+# configuration option to pass.
 endif
 
-$(eval $(autotools-package))
+$(eval $(meson-package))

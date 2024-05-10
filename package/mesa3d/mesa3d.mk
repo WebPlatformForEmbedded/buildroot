@@ -5,7 +5,7 @@
 ################################################################################
 
 # When updating the version, please also update mesa3d-headers
-MESA3D_VERSION = 21.1.8
+MESA3D_VERSION = 24.0.7
 MESA3D_SOURCE = mesa-$(MESA3D_VERSION).tar.xz
 MESA3D_SITE = https://mesa.freedesktop.org/archive
 MESA3D_LICENSE = MIT, SGI, Khronos
@@ -71,14 +71,14 @@ endif
 else
 MESA3D_CONF_OPTS += \
 	-Dglx=disabled \
-	-Dgallium-xa=false
+	-Dgallium-xa=disabled
 endif
 
-ifeq ($(BR2_ARM_CPU_HAS_NEON),y)
-MESA3D_CONF_OPTS += -Dgallium-vc4-neon=auto
-else
-MESA3D_CONF_OPTS += -Dgallium-vc4-neon=disabled
-endif
+# ifeq ($(BR2_ARM_CPU_HAS_NEON),y)
+# MESA3D_CONF_OPTS += -Dgallium-vc4-neon=auto
+# else
+# MESA3D_CONF_OPTS += -Dgallium-vc4-neon=disabled
+# endif
 
 # Drivers
 
@@ -120,21 +120,21 @@ MESA3D_CONF_OPTS += \
 	-Dgallium-extra-hud=true
 endif
 
-ifeq ($(BR2_PACKAGE_MESA3D_DRI_DRIVER),)
-MESA3D_CONF_OPTS += \
-	-Ddri-drivers= -Ddri3=disabled
-else
-ifeq ($(BR2_PACKAGE_XLIB_LIBXSHMFENCE),y)
-MESA3D_DEPENDENCIES += xlib_libxshmfence
-MESA3D_CONF_OPTS += -Ddri3=enabled
-else
-MESA3D_CONF_OPTS += -Ddri3=disabled
-endif
-MESA3D_CONF_OPTS += \
-	-Dshared-glapi=enabled \
-	-Dglx-direct=true \
-	-Ddri-drivers=$(subst $(space),$(comma),$(MESA3D_DRI_DRIVERS-y))
-endif
+# ifeq ($(BR2_PACKAGE_MESA3D_DRI_DRIVER),)
+# MESA3D_CONF_OPTS += \
+# 	-Ddri-drivers= -Ddri3=disabled
+# else
+# ifeq ($(BR2_PACKAGE_XLIB_LIBXSHMFENCE),y)
+# MESA3D_DEPENDENCIES += xlib_libxshmfence
+# MESA3D_CONF_OPTS += -Ddri3=enabled
+# else
+# MESA3D_CONF_OPTS += -Ddri3=disabled
+# endif
+# MESA3D_CONF_OPTS += \
+# 	-Dshared-glapi=enabled \
+# 	-Dglx-direct=true \
+# 	-Ddri-drivers=$(subst $(space),$(comma),$(MESA3D_DRI_DRIVERS-y))
+# endif
 
 ifeq ($(BR2_PACKAGE_MESA3D_VULKAN_DRIVER),)
 MESA3D_CONF_OPTS += \
@@ -218,12 +218,12 @@ else
 MESA3D_CONF_OPTS += -Dgles1=disabled -Dgles2=disabled
 endif
 
-ifeq ($(BR2_PACKAGE_MESA3D_XVMC),y)
-MESA3D_DEPENDENCIES += xlib_libXv xlib_libXvMC
-MESA3D_CONF_OPTS += -Dgallium-xvmc=enabled
-else
-MESA3D_CONF_OPTS += -Dgallium-xvmc=disabled
-endif
+# ifeq ($(BR2_PACKAGE_MESA3D_XVMC),y)
+# MESA3D_DEPENDENCIES += xlib_libXv xlib_libXvMC
+# MESA3D_CONF_OPTS += -Dgallium-xvmc=enabled
+# else
+# MESA3D_CONF_OPTS += -Dgallium-xvmc=disabled
+# endif
 
 ifeq ($(BR2_PACKAGE_VALGRIND),y)
 MESA3D_CONF_OPTS += -Dvalgrind=enabled

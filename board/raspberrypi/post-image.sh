@@ -112,6 +112,18 @@ dtoverlay=vc4-kms-v3d-pi4
 __EOF__
 		fi
 		;;
+		--add-vc4-kms-v3d-overlay-pi3)
+		# Enable VC4 overlay
+		if ! grep -qE '^dtoverlay=vc4-kms-v3d' "${BINARIES_DIR}/rpi-firmware/config.txt"; then
+				echo "Adding 'dtoverlay=vc4-kms-v3d' to config.txt."
+				cat << __EOF__ >> "${BINARIES_DIR}/rpi-firmware/config.txt"
+
+# Add VC4 GPU support
+dtoverlay=vc4-kms-v3d,cma-384
+
+__EOF__
+		fi
+		;;
                 --silent)
                 if ! grep -qE '^disable_splash=1' "${BINARIES_DIR}/rpi-firmware/config.txt"; then
                         echo "Adding 'silent=1' to config.txt."
@@ -218,7 +230,7 @@ done
 # space. We don't rely on genimage to build the rootfs image, just to insert a
 # pre-built one in the disk image.
 
-if grep "^BR2_TARGET_ROOTFS_EXT2=y$" "${BR2_CONFIG}" &>/dev/null; then 
+if grep "^BR2_TARGET_ROOTFS_EXT2=y$" "${BR2_CONFIG}" &>/dev/null; then
 
 trap 'rm -rf "${ROOTPATH_TMP}"' EXIT
 ROOTPATH_TMP="$(mktemp -d)"
