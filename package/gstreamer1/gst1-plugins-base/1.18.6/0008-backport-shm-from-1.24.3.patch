@@ -1,0 +1,356 @@
+From 2b2039d0953f11a63574e179b35f29d0d3bdba0c Mon Sep 17 00:00:00 2001
+From: Carlos Bentzen <cadubentzen@igalia.com>
+Date: Fri, 10 May 2024 12:41:31 +0200
+Subject: [PATCH 2/2] backport shm from 1.24.3
+
+---
+ gst-libs/gst/allocators/gstshmallocator.c | 220 ++++++++++++++++++++++
+ gst-libs/gst/allocators/gstshmallocator.h |  70 +++++++
+ gst-libs/gst/allocators/meson.build       |  13 ++
+ 3 files changed, 303 insertions(+)
+ create mode 100644 gst-libs/gst/allocators/gstshmallocator.c
+ create mode 100644 gst-libs/gst/allocators/gstshmallocator.h
+
+diff --git a/gst-libs/gst/allocators/gstshmallocator.c b/gst-libs/gst/allocators/gstshmallocator.c
+new file mode 100644
+index 000000000..0ca9bae86
+--- /dev/null
++++ b/gst-libs/gst/allocators/gstshmallocator.c
+@@ -0,0 +1,220 @@
++/* GStreamer shared memory allocator
++ *
++ * Copyright (C) 2012 Intel Corporation
++ * Copyright (C) 2012 Sreerenj Balachandran <sreerenj.balachandran@intel.com>
++ * Copyright (C) 2023 Netflix Inc.
++ *  Author: Xavier Claessens <xavier.claessens@collabora.com>
++ *
++ * This library is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU Library General Public
++ * License as published by the Free Software Foundation; either
++ * version 2 of the License, or (at your option) any later version.
++ *
++ * This library is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * Library General Public License for more details.
++ *
++ * You should have received a copy of the GNU Library General Public
++ * License along with this library; if not, write to the
++ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
++ * Boston, MA 02110-1301, USA.
++ */
++
++/**
++ * SECTION:gstshmallocator
++ * @title: GstShmAllocator
++ * @short_description: Allocator for file-descriptor backed shared memory
++ * @see_also: #GstMemory and #GstFdAllocator
++ *
++ * This is a subclass of #GstFdAllocator that implements the
++ * gst_allocator_alloc() method using `memfd_create()` when available, POSIX
++ * `shm_open()` otherwise. Platforms not supporting any of those (Windows) will
++ * always return %NULL.
++ *
++ * Note that allocating new shared memories has a significant performance cost,
++ * it is thus recommended to keep a pool of pre-allocated #GstMemory, using
++ * #GstBufferPool. For that reason, this allocator has the
++ * %GST_ALLOCATOR_FLAG_NO_COPY flag set.
++ *
++ * Since: 1.24
++ */
++
++#ifdef HAVE_CONFIG_H
++#include "config.h"
++#endif
++
++#include <sys/stat.h>
++#include "gstshmallocator.h"
++
++#ifdef HAVE_MMAP
++#include <fcntl.h>
++#include <stdio.h>
++#include <unistd.h>
++#include <sys/mman.h>
++#endif
++
++struct _GstShmAllocator
++{
++  GstFdAllocator parent;
++};
++
++#define GST_CAT_DEFAULT gst_shm_debug
++GST_DEBUG_CATEGORY_STATIC (GST_CAT_DEFAULT);
++
++G_DEFINE_TYPE_WITH_CODE (GstShmAllocator, gst_shm_allocator,
++    GST_TYPE_FD_ALLOCATOR,
++    GST_DEBUG_CATEGORY_INIT (gst_shm_debug, "shmallocator", 0,
++        "Shared memory allocator");
++    );
++
++static GstMemory *
++gst_shm_allocator_alloc (GstAllocator * allocator, gsize size,
++    GstAllocationParams * params)
++{
++#if defined(HAVE_MEMFD_CREATE) || defined(HAVE_SHM_OPEN)
++  GstShmAllocator *self = GST_SHM_ALLOCATOR (allocator);
++  int fd;
++  GstMemory *mem;
++  GstMapInfo info;
++
++  /* See _sysmem_new_block() for details */
++  gsize maxsize = size + params->prefix + params->padding;
++  gsize align = params->align;
++  align |= gst_memory_alignment;
++  maxsize += align;
++
++#ifdef HAVE_MEMFD_CREATE
++  fd = memfd_create ("gst-shm", MFD_CLOEXEC | MFD_ALLOW_SEALING);
++  if (fd < 0) {
++    GST_ERROR_OBJECT (self, "memfd_create() failed: %s", strerror (errno));
++    return NULL;
++  }
++#else
++  {
++    char filename[1024];
++    static int init = 0;
++    int flags = O_RDWR | O_CREAT | O_EXCL;
++    int perms = S_IRUSR | S_IWUSR | S_IRGRP;
++
++    snprintf (filename, 1024, "/gst-shm.%d.%d", getpid (), init++);
++    fd = shm_open (filename, flags, perms);
++    if (fd < 0) {
++      GST_ERROR_OBJECT (self, "shm_open() failed: %s", strerror (errno));
++      return NULL;
++    }
++
++    shm_unlink (filename);
++  }
++#endif
++
++  if (ftruncate (fd, maxsize) < 0) {
++    GST_ERROR_OBJECT (self, "ftruncate failed: %s", strerror (errno));
++    close (fd);
++    return NULL;
++  }
++
++  mem = gst_fd_allocator_alloc (allocator, fd, maxsize,
++      GST_FD_MEMORY_FLAG_KEEP_MAPPED);
++  if (G_UNLIKELY (!mem)) {
++    GST_ERROR_OBJECT (self, "GstFdMemory allocation failed");
++    close (fd);
++    return NULL;
++  }
++
++  /* We use GST_FD_MEMORY_FLAG_KEEP_MAPPED, so make sure the first map is RW. */
++  if (!gst_memory_map (mem, &info, GST_MAP_READWRITE)) {
++    GST_ERROR_OBJECT (self, "GstFdMemory map failed");
++    gst_memory_unref (mem);
++    return NULL;
++  }
++
++  /* See _sysmem_new_block() for details */
++  guint8 *data = info.data;
++  gsize aoffset;
++  gsize asize = maxsize;
++  if ((aoffset = ((guintptr) data & align))) {
++    aoffset = (align + 1) - aoffset;
++    data += aoffset;
++    asize = maxsize - aoffset;
++  }
++
++  if (params->prefix && (params->flags & GST_MEMORY_FLAG_ZERO_PREFIXED))
++    memset (data, 0, params->prefix);
++
++  gsize padding = asize - (params->prefix + size);
++  if (padding && (params->flags & GST_MEMORY_FLAG_ZERO_PADDED))
++    memset (data + params->prefix + size, 0, padding);
++
++  mem->align = align;
++  mem->size = size;
++  mem->offset = params->prefix + aoffset;
++
++  gst_memory_unmap (mem, &info);
++
++#ifdef HAVE_MEMFD_CREATE
++  fcntl (fd, F_ADD_SEALS, F_SEAL_SHRINK);
++#endif
++
++  return mem;
++#else
++  return NULL;
++#endif
++}
++
++static void
++gst_shm_allocator_class_init (GstShmAllocatorClass * klass)
++{
++  GstAllocatorClass *alloc_class = (GstAllocatorClass *) klass;
++
++  alloc_class->alloc = GST_DEBUG_FUNCPTR (gst_shm_allocator_alloc);
++}
++
++static void
++gst_shm_allocator_init (GstShmAllocator * self)
++{
++  GstAllocator *alloc = GST_ALLOCATOR_CAST (self);
++
++  alloc->mem_type = GST_ALLOCATOR_SHM;
++}
++
++/**
++ * gst_shm_allocator_init_once:
++ *
++ * Register a #GstShmAllocator using gst_allocator_register() with the name
++ * %GST_ALLOCATOR_SHM. This is no-op after the first call.
++ *
++ * Since: 1.24
++ */
++void
++gst_shm_allocator_init_once (void)
++{
++  static gsize _init = 0;
++
++  if (g_once_init_enter (&_init)) {
++    GstAllocator *alloc;
++
++    alloc = (GstAllocator *) g_object_new (GST_TYPE_SHM_ALLOCATOR, NULL);
++    gst_object_ref_sink (alloc);
++    gst_allocator_register (GST_ALLOCATOR_SHM, alloc);
++
++    g_once_init_leave (&_init, 1);
++  }
++}
++
++/**
++ * gst_shm_allocator_get:
++ *
++ * Get the #GstShmAllocator singleton previously registered with
++ * gst_shm_allocator_init_once().
++ *
++ * Returns: (transfer full) (nullable): a #GstAllocator or %NULL if
++ * gst_shm_allocator_init_once() has not been previously called.
++ *
++ * Since: 1.24
++ */
++GstAllocator *
++gst_shm_allocator_get (void)
++{
++  return gst_allocator_find (GST_ALLOCATOR_SHM);
++}
+diff --git a/gst-libs/gst/allocators/gstshmallocator.h b/gst-libs/gst/allocators/gstshmallocator.h
+new file mode 100644
+index 000000000..90889f543
+--- /dev/null
++++ b/gst-libs/gst/allocators/gstshmallocator.h
+@@ -0,0 +1,70 @@
++/* GStreamer shared memory allocator
++ *
++ * Copyright (C) 2012 Intel Corporation
++ * Copyright (C) 2012 Sreerenj Balachandran <sreerenj.balachandran@intel.com>
++ * Copyright (C) 2023 Netflix Inc.
++ *  Author: Xavier Claessens <xavier.claessens@collabora.com>
++ *
++ * This library is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU Library General Public
++ * License as published by the Free Software Foundation; either
++ * version 2 of the License, or (at your option) any later version.
++ *
++ * This library is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * Library General Public License for more details.
++ *
++ * You should have received a copy of the GNU Library General Public
++ * License along with this library; if not, write to the
++ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
++ * Boston, MA 02110-1301, USA.
++ */
++
++#pragma once
++
++#include <gst/allocators/gstfdmemory.h>
++
++G_BEGIN_DECLS
++
++/**
++ * GST_ALLOCATOR_SHM:
++ *
++ * Name of this allocator, to be used for example with gst_allocator_find() and
++ * gst_memory_is_type().
++ *
++ * Since: 1.24
++ */
++#define GST_ALLOCATOR_SHM "shm"
++
++/**
++ * GstShmAllocator:
++ *
++ * Private intance object for #GstShmAllocator.
++ *
++ * Since: 1.24
++ */
++
++/**
++ * GstShmAllocatorClass.parent_class:
++ *
++ * Parent Class.
++ *
++ * Since: 1.24
++ */
++
++/**
++ * GST_TYPE_SHM_ALLOCATOR:
++ *
++ * Macro that returns the #GstShmAllocator type.
++ *
++ * Since: 1.24
++ */
++#define GST_TYPE_SHM_ALLOCATOR gst_shm_allocator_get_type ()
++GST_ALLOCATORS_API
++G_DECLARE_FINAL_TYPE (GstShmAllocator, gst_shm_allocator, GST, SHM_ALLOCATOR, GstFdAllocator)
++
++GST_ALLOCATORS_API void gst_shm_allocator_init_once (void);
++GST_ALLOCATORS_API GstAllocator* gst_shm_allocator_get (void);
++
++G_END_DECLS
+diff --git a/gst-libs/gst/allocators/meson.build b/gst-libs/gst/allocators/meson.build
+index 8d7c02742..66f85b10f 100644
+--- a/gst-libs/gst/allocators/meson.build
++++ b/gst-libs/gst/allocators/meson.build
+@@ -5,6 +5,7 @@ gst_allocators_headers = [
+   'gstphysmemory.h',
+   'gstdmabuf.h',
+   'gstdrmdumb.h',
++  'gstshmallocator.h',
+ ]
+ install_headers(gst_allocators_headers, subdir : 'gstreamer-1.0/gst/allocators/')
+ 
+@@ -13,6 +14,7 @@ gst_allocators_sources = [
+   'gstdmabuf.c',
+   'gstfdmemory.c',
+   'gstphysmemory.c',
++  'gstshmallocator.c',
+ ]
+ 
+ gst_allocators_cargs = [
+@@ -21,6 +23,17 @@ gst_allocators_cargs = [
+   '-DG_LOG_DOMAIN="GStreamer-Allocators"',
+ ]
+ 
++if cc.has_function('memfd_create')
++  gst_allocators_cargs += [
++    '-DHAVE_MEMFD_CREATE',
++    '-D_GNU_SOURCE',
++  ]
++elif cc.has_function('shm_open')
++  gst_allocators_cargs += [
++    '-DHAVE_SHM_OPEN',
++  ]
++endif
++
+ gstallocators = library('gstallocators-@0@'.format(api_version),
+   gst_allocators_sources,
+   c_args : gst_allocators_cargs,
+-- 
+2.44.0
+

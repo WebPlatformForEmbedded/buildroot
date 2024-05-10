@@ -18,5 +18,7 @@ md5  9521458c72322e1b2e39e8b1cca93d24  cog-0.18.0.tar.xz
 sha1  73ec1684c31de7247ecbd5e852c16cf88416bedd  cog-0.18.0.tar.xz
 sha256  410bf70f9aa3812db72d75c25cefee421efa0391ab03dc3c37299dfaa388f4fd  cog-0.18.0.tar.xz
 
+sha256  cd4ec937175a290ccd7c8ec398e4569aec04084cd94b11b2d83518778ba9d055  cog-0.18.3.tar.xz
+
 # Hashes for license files:
 sha256  e6c42d93c68b292bcccf6d2ec3e13da85df90b718ba27c2c2a01053a9d009252  COPYING

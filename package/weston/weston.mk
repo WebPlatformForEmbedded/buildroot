@@ -4,7 +4,7 @@
 #
 ################################################################################
 
-WESTON_VERSION = 8.0.0
+WESTON_VERSION = 13.0.1
 WESTON_SITE = http://wayland.freedesktop.org/releases
 WESTON_SOURCE = weston-$(WESTON_VERSION).tar.xz
 WESTON_LICENSE = MIT
@@ -12,13 +12,15 @@ WESTON_LICENSE_FILES = COPYING
 WESTON_INSTALL_STAGING = YES
 
 WESTON_DEPENDENCIES = host-pkgconf wayland wayland-protocols \
-	libxkbcommon pixman libpng jpeg udev cairo libinput libdrm
+	libxkbcommon pixman libpng jpeg udev cairo libinput libdrm seatd
 
 WESTON_CONF_OPTS = \
 	-Dbuild.pkg_config_path=$(HOST_DIR)/lib/pkgconfig \
 	-Dbackend-headless=false \
-	-Dcolor-management-colord=false \
-	-Dremoting=false
+	-Dbackend-vnc=false \
+	-Dbackend-pipewire=false \
+	-Dremoting=false \
+	-Dbackend-default=drm
 
 # Uses VIDIOC_EXPBUF, only available from 3.8+
 ifeq ($(BR2_TOOLCHAIN_HEADERS_AT_LEAST_3_8),y)
@@ -27,12 +29,12 @@ else
 WESTON_CONF_OPTS += -Dsimple-clients=
 endif
 
-ifeq ($(BR2_PACKAGE_DBUS)$(BR2_PACKAGE_SYSTEMD),yy)
-WESTON_CONF_OPTS += -Dlauncher-logind=true
-WESTON_DEPENDENCIES += dbus systemd
-else
-WESTON_CONF_OPTS += -Dlauncher-logind=false
-endif
+# ifeq ($(BR2_PACKAGE_DBUS)$(BR2_PACKAGE_SYSTEMD),yy)
+# WESTON_CONF_OPTS += -Dlauncher-logind=true
+# WESTON_DEPENDENCIES += dbus systemd
+# else
+# WESTON_CONF_OPTS += -Dlauncher-logind=false
+# endif
 
 ifeq ($(BR2_PACKAGE_WEBP),y)
 WESTON_CONF_OPTS += -Dimage-webp=true
@@ -41,19 +43,19 @@ else
 WESTON_CONF_OPTS += -Dimage-webp=false
 endif
 
-# weston-launch must be u+s root in order to work properly
-ifeq ($(BR2_PACKAGE_LINUX_PAM),y)
-define WESTON_PERMISSIONS
-	/usr/bin/weston-launch f 4755 0 0 - - - - -
-endef
-define WESTON_USERS
-	- - weston-launch -1 - - - - Weston launcher group
-endef
-WESTON_CONF_OPTS += -Dweston-launch=true
-WESTON_DEPENDENCIES += linux-pam
-else
-WESTON_CONF_OPTS += -Dweston-launch=false
-endif
+# # weston-launch must be u+s root in order to work properly
+# ifeq ($(BR2_PACKAGE_LINUX_PAM),y)
+# define WESTON_PERMISSIONS
+# 	/usr/bin/weston-launch f 4755 0 0 - - - - -
+# endef
+# define WESTON_USERS
+# 	- - weston-launch -1 - - - - Weston launcher group
+# endef
+# WESTON_CONF_OPTS += -Dweston-launch=true
+# WESTON_DEPENDENCIES += linux-pam
+# else
+# WESTON_CONF_OPTS += -Dweston-launch=false
+# endif
 
 ifeq ($(BR2_PACKAGE_HAS_LIBEGL_WAYLAND)$(BR2_PACKAGE_HAS_LIBGLES),yy)
 WESTON_CONF_OPTS += -Drenderer-gl=true
@@ -70,11 +72,11 @@ else
 WESTON_CONF_OPTS += -Dbackend-rdp=false
 endif
 
-ifeq ($(BR2_PACKAGE_WESTON_FBDEV),y)
-WESTON_CONF_OPTS += -Dbackend-fbdev=true
-else
-WESTON_CONF_OPTS += -Dbackend-fbdev=false
-endif
+# ifeq ($(BR2_PACKAGE_WESTON_FBDEV),y)
+# WESTON_CONF_OPTS += -Dbackend-fbdev=true
+# else
+# WESTON_CONF_OPTS += -Dbackend-fbdev=false
+# endif
 
 ifeq ($(BR2_PACKAGE_WESTON_DRM),y)
 WESTON_CONF_OPTS += -Dbackend-drm=true
@@ -145,7 +147,7 @@ WESTON_POST_INSTALL_TARGET_HOOKS += WESTON_INSTALL_ADDITIONAL_STAGING_CMDS
 define WESTON_INSTALL_ADDITIONAL_STAGING_CMDS
     mkdir -p $(STAGING_DIR)/usr/include/weston/shared
     cp -ar $(@D)/shared/*.h $(STAGING_DIR)/usr/include/weston/shared
-    cp -ar $(@D)/libweston/backend.h $(STAGING_DIR)/usr/include/libweston-8/libweston
+    cp -ar $(@D)/libweston/backend.h $(STAGING_DIR)/usr/include/libweston-13/libweston
 endef
 
 $(eval $(meson-package))

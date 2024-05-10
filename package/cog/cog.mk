@@ -5,7 +5,7 @@
 ################################################################################
 
 ifeq ($(BR2_PACKAGE_WPEWEBKIT_NEXT),y)
-COG_VERSION = 0.18.0
+COG_VERSION = 0.18.3
 endif
 
 ifeq ($(BR2_PACKAGE_WPEWEBKIT2_42),y)
