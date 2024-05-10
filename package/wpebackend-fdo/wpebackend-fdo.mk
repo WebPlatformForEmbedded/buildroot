@@ -5,7 +5,7 @@
 ################################################################################
 
 ifeq ($(BR2_PACKAGE_WPEWEBKIT2_38)$(BR2_PACKAGE_WPEWEBKIT_NEXT),y)
-WPEBACKEND_FDO_VERSION = 1.14.0
+WPEBACKEND_FDO_VERSION = 1.14.2
 else
 WPEBACKEND_FDO_VERSION = 1.4.1
 endif
