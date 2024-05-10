@@ -13,6 +13,7 @@ config BR2_PACKAGE_WPEBACKEND_FDO
 	select BR2_PACKAGE_LIBGLIB2
 	select BR2_PACKAGE_LIBWPE
 	select BR2_PACKAGE_WAYLAND
+	select BR2_PACKAGE_LIBEPOXY
 	help
 	  WPEBackend interface using freedesktop.org API.
 
