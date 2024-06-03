@@ -4,7 +4,7 @@
 #
 ################################################################################
 
-NETFLIX52_VERSION = 624591a01354567363b049f7634b5da6b478b257 
+NETFLIX52_VERSION = 624591a01354567363b049f7634b5da6b478b257
 NETFLIX52_SITE = git@github.com:Metrological/netflix.git
 NETFLIX52_SITE_METHOD = git
 NETFLIX52_LICENSE = PROPRIETARY
@@ -159,8 +159,8 @@ NETFLIX52_CONF_OPTS += -DNRDP_HAS_AUDIOMIXER=OFF
 endif
 
 ifeq ($(BR2_PACKAGE_WPEFRAMEWORK_COMPOSITORCLIENT),y)
-NETFLIX52_CONF_OPTS += -DGIBBON_GRAPHICS=wpeframework
-NETFLIX52_CONF_OPTS += -DGIBBON_INPUT=wpeframework
+NETFLIX52_CONF_OPTS += -DGIBBON_GRAPHICS=thunder
+NETFLIX52_CONF_OPTS += -DGIBBON_INPUT=thunder
 NETFLIX52_CONF_OPTS += -DGIBBON_PLATFORM=posix 
 NETFLIX52_DEPENDENCIES += wpeframework-clientlibraries
 endif
@@ -197,13 +197,13 @@ endef
 NETFLIX52_POST_EXTRACT_HOOKS += NETFLIX52_FIX_CONFIG_XMLS
 
 NETFLIX52_BUILD_DIR=$(@D)/netflix/buildroot-build
-NETFLIX52_DATA_DIR=/usr/share/WPEFramework/Netflix
+NETFLIX52_DATA_DIR=/usr/share/Thunder/Netflix
 
 ifeq ($(BR2_PACKAGE_NETFLIX52_LIB),y)
 
 ifeq ($(BR2_PACKAGE_WPEFRAMEWORK_COMPOSITORCLIENT),y)
-define NETFLIX52_INSTALL_WPEFRAMEWORK_XML
-	cp $(@D)/partner/gibbon/graphics/wpeframework/graphics.xml $(1)
+define NETFLIX52_INSTALL_THUNDER_XML
+	cp $(@D)/partner/gibbon/graphics/thunder/graphics.xml $(1)
 endef
 endif
 
@@ -216,7 +216,7 @@ define NETFLIX52_INSTALL_NETFLIX_DATA_CONFIGS
 	cp -a $(NETFLIX52_BUILD_DIR)/src/platform/gibbon/data/resources/html $(1)$(NETFLIX52_DATA_DIR)/resources
 
 	$(INSTALL) -d $(1)$(NETFLIX52_DATA_DIR)/etc/conf
-	$(call NETFLIX52_INSTALL_WPEFRAMEWORK_XML, $(1)$(NETFLIX52_DATA_DIR)/etc/conf)
+	$(call NETFLIX52_INSTALL_THUNDER_XML, $(1)$(NETFLIX52_DATA_DIR)/etc/conf)
 endef
 
 define NETFLIX52_INSTALL_TO_TARGET
@@ -226,8 +226,8 @@ define NETFLIX52_INSTALL_TO_TARGET
 
 	$(call NETFLIX52_INSTALL_NETFLIX_DATA_CONFIGS, $(1))
 
-	mkdir -p $(1)/${BR2_PACKAGE_WPEFRAMEWORK_PERSISTENT_PATH}/WPEFramework/Netflix/artifacts
-	cp -r $(@D)/artifacts/MeteringCertificate.bin $(1)/${BR2_PACKAGE_WPEFRAMEWORK_PERSISTENT_PATH}/WPEFramework/Netflix/artifacts
+	mkdir -p $(1)/${BR2_PACKAGE_WPEFRAMEWORK_PERSISTENT_PATH}/Thunder/Netflix/artifacts
+	cp -r $(@D)/artifacts/MeteringCertificate.bin $(1)/${BR2_PACKAGE_WPEFRAMEWORK_PERSISTENT_PATH}/Thunder/Netflix/artifacts
 
 endef
 
@@ -287,8 +287,8 @@ define NETFLIX52_INSTALL_TARGET_CMDS
 endef
 
 define NETFLIX52_PREPARE_DPI
-	mkdir -p $(TARGET_DIR)/${BR2_PACKAGE_WPEFRAMEWORK_PERSISTENT_PATH}/WPEFramework/Netflix/dpi
-	ln -sfn /etc/playready $(TARGET_DIR)/${BR2_PACKAGE_WPEFRAMEWORK_PERSISTENT_PATH}/WPEFramework/Netflix/dpi/playready
+	mkdir -p $(TARGET_DIR)/${BR2_PACKAGE_WPEFRAMEWORK_PERSISTENT_PATH}/Thunder/Netflix/dpi
+	ln -sfn /etc/playready $(TARGET_DIR)/${BR2_PACKAGE_WPEFRAMEWORK_PERSISTENT_PATH}/Thunder/Netflix/dpi/playready
 endef
 
 NETFLIX52_POST_INSTALL_TARGET_HOOKS += NETFLIX52_PREPARE_DPI
@@ -303,8 +303,8 @@ define CREATE_BINARY_ML_DELIVERY
 	mkdir -p ${ML_DELIVERY_DIR}/usr/include/
 	$(call NETFLIX52_INSTALL_TO_STAGING, ${ML_DELIVERY_DIR})
 	$(call NETFLIX52_INSTALL_TO_TARGET, ${ML_DELIVERY_DIR})
-	mkdir -p ${ML_DELIVERY_DIR}/${BR2_PACKAGE_WPEFRAMEWORK_PERSISTENT_PATH}/WPEFramework/Netflix/dpi
-	ln -sfn /etc/playready ${ML_DELIVERY_DIR}/${BR2_PACKAGE_WPEFRAMEWORK_PERSISTENT_PATH}/WPEFramework/Netflix/dpi/playready
+	mkdir -p ${ML_DELIVERY_DIR}/${BR2_PACKAGE_WPEFRAMEWORK_PERSISTENT_PATH}/Thunder/Netflix/dpi
+	ln -sfn /etc/playready ${ML_DELIVERY_DIR}/${BR2_PACKAGE_WPEFRAMEWORK_PERSISTENT_PATH}/Thunder/Netflix/dpi/playready
 	tar -cJf ${BINARIES_DIR}/${ML_DELIVERY_PACKAGE}-${ML_DELIVERY_SIGNATURE}.tar.xz -C ${STAGING_DIR} ${ML_DELIVERY_PACKAGE}
 endef
 

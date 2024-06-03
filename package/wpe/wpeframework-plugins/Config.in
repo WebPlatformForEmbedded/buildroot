@@ -631,7 +631,7 @@ if BR2_PACKAGE_WPEFRAMEWORK_DEVICEINFO
 
 config BR2_PACKAGE_WPEFRAMEWORK_DEVICEINFO_MODELNAME
     string "modelname"
-    default "WPEFramework"
+    default "Thunder"
 
 config BR2_PACKAGE_WPEFRAMEWORK_DEVICEINFO_MODELYEAR
     string "modelyear"

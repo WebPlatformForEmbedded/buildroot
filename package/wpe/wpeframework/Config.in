@@ -1,5 +1,5 @@
 config BR2_PACKAGE_WPEFRAMEWORK
-    bool "wpeframework"
+    bool "thunder"
     help
       WPE Framework
 
@@ -90,19 +90,19 @@ config BR2_PACKAGE_WPEFRAMEWORK_VOLATILE_PATH
 
 config BR2_PACKAGE_WPEFRAMEWORK_DATA_PATH
     string "data path"
-    default "/usr/share/WPEFramework"
+    default "/usr/share/Thunder"
 
 config BR2_PACKAGE_WPEFRAMEWORK_INSTALL_PATH
     string "install path"
-    default "/usr/share/WPEFramework"
+    default "/usr/share/Thunder"
 
 config BR2_PACKAGE_WPEFRAMEWORK_SYSTEM_PATH
     string "system path"
-    default "/usr/lib/wpeframework/plugins"
+    default "/usr/lib/thunder/plugins"
 
 config BR2_PACKAGE_WPEFRAMEWORK_PROXYSTUB_PATH
     string "proxystub path"
-    default "/usr/lib/wpeframework/proxystubs"
+    default "/usr/lib/thunder/proxystubs"
 
 config BR2_PACKAGE_WPEFRAMEWORK_MESSAGING
     bool "Use new messaging"
