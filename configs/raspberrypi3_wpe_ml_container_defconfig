@@ -14,6 +14,7 @@ BR2_ROOTFS_POST_BUILD_SCRIPT="board/raspberrypi3/post-build.sh"
 BR2_ROOTFS_POST_IMAGE_SCRIPT="board/raspberrypi3/post-image.sh"
 BR2_ROOTFS_POST_SCRIPT_ARGS="--rpi-wifi --add-miniuart-bt-overlay --overclock-pi3 --tvmode-720 --gpu_mem_1024=384 --silent --1w --i2c --spi"
 BR2_LINUX_KERNEL=y
+BR2_LINUX_KERNEL_CONFIG_FRAGMENT_FILES="board/raspberrypi/default-cpu-governor.fragment"
 BR2_LINUX_KERNEL_CUSTOM_GIT=y
 BR2_LINUX_KERNEL_CUSTOM_REPO_URL="https://github.com/raspberrypi/linux"
 BR2_LINUX_KERNEL_CUSTOM_REPO_VERSION="rpi-5.10.y"
