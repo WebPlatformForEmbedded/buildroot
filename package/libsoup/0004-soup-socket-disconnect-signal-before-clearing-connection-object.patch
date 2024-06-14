@@ -1,0 +1,11 @@
+diff --git a/libsoup/soup-socket.c b/libsoup/soup-socket.c
+index 16f29c8..a4e0fd9 100644
+--- a/libsoup/soup-socket.c
++++ b/libsoup/soup-socket.c
+@@ -188,6 +188,7 @@ disconnect_internal (SoupSocket *sock, gboolean close)
+	g_clear_object (&priv->gsock);
+	if (priv->conn && close) {
+		g_io_stream_close (priv->conn, NULL, NULL);
++		g_signal_handlers_disconnect_by_data (priv->conn, sock);
+		g_clear_object (&priv->conn);
+	}
