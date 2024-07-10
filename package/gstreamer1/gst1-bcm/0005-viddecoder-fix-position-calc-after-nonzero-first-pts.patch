@@ -1,0 +1,139 @@
+diff --git a/videodecode/src/gst_brcm_video_decoder.c b/videodecode/src/gst_brcm_video_decoder.c
+index 2024fec..970e903 100755
+--- a/videodecode/src/gst_brcm_video_decoder.c
++++ b/videodecode/src/gst_brcm_video_decoder.c
+@@ -316,6 +316,40 @@ void video_decoder_nexus_pause(GstBrcmVideoDecoder *decoder, int rate)
+     }
+ }
+ 
++static gboolean query_position(GstPad *pad, GstObject *parent, GstQuery *query) {
++    GstBrcmVideoDecoder *decoder = GST_BRCM_VIDEO_DECODER(parent);
++    GstFormat format;
++
++    gst_query_parse_position(query, &format, NULL);
++    if(format == GST_FORMAT_BYTES)
++    {
++        return gst_pad_query_default(pad, parent, query);
++    }
++    else
++    {
++        gint64 position, duration;
++        GstFormat fmt = GST_FORMAT_TIME;
++        gboolean ret;
++
++        if (decoder->position == -1) {   /* ignore transient position */
++            return FALSE;
++        }
++
++        GST_INFO("GST_QUERY_POSITION: start_position = %llums, position = %llums", decoder->start_position/1000, decoder->position/1000);
++        position = decoder->start_position + (decoder->position) * decoder->applied_rate;
++
++        if (decoder->applied_rate < 0) { /* reverse playback */
++            ret = gst_pad_query_duration(pad,fmt,&duration);
++            if (ret)
++                position = decoder->stop_position + decoder->position*decoder->applied_rate;
++        }
++        gst_query_set_position(query, GST_FORMAT_TIME, (position));
++        GST_INFO("GST_QUERY_POSITION: video_decoder: position %lluns (%llums)", position, (position)/GST_MSECOND);
++    }
++
++    return TRUE;
++}
++
+ static void gst_brcm_video_decoder_class_init (GstBrcmVideoDecoderClass *klass) {
+     GObjectClass *gobject_class;
+     GstElementClass *gstelement_class;
+@@ -1037,9 +1071,9 @@ static void first_pts_received_cb(void *ctx, int p) {
+         decoderStatus.pts = 0;
+     }
+     //note that Nexus decoder status pts is a uint32_t in units of 45kHz
+-    GST_WARNING("VideoDecoder received first PTS: %lld(90k)", (gint64)decoderStatus.pts<<1);
+-    //decoder->first_pts = decoderStatus.pts;
+-    //decoder->current_pts = decoderStatus.pts;
++    GST_WARNING("VideoDecoder received first PTS: %lld", (gint64)(decoderStatus.pts/45));
++    decoder->first_pts = decoderStatus.pts;
++    decoder->current_pts = decoderStatus.pts;
+ 
+     //Notify gstreamer pipeline that first pts has been found
+     gst_element_post_message(GST_ELEMENT_CAST(decoder),
+@@ -2772,7 +2806,6 @@ static gboolean gst_brcm_video_decoder_sink_event(GstPad *pad, GstObject *parent
+         gint64 segStart, segStop, segPos;
+         gdouble segRate;
+         GstFormat segFormat;
+-        gdouble applied_rate;
+ 
+         const GstSegment *dataSegment;
+         gst_event_parse_segment(event,&dataSegment);
+@@ -2781,13 +2814,12 @@ static gboolean gst_brcm_video_decoder_sink_event(GstPad *pad, GstObject *parent
+         segPos = dataSegment->position;
+         segRate = dataSegment->rate;
+         segFormat = dataSegment->format;
+-        applied_rate = dataSegment->applied_rate;
+         if (segRate < 0)
+             decoder->ignore_disco_during_trick = TRUE;
+         else
+             decoder->ignore_disco_during_trick = FALSE;
+ 
+-        decoder->applied_rate = applied_rate;
++        decoder->applied_rate = dataSegment->applied_rate;
+ 
+         decoder->stop_position = segStop;
+         decoder->start_position = segStart;
+@@ -3160,32 +3192,7 @@ static gboolean gst_brcm_video_decoder_src_query(GstPad *pad, GstObject *parent,
+ 
+     case GST_QUERY_POSITION:
+     {
+-        GstFormat format;
+-        gst_query_parse_position(query, &format, NULL);
+-        if(format == GST_FORMAT_BYTES)
+-            rv = gst_pad_query_default(pad, parent, query);
+-        else
+-        {
+-            gint64 position, duration;
+-            GstFormat fmt = GST_FORMAT_TIME;
+-            gboolean ret;
+-
+-            if (decoder->position == -1) {   /* ignore transient position */
+-                rv = FALSE;
+-                break;
+-            }
+-
+-            position = decoder->start_position + (decoder->position) * decoder->applied_rate;
+-
+-            if (decoder->applied_rate < 0) { /* reverse playback */
+-                ret = gst_pad_query_duration(pad,fmt,&duration);
+-                if (ret)
+-                    position = decoder->stop_position + decoder->position*decoder->applied_rate;
+-            }
+-            gst_query_set_position(query, GST_FORMAT_TIME, (position));
+-            GST_LOG("GST_QUERY_POSITION: video_decoder: position %lluns (%llums)", position, (position)/GST_MSECOND);
+-            rv = TRUE;
+-        }
++        rv = query_position(pad, parent, query);
+         break;
+     }
+ 
+@@ -3258,19 +3265,11 @@ static gboolean gst_brcm_video_decoder_sink_query(GstPad *pad, GstObject *parent
+     }
+     case GST_QUERY_POSITION:
+     {
+-        GST_LOG("Got Sink query GST_QUERY_POSITION");
+-        GstFormat format;
+-        gst_query_parse_position(query, &format, NULL);
+-
+-        if(format == GST_FORMAT_BYTES)
+-            rv = gst_pad_query_default(pad, parent, query);
+-        else if (decoder->position != -1)
+-        {
++        rv = query_position(pad, parent, query);
++        if (rv)
+             gst_query_set_position(query, GST_FORMAT_TIME, decoder->position);
+-            rv = TRUE;
+-            GST_LOG("video_decoder: position %lluns (%llums)", decoder->position, decoder->position/GST_MSECOND);
+-        }
+-            break;
++        GST_LOG("video_decoder: position %lluns (%llums)", decoder->position, decoder->position/GST_MSECOND);
++        break;
+     }
+     default:
+         rv = gst_pad_query_default(pad, parent, query);
