@@ -1,0 +1,603 @@
+From cc4050d0d8832712e12d5f1de0aee418c58ce96d Mon Sep 17 00:00:00 2001
+From: Philippe Normand <philn@igalia.com>
+Date: Fri, 19 Jul 2024 10:02:33 +0100
+Subject: [PATCH] parsebin: Backport from 1.24
+
+---
+ gst/playback/gstparsebin.c | 310 +++++++++++++++++++++++++++----------
+ 1 file changed, 230 insertions(+), 80 deletions(-)
+
+diff --git a/gst/playback/gstparsebin.c b/gst/playback/gstparsebin.c
+index 031fc24019..9fd9400003 100644
+--- a/gst/playback/gstparsebin.c
++++ b/gst/playback/gstparsebin.c
+@@ -37,9 +37,6 @@
+  * it doesn't connect decoder elements. The output pads
+  * produce packetised encoded data with timestamps where possible,
+  * or send missing-element messages where not.
+- *
+- * > parsebin is still experimental API and a technology preview.
+- * > Its behaviour and exposed API is subject to change.
+  */
+ 
+ /* Implementation notes:
+@@ -411,6 +408,8 @@ struct _GstParseChain
+   GList *old_groups;            /* Groups that should be freed later */
+ };
+ 
++static gboolean gst_parse_chain_accept_caps (GstParseChain * chain,
++    GstCaps * caps);
+ static void gst_parse_chain_free (GstParseChain * chain);
+ static GstParseChain *gst_parse_chain_new (GstParseBin * parsebin,
+     GstParseGroup * group, GstPad * pad, GstCaps * start_caps);
+@@ -534,8 +533,7 @@ _gst_boolean_accumulator (GSignalInvocationHint * ihint,
+   gboolean myboolean;
+ 
+   myboolean = g_value_get_boolean (handler_return);
+-  if (!(ihint->run_type & G_SIGNAL_RUN_CLEANUP))
+-    g_value_set_boolean (return_accu, myboolean);
++  g_value_set_boolean (return_accu, myboolean);
+ 
+   /* stop emission if FALSE */
+   return myboolean;
+@@ -551,8 +549,7 @@ _gst_boolean_or_accumulator (GSignalInvocationHint * ihint,
+   myboolean = g_value_get_boolean (handler_return);
+   retboolean = g_value_get_boolean (return_accu);
+ 
+-  if (!(ihint->run_type & G_SIGNAL_RUN_CLEANUP))
+-    g_value_set_boolean (return_accu, myboolean || retboolean);
++  g_value_set_boolean (return_accu, myboolean || retboolean);
+ 
+   return TRUE;
+ }
+@@ -565,8 +562,7 @@ _gst_array_accumulator (GSignalInvocationHint * ihint,
+   gpointer array;
+ 
+   array = g_value_get_boxed (handler_return);
+-  if (!(ihint->run_type & G_SIGNAL_RUN_CLEANUP))
+-    g_value_set_boxed (return_accu, array);
++  g_value_set_boxed (return_accu, array);
+ 
+   return FALSE;
+ }
+@@ -578,8 +574,7 @@ _gst_select_accumulator (GSignalInvocationHint * ihint,
+   GstAutoplugSelectResult res;
+ 
+   res = g_value_get_enum (handler_return);
+-  if (!(ihint->run_type & G_SIGNAL_RUN_CLEANUP))
+-    g_value_set_enum (return_accu, res);
++  g_value_set_enum (return_accu, res);
+ 
+   /* Call the next handler in the chain (if any) when the current callback
+    * returns TRY. This makes it possible to register separate autoplug-select
+@@ -598,8 +593,7 @@ _gst_array_hasvalue_accumulator (GSignalInvocationHint * ihint,
+   gpointer array;
+ 
+   array = g_value_get_boxed (handler_return);
+-  if (!(ihint->run_type & G_SIGNAL_RUN_CLEANUP))
+-    g_value_set_boxed (return_accu, array);
++  g_value_set_boxed (return_accu, array);
+ 
+   if (array != NULL)
+     return FALSE;
+@@ -881,6 +875,24 @@ gst_parse_bin_update_factories_list (GstParseBin * parsebin)
+   }
+ }
+ 
++static gboolean
++sink_query_function (GstPad * sinkpad, GstParseBin * parsebin, GstQuery * query)
++{
++  GST_DEBUG_OBJECT (parsebin, "query %" GST_PTR_FORMAT, query);
++
++  if (parsebin->parse_chain && GST_QUERY_TYPE (query) == GST_QUERY_ACCEPT_CAPS) {
++    GstCaps *querycaps = NULL;
++    gst_query_parse_accept_caps (query, &querycaps);
++    if (querycaps) {
++      gboolean ret =
++          gst_parse_chain_accept_caps (parsebin->parse_chain, querycaps);
++      gst_query_set_accept_caps_result (query, ret);
++    }
++    return TRUE;
++  }
++  return gst_pad_query_default (sinkpad, GST_OBJECT (parsebin), query);
++}
++
+ static void
+ gst_parse_bin_init (GstParseBin * parse_bin)
+ {
+@@ -911,6 +923,8 @@ gst_parse_bin_init (GstParseBin * parse_bin)
+ 
+     /* ghost the sink pad to ourself */
+     gpad = gst_ghost_pad_new_from_template ("sink", pad, pad_tmpl);
++    gst_pad_set_query_function (gpad,
++        (GstPadQueryFunction) sink_query_function);
+     gst_pad_set_active (gpad, TRUE);
+     gst_element_add_pad (GST_ELEMENT (parse_bin), gpad);
+ 
+@@ -1223,6 +1237,7 @@ copy_sticky_events (GstPad * pad, GstEvent ** eventptr, gpointer user_data)
+       GstStreamCollection *collection = NULL;
+       gst_event_parse_stream_collection (event, &collection);
+       gst_parse_pad_update_stream_collection (ppad, collection);
++      gst_object_unref (collection);
+       break;
+     }
+     default:
+@@ -1278,7 +1293,7 @@ analyze_new_pad (GstParseBin * parsebin, GstElement * src, GstPad * pad,
+ {
+   gboolean apcontinue = TRUE;
+   GValueArray *factories = NULL, *result = NULL;
+-  GstParsePad *parsepad;
++  GstParsePad *parsepad = NULL;
+   GstElementFactory *factory;
+   const gchar *classification;
+   gboolean is_parser_converter = FALSE;
+@@ -1397,11 +1412,33 @@ analyze_new_pad (GstParseBin * parsebin, GstElement * src, GstPad * pad,
+   if (factories == NULL)
+     goto expose_pad;
+ 
+-  /* if the array is empty, we have a type for which we have no parser */
++  /* if the array is empty, we have a type for which we have no handler */
+   if (factories->n_values == 0) {
+-    /* if not we have a unhandled type with no compatible factories */
+     g_value_array_free (factories);
+-    gst_object_unref (parsepad);
++
++    if (parsebin->expose_allstreams) {
++      /* If we expose all streams, we only need to inform the application about
++       * a missing handler but still expose it. We also make sure the stream
++       * type is unknown. */
++      if (parsepad->in_a_fallback_collection) {
++        GstStream *newstream;
++        GST_LOG_OBJECT (parsepad, "Existing GstStream %" GST_PTR_FORMAT,
++            parsepad->active_stream);
++        g_assert (parsepad->active_stream);
++        newstream =
++            gst_stream_new (gst_stream_get_stream_id (parsepad->active_stream),
++            caps, GST_STREAM_TYPE_UNKNOWN,
++            gst_stream_get_stream_flags (parsepad->active_stream));
++        gst_object_replace ((GstObject **) & parsepad->active_stream,
++            (GstObject *) newstream);
++        GST_LOG_OBJECT (parsepad, "New GstStream %" GST_PTR_FORMAT,
++            parsepad->active_stream);
++      }
++      gst_element_post_message (GST_ELEMENT_CAST (parsebin),
++          gst_missing_decoder_message_new (GST_ELEMENT_CAST (parsebin), caps));
++      goto expose_pad;
++    }
++    /* Else we will bail out */
+     goto unknown_type;
+   }
+ 
+@@ -1496,12 +1533,24 @@ analyze_new_pad (GstParseBin * parsebin, GstElement * src, GstPad * pad,
+   if (is_parser_converter)
+     gst_object_unref (pad);
+ 
+-  gst_object_unref (parsepad);
+   g_value_array_free (factories);
+ 
+-  if (!res)
++  if (!res) {
++    if (deadend_details == NULL) {
++      /* connect_pad() only failed because no element was compatible
++       * (i.e. deadend_details is NULL). If this stream is an elementary stream,
++       * we can expose it since this is non-fatal */
++      GstPbUtilsCapsDescriptionFlags caps_flags =
++          gst_pb_utils_get_caps_description_flags (caps);
++      if (caps_flags
++          && !(caps_flags & GST_PBUTILS_CAPS_DESCRIPTION_FLAG_CONTAINER)) {
++        goto expose_pad;
++      }
++    }
+     goto unknown_type;
++  }
+ 
++  gst_object_unref (parsepad);
+   gst_caps_unref (caps);
+ 
+   return;
+@@ -1518,6 +1567,8 @@ expose_pad:
+ unknown_type:
+   {
+     GST_LOG_OBJECT (pad, "Unknown type, posting message and firing signal");
++    if (parsepad)
++      gst_object_unref (parsepad);
+ 
+     chain->deadend_details = deadend_details;
+     chain->deadend = TRUE;
+@@ -1569,7 +1620,7 @@ setup_caps_delay:
+     CHAIN_MUTEX_LOCK (chain);
+     GST_LOG_OBJECT (parsebin, "Chain %p has now %d dynamic pads", chain,
+         g_list_length (chain->pending_pads));
+-    ppad = g_slice_new0 (GstPendingPad);
++    ppad = g_new0 (GstPendingPad, 1);
+     ppad->pad = gst_object_ref (pad);
+     ppad->chain = chain;
+     ppad->event_probe_id =
+@@ -1735,10 +1786,41 @@ connect_pad (GstParseBin * parsebin, GstElement * src, GstParsePad * parsepad,
+ {
+   gboolean res = FALSE;
+   GString *error_details = NULL;
++  GstFormat segment_format = GST_FORMAT_TIME;
++  GstPbUtilsCapsDescriptionFlags caps_flags =
++      gst_pb_utils_get_caps_description_flags (caps);
+ 
+   g_return_val_if_fail (factories != NULL, FALSE);
+   g_return_val_if_fail (factories->n_values > 0, FALSE);
+ 
++  /* For subtitles, which can come from standalone files, we need to ensure we
++   * output a timed/parsed stream. But not all formats have a parser, so we also
++   * want to try plugging in subtitle "decoders" like `subparse`.
++   *
++   * In order to ensure that, if the caps are subtitles, we query the stream
++   * format to check if it's in time or not. If it's not in time format, we will
++   * attempt to plugin in a "decoder" (if present). */
++  if (caps_flags == GST_PBUTILS_CAPS_DESCRIPTION_FLAG_SUBTITLE) {
++    GstEvent *segment_event =
++        gst_pad_get_sticky_event (pad, GST_EVENT_SEGMENT, 0);
++    const GstSegment *segment = NULL;
++
++    segment_format = GST_FORMAT_UNDEFINED;
++    if (segment_event) {
++      gst_event_parse_segment (segment_event, &segment);
++      if (segment)
++        segment_format = segment->format;
++    }
++    if (segment == GST_FORMAT_UNDEFINED) {
++      GstQuery *segment_query = gst_query_new_segment (GST_FORMAT_TIME);
++      if (gst_pad_query (pad, segment_query)) {
++        gst_query_parse_segment (segment_query, NULL, &segment_format, NULL,
++            NULL);
++      }
++      gst_query_unref (segment_query);
++    }
++  }
++
+   GST_DEBUG_OBJECT (parsebin,
+       "pad %s:%s , chain:%p, %d factories, caps %" GST_PTR_FORMAT,
+       GST_DEBUG_PAD_NAME (pad), chain, factories->n_values, caps);
+@@ -1858,9 +1940,11 @@ connect_pad (GstParseBin * parsebin, GstElement * src, GstParsePad * parsepad,
+ 
+     }
+ 
+-    /* Expose pads if the next factory is a decoder */
++    /* Expose pads if the next factory is a decoder. segment_format might be not
++     * time for subtitle streams */
+     if (gst_element_factory_list_is_type (factory,
+-            GST_ELEMENT_FACTORY_TYPE_DECODER)) {
++            GST_ELEMENT_FACTORY_TYPE_DECODER)
++        && segment_format == GST_FORMAT_TIME) {
+       ret = GST_AUTOPLUG_SELECT_EXPOSE;
+     } else {
+       /* emit autoplug-select to see what we should do with it. */
+@@ -2005,7 +2089,7 @@ connect_pad (GstParseBin * parsebin, GstElement * src, GstParsePad * parsepad,
+     GST_LOG_OBJECT (parsebin, "linked on pad %s:%s", GST_DEBUG_PAD_NAME (pad));
+ 
+     CHAIN_MUTEX_LOCK (chain);
+-    pelem = g_slice_new0 (GstParseElement);
++    pelem = g_new0 (GstParseElement, 1);
+     pelem->element = gst_object_ref (element);
+     pelem->capsfilter = NULL;
+     chain->elements = g_list_prepend (chain->elements, pelem);
+@@ -2174,7 +2258,7 @@ connect_pad (GstParseBin * parsebin, GstElement * src, GstParsePad * parsepad,
+         gst_element_set_state (tmp, GST_STATE_NULL);
+ 
+         gst_object_unref (tmp);
+-        g_slice_free (GstParseElement, dtmp);
++        g_free (dtmp);
+ 
+         chain->elements = g_list_delete_link (chain->elements, chain->elements);
+       } while (tmp != element);
+@@ -2754,7 +2838,7 @@ gst_parse_chain_free_internal (GstParseChain * chain, gboolean hide)
+       gst_object_unref (element);
+       l->data = NULL;
+ 
+-      g_slice_free (GstParseElement, pelem);
++      g_free (pelem);
+     }
+   }
+   if (!hide) {
+@@ -2813,7 +2897,7 @@ gst_parse_chain_free_internal (GstParseChain * chain, gboolean hide)
+ 
+   if (!hide) {
+     g_mutex_clear (&chain->lock);
+-    g_slice_free (GstParseChain, chain);
++    g_free (chain);
+   }
+ }
+ 
+@@ -2842,7 +2926,7 @@ static GstParseChain *
+ gst_parse_chain_new (GstParseBin * parsebin, GstParseGroup * parent,
+     GstPad * pad, GstCaps * start_caps)
+ {
+-  GstParseChain *chain = g_slice_new0 (GstParseChain);
++  GstParseChain *chain = g_new0 (GstParseChain, 1);
+ 
+   GST_DEBUG_OBJECT (parsebin, "Creating new chain %p with parent group %p",
+       chain, parent);
+@@ -2883,7 +2967,7 @@ gst_parse_group_free_internal (GstParseGroup * group, gboolean hide)
+   GST_DEBUG_OBJECT (group->parsebin, "%s group %p", (hide ? "Hid" : "Freed"),
+       group);
+   if (!hide)
+-    g_slice_free (GstParseGroup, group);
++    g_free (group);
+ }
+ 
+ /* gst_parse_group_free:
+@@ -2992,7 +3076,7 @@ gst_parse_chain_start_free_hidden_groups_thread (GstParseChain * chain)
+ static GstParseGroup *
+ gst_parse_group_new (GstParseBin * parsebin, GstParseChain * parent)
+ {
+-  GstParseGroup *group = g_slice_new0 (GstParseGroup);
++  GstParseGroup *group = g_new0 (GstParseGroup, 1);
+ 
+   GST_DEBUG_OBJECT (parsebin, "Creating new group %p with parent chain %p",
+       group, parent);
+@@ -3109,6 +3193,33 @@ chain_remove_old_groups (GstParseChain * chain)
+   }
+ }
+ 
++static gboolean
++gst_parse_chain_accept_caps (GstParseChain * chain, GstCaps * caps)
++{
++  GstParseElement *initial_element;
++  GList *lastlist;
++  GstPad *sink;
++  gboolean ret;
++
++  if (!chain->elements)
++    return TRUE;
++
++  lastlist = g_list_last (chain->elements);
++  initial_element = lastlist->data;
++
++  GST_DEBUG_OBJECT (chain->parsebin, "element %s caps %" GST_PTR_FORMAT,
++      GST_ELEMENT_NAME (initial_element->element), caps);
++
++  sink = gst_element_get_static_pad (initial_element->element, "sink");
++  ret = gst_pad_query_accept_caps (sink, caps);
++  gst_object_unref (sink);
++
++  GST_DEBUG_OBJECT (chain->parsebin, "Chain can%s handle caps",
++      ret ? "" : " NOT");
++
++  return ret;
++}
++
+ static gboolean
+ drain_and_switch_chains (GstParseChain * chain, GstParsePad * drainpad,
+     gboolean * last_group, gboolean * drained, gboolean * switched);
+@@ -3362,46 +3473,63 @@ static gint
+ sort_end_pads (GstParsePad * da, GstParsePad * db)
+ {
+   gint va, vb;
+-  GstCaps *capsa, *capsb;
+-  GstStructure *sa, *sb;
+   const gchar *namea, *nameb;
+   gchar *ida, *idb;
+   gint ret;
++  GstCaps *capsa, *capsb;
+ 
+   capsa = get_pad_caps (GST_PAD_CAST (da));
+   capsb = get_pad_caps (GST_PAD_CAST (db));
+ 
+-  sa = gst_caps_get_structure ((const GstCaps *) capsa, 0);
+-  sb = gst_caps_get_structure ((const GstCaps *) capsb, 0);
+-
+-  namea = gst_structure_get_name (sa);
+-  nameb = gst_structure_get_name (sb);
+-
+-  if (g_strrstr (namea, "video/x-raw"))
+-    va = 0;
+-  else if (g_strrstr (namea, "video/"))
+-    va = 1;
+-  else if (g_strrstr (namea, "image/"))
+-    va = 2;
+-  else if (g_strrstr (namea, "audio/x-raw"))
+-    va = 3;
+-  else if (g_strrstr (namea, "audio/"))
+-    va = 4;
+-  else
+-    va = 5;
+-
+-  if (g_strrstr (nameb, "video/x-raw"))
+-    vb = 0;
+-  else if (g_strrstr (nameb, "video/"))
+-    vb = 1;
+-  else if (g_strrstr (nameb, "image/"))
+-    vb = 2;
+-  else if (g_strrstr (nameb, "audio/x-raw"))
+-    vb = 3;
+-  else if (g_strrstr (nameb, "audio/"))
+-    vb = 4;
+-  else
+-    vb = 5;
++  if (gst_caps_get_size (capsa) == 0 || gst_caps_get_size (capsb) == 0) {
++    if (gst_caps_is_any (capsa))
++      va = 6;
++    if (gst_caps_is_empty (capsa))
++      va = 7;
++    else
++      va = 0;
++
++    if (gst_caps_is_any (capsb))
++      vb = 6;
++    if (gst_caps_is_empty (capsb))
++      vb = 7;
++    else
++      vb = 0;
++  } else {
++    GstStructure *sa, *sb;
++
++    sa = gst_caps_get_structure ((const GstCaps *) capsa, 0);
++    sb = gst_caps_get_structure ((const GstCaps *) capsb, 0);
++
++    namea = gst_structure_get_name (sa);
++    nameb = gst_structure_get_name (sb);
++
++    if (g_strrstr (namea, "video/x-raw"))
++      va = 0;
++    else if (g_strrstr (namea, "video/"))
++      va = 1;
++    else if (g_strrstr (namea, "image/"))
++      va = 2;
++    else if (g_strrstr (namea, "audio/x-raw"))
++      va = 3;
++    else if (g_strrstr (namea, "audio/"))
++      va = 4;
++    else
++      va = 5;
++
++    if (g_strrstr (nameb, "video/x-raw"))
++      vb = 0;
++    else if (g_strrstr (nameb, "video/"))
++      vb = 1;
++    else if (g_strrstr (nameb, "image/"))
++      vb = 2;
++    else if (g_strrstr (nameb, "audio/x-raw"))
++      vb = 3;
++    else if (g_strrstr (nameb, "audio/"))
++      vb = 4;
++    else
++      vb = 5;
++  }
+ 
+   gst_caps_unref (capsa);
+   gst_caps_unref (capsb);
+@@ -3559,9 +3687,12 @@ retry:
+   /* Don't expose if we're currently shutting down */
+   DYN_LOCK (parsebin);
+   if (G_UNLIKELY (parsebin->shutdown)) {
++    g_list_free_full (endpads, (GDestroyNotify) gst_object_unref);
+     GST_WARNING_OBJECT (parsebin,
+         "Currently, shutting down, aborting exposing");
+     DYN_UNLOCK (parsebin);
++    if (fallback_collection)
++      gst_object_unref (fallback_collection);
+     return FALSE;
+   }
+ 
+@@ -3570,8 +3701,10 @@ retry:
+     GstParsePad *parsepad = (GstParsePad *) tmp->data;
+     gchar *padname;
+ 
+-    //if (!parsepad->blocked)
+-    //continue;
++    if (parsepad->exposed) {
++      GST_DEBUG_OBJECT (parsepad, "Pad is already exposed, not doing anything");
++      continue;
++    }
+ 
+     /* 1. rewrite name */
+     padname = g_strdup_printf ("src_%u", parsebin->nbpads);
+@@ -3585,20 +3718,12 @@ retry:
+         parsepad);
+ 
+     /* 2. activate and add */
+-    if (!parsepad->exposed) {
+-      parsepad->exposed = TRUE;
+-      if (!gst_element_add_pad (GST_ELEMENT (parsebin),
+-              GST_PAD_CAST (parsepad))) {
+-        /* not really fatal, we can try to add the other pads */
+-        g_warning ("error adding pad to ParseBin");
+-        parsepad->exposed = FALSE;
+-        continue;
+-      }
+-#if 0
+-      /* HACK: Send an empty gap event to push sticky events */
+-      gst_pad_push_event (GST_PAD (parsepad),
+-          gst_event_new_gap (0, GST_CLOCK_TIME_NONE));
+-#endif
++    parsepad->exposed = TRUE;
++    if (!gst_element_add_pad (GST_ELEMENT (parsebin), GST_PAD_CAST (parsepad))) {
++      /* not really fatal, we can try to add the other pads */
++      g_warning ("error adding pad to ParseBin");
++      parsepad->exposed = FALSE;
++      continue;
+     }
+ 
+     GST_INFO_OBJECT (parsepad, "added new parsed pad");
+@@ -3711,6 +3836,9 @@ gst_parse_chain_expose (GstParseChain * chain, GList ** endpads,
+   if (!group) {
+     GstParsePad *p = chain->current_pad;
+ 
++    if (!p)
++      return FALSE;
++
+     if (p->active_stream && p->active_collection == NULL
+         && !p->in_a_fallback_collection)
+       *uncollected_streams = TRUE;
+@@ -3897,6 +4025,7 @@ guess_stream_type_from_caps (GstCaps * caps)
+ {
+   GstStructure *s;
+   const gchar *name;
++  GstPbUtilsCapsDescriptionFlags desc;
+ 
+   if (gst_caps_get_size (caps) < 1)
+     return GST_STREAM_TYPE_UNKNOWN;
+@@ -3904,16 +4033,34 @@ guess_stream_type_from_caps (GstCaps * caps)
+   s = gst_caps_get_structure (caps, 0);
+   name = gst_structure_get_name (s);
+ 
++  if (gst_structure_has_field (s, "original-media-type")) {
++    /* Caps describe an encrypted payload, use original-media-type to determine stream type. */
++    name = gst_structure_get_string (s, "original-media-type");
++  }
++
+   if (g_str_has_prefix (name, "video/") || g_str_has_prefix (name, "image/"))
+     return GST_STREAM_TYPE_VIDEO;
+   if (g_str_has_prefix (name, "audio/"))
+     return GST_STREAM_TYPE_AUDIO;
+   if (g_str_has_prefix (name, "text/") ||
+       g_str_has_prefix (name, "subpicture/") ||
++      g_str_has_prefix (name, "subtitle/") ||
+       g_str_has_prefix (name, "closedcaption/"))
+     return GST_STREAM_TYPE_TEXT;
+ 
+-  return GST_STREAM_TYPE_UNKNOWN;
++  /* Use information from pbutils. Note that we only care about elementary
++   * streams which is why we check flag equality */
++  desc = gst_pb_utils_get_caps_description_flags (caps);
++  switch (desc) {
++    case GST_PBUTILS_CAPS_DESCRIPTION_FLAG_AUDIO:
++      return GST_STREAM_TYPE_AUDIO;
++    case GST_PBUTILS_CAPS_DESCRIPTION_FLAG_VIDEO:
++      return GST_STREAM_TYPE_VIDEO;
++    case GST_PBUTILS_CAPS_DESCRIPTION_FLAG_SUBTITLE:
++      return GST_STREAM_TYPE_TEXT;
++    default:
++      return GST_STREAM_TYPE_UNKNOWN;
++  }
+ }
+ 
+ static void
+@@ -3987,8 +4134,10 @@ gst_parse_pad_stream_start_event (GstParsePad * parsepad, GstEvent * event)
+         GST_PTR_FORMAT, caps);
+ 
+     if (repeat_event) {
++      GST_LOG_OBJECT (parsepad, "Using previously created GstStream");
+       stream = gst_object_ref (parsepad->active_stream);
+     } else {
++      GST_LOG_OBJECT (parsepad, "Creating unknown GstStream");
+       stream =
+           gst_stream_new (stream_id, NULL, GST_STREAM_TYPE_UNKNOWN,
+           streamflags);
+@@ -4055,6 +4204,7 @@ gst_parse_pad_event (GstPad * pad, GstPadProbeInfo * info, gpointer user_data)
+       gst_element_post_message (GST_ELEMENT (parsepad->parsebin),
+           gst_message_new_stream_collection (GST_OBJECT (parsepad->parsebin),
+               collection));
++      gst_object_unref (collection);
+       break;
+     }
+     case GST_EVENT_EOS:{
+@@ -4231,7 +4381,7 @@ gst_pending_pad_free (GstPendingPad * ppad)
+   if (ppad->notify_caps_id)
+     g_signal_handler_disconnect (ppad->pad, ppad->notify_caps_id);
+   gst_object_unref (ppad->pad);
+-  g_slice_free (GstPendingPad, ppad);
++  g_free (ppad);
+ }
+ 
+ /*****
+-- 
+2.45.2
+
