@@ -349,6 +349,14 @@ config BR2_PACKAGE_WPEWEBKIT_WEBDRIVER
 
 endif
 
+config BR2_PACKAGE_WPEWEBKIT_JSC_SHELL
+	bool "JSC shell support"
+	default y
+	help
+	 Enable If enabled it will build the JSC shell executable that you will not
+	 need unless you are a heavy JSC developer. Building just takes several
+	 seconds that you can save if you do not need it.
+
 choice
 	bool "Punch hole"
 	default BR2_PACKAGE_WPEWEBKIT_USE_PUNCH_HOLE_GSTREAMER if BR2_PACKAGE_GSTREAMER1 && !BR2_PACKAGE_GST1_PLUGINS_BASE_LIB_OPENGL
