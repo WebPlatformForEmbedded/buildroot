@@ -106,12 +106,12 @@ comment "version 2.42 depends on gcc10"
 
 config BR2_PACKAGE_WPEWEBKIT2_46
 	bool "2.46"
-	depends on BR2_TOOLCHAIN_GCC_AT_LEAST_12
+	depends on BR2_TOOLCHAIN_GCC_AT_LEAST_11
 	help
 	  Build WPE WebKit 2.46.x
 
-comment "version 2.46 depends on gcc12"
-	depends on !BR2_TOOLCHAIN_GCC_AT_LEAST_12
+comment "version 2.46 depends on gcc11"
+	depends on !BR2_TOOLCHAIN_GCC_AT_LEAST_11
 
 config BR2_PACKAGE_WPEWEBKIT_NEXT
 	bool "next"
