@@ -56,6 +56,7 @@ config BR2_PACKAGE_WPEWEBKIT
 	select BR2_PACKAGE_WEBP_MUX
 	select BR2_PACKAGE_WPEBACKEND
 	select BR2_PACKAGE_WPEBACKEND_RDK
+        select BR2_PACKAGE_LIBBACKTRACE
 	help
 	  WPE (Web Platform for Embedded) port of the WebKit engine,
 	  to allow embedders to create simple and performant systems
