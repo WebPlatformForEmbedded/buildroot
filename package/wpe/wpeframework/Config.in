@@ -223,7 +223,6 @@ endmenu
 menu "Extensions"
 
 menuconfig BR2_PACKAGE_WPEFRAMEWORK_BROADCAST
-    select BR2_PACKAGE_WPEFRAMEWORK_LIBRARIES
     bool "Broadcast"
         default n
     help
@@ -243,8 +242,7 @@ config BR2_PACKAGE_WPEFRAMEWORK_PRIVILEGED_REQUEST
     help
       Library to share file descriptors between processes.
 
-config BR2_PACKAGE_WPEFRAMEWORK_LIBRARY_COMPOSITOR_BUFFER
-    select BR2_PACKAGE_WPEFRAMEWORK_LIBRARIES
+config BR2_PACKAGE_WPEFRAMEWORK_COMPOSITOR_BUFFER
     select BR2_PACKAGE_WPEFRAMEWORK_PRIVILEGED_REQUEST
     bool "Compositor Buffer"
     help
@@ -264,6 +262,19 @@ config BR2_PACKAGE_WPEFRAMEWORK_COMPOSITORCLIENT
       A graphical/input abstraction. This library is included in micro services that requires user
           interaction (Graphics/input). The implementation hides all the compositor specific details.
       allows for relaying keys to plugins
+
+config BR2_PACKAGE_WPEFRAMEWORK_BLUETOOTH
+    select BR2_PACKAGE_BLUEZ5_UTILS_HEADERS
+    bool
+
+config BR2_PACKAGE_WPEFRAMEWORK_BLUETOOTH_GATT
+    select BR2_PACKAGE_WPEFRAMEWORK_BLUETOOTH
+    bool
+
+config BR2_PACKAGE_WPEFRAMEWORK_BLUETOOTH_AUDIO
+    select BR2_PACKAGE_WPEFRAMEWORK_BLUETOOTH
+    select BR2_PACKAGE_SBC
+    bool
 
 menuconfig BR2_PACKAGE_WPEFRAMEWORK_CLIENTLIBRARY_BLUETOOTHAUDIOSINK
     select BR2_PACKAGE_WPEFRAMEWORK_CLIENTLIBRARIES
