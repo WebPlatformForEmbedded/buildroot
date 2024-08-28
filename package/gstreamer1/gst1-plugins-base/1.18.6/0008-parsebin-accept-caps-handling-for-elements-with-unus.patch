@@ -1,0 +1,56 @@
+From bd643741743fa0bd4c50b7f9b8bed521a671ae5c Mon Sep 17 00:00:00 2001
+From: Philippe Normand <philn@igalia.com>
+Date: Mon, 29 Jul 2024 10:03:58 +0100
+Subject: [PATCH] parsebin: accept-caps handling for elements with unusual pad
+ names
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+In case the last element of the parse chain doesn´t have a sink pad named
+"sink", send the accept-caps query to the first sink pad of the element.
+
+Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/7255>
+---
+ .../gst/playback/gstparsebin.c                | 25 ++++++++++++++++---
+ 1 file changed, 22 insertions(+), 3 deletions(-)
+
+diff --git a/subprojects/gst-plugins-base/gst/playback/gstparsebin.c b/subprojects/gst-plugins-base/gst/playback/gstparsebin.c
+index 1274472630..1422887d82 100644
+--- a/gst/playback/gstparsebin.c
++++ b/gst/playback/gstparsebin.c
+@@ -3190,9 +3190,28 @@ gst_parse_chain_accept_caps (GstParseChain * chain, GstCaps * caps)
+       GST_ELEMENT_NAME (initial_element->element), caps);
+ 
+   sink = gst_element_get_static_pad (initial_element->element, "sink");
+-  ret = gst_pad_query_accept_caps (sink, caps);
+-  gst_object_unref (sink);
+-
++  if (sink) {
++    ret = gst_pad_query_accept_caps (sink, caps);
++    gst_object_unref (sink);
++  } else {
++    GST_OBJECT_LOCK (initial_element->element);
++    if (G_UNLIKELY (!initial_element->element->numsinkpads)) {
++      GST_ERROR_OBJECT (chain->parsebin,
++          "element %" GST_PTR_FORMAT " has no sink pad",
++          initial_element->element);
++      GST_OBJECT_UNLOCK (initial_element->element);
++      return FALSE;
++    }
++    GstPad *pad =
++        GST_PAD_CAST (gst_object_ref (initial_element->element->sinkpads));
++    GST_OBJECT_UNLOCK (initial_element->element);
++    GST_DEBUG_OBJECT (chain->parsebin,
++        "element %" GST_PTR_FORMAT
++        " doesn't have a 'sink' pad, sending accept-caps query to "
++        "%" GST_PTR_FORMAT, initial_element->element, pad);
++    ret = gst_pad_query_accept_caps (pad, caps);
++    gst_object_unref (pad);
++  }
+   GST_DEBUG_OBJECT (chain->parsebin, "Chain can%s handle caps",
+       ret ? "" : " NOT");
+ 
+-- 
+2.45.2
+

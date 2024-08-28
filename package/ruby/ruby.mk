@@ -16,7 +16,8 @@ RUBY_CONF_OPTS = --disable-install-doc --disable-rpath --disable-rubygems
 HOST_RUBY_CONF_OPTS = \
 	--disable-install-doc \
 	--with-out-ext=curses,readline \
-	--without-gmp
+	--without-gmp \
+	--disable-dtrace
 RUBY_LICENSE = Ruby or BSD-2-Clause, BSD-3-Clause, others
 RUBY_LICENSE_FILES = LEGAL COPYING BSDL
 # 0001-fix-default-coroutine-selection.patch

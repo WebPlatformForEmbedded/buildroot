@@ -1,0 +1,41 @@
+From 5a1090408562e6cce098d328e57585aa7d3ada25 Mon Sep 17 00:00:00 2001
+From: Kevin Song <kesong@nvidia.com>
+Date: Fri, 9 Jun 2023 21:08:36 +0800
+Subject: [PATCH] appsink: unref gstbuffer in prev sample early
+
+Appsink will unref prev sample in dispose function. Which is later
+when V4L2 video decoder link with appsink as V4L2 video decoder
+will close V4L2 device fd during GST_STATE_CHANGE_READY_TO_NULL.
+If the video buffer return to V4L2 video decoder after the decoder
+closed V4L2 device fd, V4L2 can't release the video frame buffer
+which allocated with MMAP mode as application can't call
+VIDIOC_REQBUFS 0 to release the video frame buffer by V4L2 driver.
+The memory of the video frame will leak.
+Unref the gstbuffer in stop() function, so V4L2 video decoder
+can received all video frame buffers and release it before close
+V4L2 device fd.
+
+Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4818>
+---
+ gst-libs/gst/app/gstappsink.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/gst-libs/gst/app/gstappsink.c b/gst-libs/gst/app/gstappsink.c
+index fb6ce0d85..86da7f4c6 100644
+--- a/gst-libs/gst/app/gstappsink.c
++++ b/gst-libs/gst/app/gstappsink.c
+@@ -775,6 +775,11 @@ gst_app_sink_stop (GstBaseSink * psink)
+   gst_caps_replace (&priv->last_caps, NULL);
+   gst_segment_init (&priv->preroll_segment, GST_FORMAT_UNDEFINED);
+   gst_segment_init (&priv->last_segment, GST_FORMAT_UNDEFINED);
++  priv->sample = gst_sample_make_writable (priv->sample);
++  gst_sample_set_buffer (priv->sample, NULL);
++  gst_sample_set_buffer_list (priv->sample, NULL);
++  gst_sample_set_caps (priv->sample, NULL);
++  gst_sample_set_segment (priv->sample, NULL);
+   g_mutex_unlock (&priv->mutex);
+ 
+   return TRUE;
+-- 
+2.46.0
+
