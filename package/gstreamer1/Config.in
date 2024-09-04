@@ -1,5 +1,6 @@
 # Gstreamer 1.x & Plugins
 source "package/gstreamer1/gstreamer1/Config.in"
+source "package/gstreamer1/gstreamer1-full/Config.in"
 
 if BR2_PACKAGE_GSTREAMER1
 source "package/gstreamer1/gst1-bcm/Config.in"

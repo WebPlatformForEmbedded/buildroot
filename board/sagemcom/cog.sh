@@ -42,11 +42,15 @@ if [ ! -d /usr/lib/wpe-webkit-1.1 ]; then
 fi
 
 if [ $USE_BRCM_SINK -eq 1 ]; then
-
 	export GST_PLUGIN_SYSTEM_PATH=$GST_PLUGIN_SYSTEM_PATH:$SOURCE/brcmsink
+	export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$SOURCE/brcmsink
 	ln -s $SOURCE/brcmsink/libbrcmsvpmeta.so $SOURCE/usr/lib/libbrcmsvpmeta.so
 	ln -s $SOURCE/brcmsink/libbrcmgstutil.so $SOURCE/usr/lib/libbrcmgstutil.so
 fi
 
+if [ "$1" == "--export-gst" ]; then
+    return
+fi
+
 cd /usr/bin/
-$SOURCE/usr/bin/cog $1
+$SOURCE/usr/bin/cog $@

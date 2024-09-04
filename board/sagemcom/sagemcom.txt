@@ -63,7 +63,7 @@ libWPEFrameworkWebKitBrowser.so
 libWPEFrameworkWebKitBrowserImpl.so
 libWPEFrameworkMonitor.so
 libWPEFrameworkWebServer.so
-libWPEFrameworkInterfaces.so  
+libWPEFrameworkInterfaces.so
 libWPEFrameworkProxyStubs.so
 libWPEFrameworkMarshalling.so
 libWPEFrameworkCore.so
@@ -118,6 +118,7 @@ libgstmpegts-1.0.so
 libgstnet-1.0.so
 libgstplayer-1.0.so
 libgstreamer-1.0.so
+libgstreamer-full-1.0.so
 libgsttag-1.0.so
 libgstriff-1.0.so
 libgstrtsp-1.0.so

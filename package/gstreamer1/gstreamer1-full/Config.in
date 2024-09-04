@@ -1,0 +1,57 @@
+comment "gstreamer-full 1.x needs a toolchain w/ wchar, threads"
+	depends on BR2_USE_MMU
+	depends on !BR2_USE_WCHAR || !BR2_TOOLCHAIN_HAS_THREADS
+
+config BR2_PACKAGE_GSTREAMER1_FULL
+	bool "gstreamer-full 1.x"
+	depends on BR2_USE_WCHAR # glib2
+	depends on BR2_TOOLCHAIN_HAS_THREADS # glib2
+	depends on BR2_USE_MMU # glib2
+	select BR2_PACKAGE_LIBGLIB2
+	select BR2_PACKAGE_OPENSSL
+	select BR2_PACKAGE_LIBOPENSSL
+	select BR2_PACKAGE_LIBXML2
+	select BR2_PACKAGE_FAAD2
+	select BR2_PACKAGE_WEBP
+	select BR2_PACKAGE_WEBP_MUX
+	help
+	  GStreamer is an open source multimedia framework. This 1.x
+	  version of Gstreamer is incompatible with Gstreamer 0.10.x.
+
+	  gstreamer-full compiles everything into a single library.
+
+	  http://gstreamer.freedesktop.org/
+
+if BR2_PACKAGE_GSTREAMER1_FULL
+
+config BR2_PACKAGE_GST1_FULL_PLUGINS_BASE_LIB_OPENGL_GLES2
+	bool "gles2"
+	default y
+	depends on BR2_PACKAGE_HAS_LIBGLES
+
+comment "gles2 needs an OpenGL ES backend"
+	depends on !BR2_PACKAGE_HAS_LIBGLES
+
+config BR2_PACKAGE_GST1_FULL_PLUGINS_BAD_PLUGIN_WEBRTC
+	bool "webrtc"
+	select BR2_PACKAGE_LIBSRTP
+	help
+	  WebRTC plugins (webrtcbin - a bin for webrtc connections)
+
+config BR2_PACKAGE_GSTREAMER1_FULL_SYMBOLS
+	bool "build with symbols"
+	default n
+	help
+	  Compiles some GStreamer related packages with symbols. For now only gstreamer, gst-plugins-base, -good, -bad, -ugly and gst-omx are honoring this.
+
+if BR2_PACKAGE_GSTREAMER1_FULL_SYMBOLS
+
+config BR2_PACKAGE_GSTREAMER1_FULL_NO_OPTIMIZATIONS
+	bool "build with no optimizations"
+	default y
+	help
+	  Compiles some GStreamer related packages with no optimizations
+
+endif
+
+endif

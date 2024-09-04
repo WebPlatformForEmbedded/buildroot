@@ -185,6 +185,11 @@ WPEWEBKIT_CONF_OPTS += \
 	-DENABLE_WEB_AUDIO=ON
 WPEWEBKIT_DEPENDENCIES += gstreamer1 gst1-plugins-base gst1-plugins-good gst1-plugins-bad
 
+ifeq ($(BR2_PACKAGE_WPEWEBKIT_USE_GSTREAMER_FULL),y)
+WPEWEBKIT_CONF_OPTS += -DUSE_GSTREAMER_FULL=ON
+WPEWEBKIT_DEPENDENCIES += gstreamer1-full
+endif
+
 ifeq ($(BR2_PACKAGE_WPEFRAMEWORK_CLIENTLIBRARIES)$(BR2_PACKAGE_WPEFRAMEWORK_CDM),yy)
 WPEWEBKIT_DEPENDENCIES += wpeframework-clientlibraries
 WPEWEBKIT_CONF_OPTS += -DENABLE_THUNDER=ON
@@ -351,5 +356,10 @@ define WPEWEBKIT_INSTALL_TARGET_CMDS
 	$(TARGET_MAKE_ENV) $(WPEWEBKIT_MAKE_ENV) DESTDIR=$(TARGET_DIR) \
 		$(BR2_CMAKE) --install $(WPEWEBKIT_BUILDDIR)
 endef
+
+# Add gstreamer1-full to pkg-config path. It uses a custom path to avoid clashing with the system gstreamer install.
+ifeq ($(BR2_PACKAGE_WPEWEBKIT_USE_GSTREAMER_FULL),y)
+WPEWEBKIT_CONF_ENV = PKG_CONFIG_PATH="$(STAGING_DIR)/usr/lib/gstreamer-full-1.0/pkgconfig"
+endif
 
 $(eval $(cmake-package))

@@ -1,0 +1,31 @@
+From 8529be7a649488c875573be273ea8c83ed26cf08 Mon Sep 17 00:00:00 2001
+From: Carlos Bentzen <cadubentzen@igalia.com>
+Date: Thu, 24 Oct 2024 22:50:41 +0200
+Subject: [PATCH] Fix build due to undefined EGL_PLATFORM_SURFACELESS_MESA
+
+---
+ .../gst-plugins-base/gst-libs/gst/gl/egl/gstgldisplay_egl.c     | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/subprojects/gst-plugins-base/gst-libs/gst/gl/egl/gstgldisplay_egl.c b/subprojects/gst-plugins-base/gst-libs/gst/gl/egl/gstgldisplay_egl.c
+index 902416c19f..e243ffb3fe 100644
+--- a/subprojects/gst-plugins-base/gst-libs/gst/gl/egl/gstgldisplay_egl.c
++++ b/subprojects/gst-plugins-base/gst-libs/gst/gl/egl/gstgldisplay_egl.c
+@@ -235,12 +235,14 @@ gst_gl_display_egl_get_from_native (GstGLDisplayType type, guintptr display)
+         _gst_eglGetPlatformDisplay (EGL_PLATFORM_DEVICE_EXT, (gpointer) display,
+         NULL);
+   }
++#ifdef EGL_PLATFORM_SURFACELESS_MESA
+   /* android only has one winsys/display connection */
+   if (ret == EGL_NO_DISPLAY && (type & GST_GL_DISPLAY_TYPE_EGL_SURFACELESS) &&
+       gst_gl_check_extension ("EGL_MESA_platform_surfaceless", egl_exts)) {
+     ret = _gst_eglGetPlatformDisplay (EGL_PLATFORM_SURFACELESS_MESA,
+         (gpointer) display, NULL);
+   }
++#endif
+ 
+   if (ret != EGL_NO_DISPLAY)
+     return ret;
+-- 
+2.47.0
+

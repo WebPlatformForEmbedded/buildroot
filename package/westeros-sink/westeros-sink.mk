@@ -24,7 +24,7 @@ ifeq ($(BR2_PACKAGE_RPI_USERLAND),y)
 	WESTEROS_SINK_CONF_OPTS += --enable-gstreamer1=yes \
                       CFLAGS="$(TARGET_CFLAGS) -DWESTEROS_PLATFORM_RPI -DWESTEROS_INVERTED_Y -DBUILD_WAYLAND -x c++ -I ${STAGING_DIR}/interface/vmcs_host/linux" \
 		      CXXFLAGS="$(TARGET_CXXFLAGS) -I ${STAGING_DIR}/interface/vmcs_host/linux"
-	
+
 else ifeq ($(BR2_PACKAGE_MARVELL_AMPSDK),y)
 	WESTEROS_SINK_CONF_OPTS += --enable-gstreamer1=yes \
 			CFLAGS="$(TARGET_CFLAGS) -DLINUX -DEGL_API_FB -I ${STAGING_DIR}/usr/include/marvell/osal/include -I ${STAGING_DIR}/usr/include/marvell/amp/inc -D__LINUX__" \
@@ -32,14 +32,14 @@ else ifeq ($(BR2_PACKAGE_MARVELL_AMPSDK),y)
 	WESTEROS_SINK_SUBDIR = syna/westeros-sink
 else ifeq ($(BR2_PACKAGE_HAS_NEXUS),y)
 	WESTEROS_SINK_SUBDIR = brcm/westeros-sink
-	WESTEROS_SINK_DEPENDENCIES += gstreamer1
+	WESTEROS_SINK_DEPENDENCIES += gstreamer1 gst1-plugins-base
 	WESTEROS_SINK_CONF_OPTS += --enable-gstreamer1=yes \
 			CFLAGS="$(TARGET_CFLAGS) -I${STAGING_DIR}/usr/include/refsw -I${STAGING_DIR}/usr/include/refsw/bseav" \
 			CXXFLAGS="$(TARGET_CXXFLAGS) -I${STAGING_DIR}/usr/include/refsw -I${STAGING_DIR}/usr/include/refsw/bseav"
 	WESTEROS_SINK_MAKE_ENV += PKG_CONFIG_SYSROOT_DIR=${STAGING_DIR}
 else ifeq ($(BR2_PACKAGE_LIBDRM),y)
 	WESTEROS_SINK_SUBDIR = v4l2/westeros-sink
-	WESTEROS_SINK_DEPENDENCIES += gstreamer1
+	WESTEROS_SINK_DEPENDENCIES += gstreamer1 gst1-plugins-base
 	WESTEROS_SINK_CONF_OPTS += --enable-gstreamer1=yes CFLAGS="$(TARGET_CFLAGS) -x c++"
 	export STAGING_INCDIR=${STAGING_DIR}/usr/include
 endif
