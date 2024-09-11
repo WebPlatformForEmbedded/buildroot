@@ -62,8 +62,10 @@ endif
 _DISNEY_BUILD_TYPE = debug
 ifeq ($(BR2_PACKAGE_DISNEY_BUILD_RELEASE),y)
 _DISNEY_BUILD_TYPE = release-o2
+export LTO_AR = ${TARGET_CROSS}gcc-ar
 else ifeq ($(BR2_PACKAGE_DISNEY_BUILD_PRODUCTION),y)
 _DISNEY_BUILD_TYPE = ship
+export LTO_AR = ${TARGET_CROSS}gcc-ar
 endif
 
 
