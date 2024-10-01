@@ -174,6 +174,19 @@ config BR2_PACKAGE_WPEWEBKIT_SYMBOLS_LEVEL_3
 
 endchoice
 
+if BR2_STRIP_strip
+config BR2_PACKAGE_WPEWEBKIT_USE_REFTRACKER_DISABLED
+	bool "(disabled) RefTracker (debugging tool, see source). Depends on: Root -> Build Options -> Striping = n."
+	default n
+endif
+if !BR2_STRIP_strip
+config BR2_PACKAGE_WPEWEBKIT_USE_REFTRACKER
+	bool "WebKit RefTracker (debugging tool, see source)."
+	default n
+	select BR2_PACKAGE_LIBBACKTRACE
+	select BR2_PACKAGE_WPEWEBKIT_SYMBOLS_LEVEL_3
+endif
+
 if BR2_PACKAGE_WPEWEBKIT2_22
 
 config BR2_PACKAGE_WPEWEBKIT_PREQ

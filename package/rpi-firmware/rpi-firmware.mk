@@ -4,10 +4,14 @@
 #
 ################################################################################
 
-ifneq ($(BR2_PACKAGE_LIBDRM),y)
-RPI_FIRMWARE_VERSION = 01ecfd2ba2b7cf3a2f4aa75ada895ee4a3e729f5
+ifneq ($(BR2_PACKAGE_RPI_FIRMWARE_3BPLUSNEW),y)
+	ifneq ($(BR2_PACKAGE_LIBDRM),y)
+	RPI_FIRMWARE_VERSION = 01ecfd2ba2b7cf3a2f4aa75ada895ee4a3e729f5
+	else
+	RPI_FIRMWARE_VERSION = d016a6eb01c8c7326a89cb42809fed2a21525de5
+	endif
 else
-RPI_FIRMWARE_VERSION = d016a6eb01c8c7326a89cb42809fed2a21525de5
+	RPI_FIRMWARE_VERSION = 52185fddc0a9a28472fb3387dbed1a5466e11242
 endif
 RPI_FIRMWARE_SITE = $(call github,raspberrypi,firmware,$(RPI_FIRMWARE_VERSION))
 RPI_FIRMWARE_LICENSE = BSD-3-Clause
