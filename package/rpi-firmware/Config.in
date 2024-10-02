@@ -29,6 +29,12 @@ config BR2_PACKAGE_RPI_FIRMWARE_VARIANT_PI4
 	  The Raspberry Pi 4 files
 endchoice
 
+if BR2_PACKAGE_RPI_FIRMWARE_VARIANT_PI
+	config BR2_PACKAGE_RPI_FIRMWARE_3BPLUSNEW
+		bool "Override firmware version for new revisions of PI 3B+"
+		default "n"
+endif
+
 choice
 	bool "Firmware to boot"
 	default BR2_PACKAGE_RPI_FIRMWARE_DEFAULT
