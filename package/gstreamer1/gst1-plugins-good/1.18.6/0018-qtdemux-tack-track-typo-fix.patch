@@ -1,0 +1,36 @@
+From 61c8c6a4d802353d2b241beb1c9baee85359a169 Mon Sep 17 00:00:00 2001
+From: Xabier Rodriguez Calvar <calvaris@igalia.com>
+Date: Wed, 9 Oct 2024 12:18:30 -0400
+Subject: [PATCH 18/19] qtdemux: tack -> track typo fix
+
+---
+ gst/isomp4/qtdemux.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/gst/isomp4/qtdemux.c b/gst/isomp4/qtdemux.c
+index 84f56974f1..f3950f8aab 100644
+--- a/gst/isomp4/qtdemux.c
++++ b/gst/isomp4/qtdemux.c
+@@ -3833,7 +3833,7 @@ qtdemux_get_cenc_sample_properties (GstQTDemux * qtdemux,
+ static gboolean
+ qtdemux_parse_sbgp (GstQTDemux * qtdemux, QtDemuxStream * stream,
+     GstByteReader * br, guint32 group, GPtrArray ** sample_to_group_array,
+-    GstStructure * default_properties, GPtrArray * tack_properties_array,
++    GstStructure * default_properties, GPtrArray * track_properties_array,
+     GPtrArray * group_properties_array)
+ {
+   guint32 flags = 0;
+@@ -3899,8 +3899,8 @@ qtdemux_parse_sbgp (GstQTDemux * qtdemux, QtDemuxStream * stream,
+     } else if (index > 0) {
+       /* Index is referring to the whole track. */
+       index--;
+-      if (index < tack_properties_array->len)
+-        properties = g_ptr_array_index (tack_properties_array, index);
++      if (index < track_properties_array->len)
++        properties = g_ptr_array_index (track_properties_array, index);
+       else
+         GST_ERROR_OBJECT (qtdemux, "invalid group index %u", index);
+     } else {
+-- 
+2.45.2
+

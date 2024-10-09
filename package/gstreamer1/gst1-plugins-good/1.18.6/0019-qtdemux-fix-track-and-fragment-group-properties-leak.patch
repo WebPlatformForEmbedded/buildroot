@@ -1,0 +1,67 @@
+From fb9bdd4c9ec79404c857a83fb930902bc77a6eaa Mon Sep 17 00:00:00 2001
+From: Xabier Rodriguez Calvar <calvaris@igalia.com>
+Date: Wed, 9 Oct 2024 12:47:04 -0400
+Subject: [PATCH 19/19] qtdemux: fix track and fragment group properties leak
+
+---
+ .../gst-plugins-good/gst/isomp4/qtdemux.c        | 16 ++++++++++------
+ 1 file changed, 10 insertions(+), 6 deletions(-)
+
+diff --git a/gst/isomp4/qtdemux.c b/gst/isomp4/qtdemux.c
+index f3950f8aab..3cec94a628 100644
+--- a/gst/isomp4/qtdemux.c
++++ b/gst/isomp4/qtdemux.c
+@@ -233,7 +233,9 @@ struct _QtDemuxCencSampleSetInfo
+ {
+   GstStructure *default_properties;
+ 
+-  /* sample groups */
++  /* Sample groups. Track and fragment group properties arrays own the
++     structures while sample_to_group_map holds just not owned references (the
++     ownership is in track or fragment group properties array). */
+   GPtrArray *track_group_properties;
+   GPtrArray *fragment_group_properties;
+   GPtrArray *sample_to_group_map;
+@@ -2602,7 +2604,7 @@ gst_qtdemux_stream_clear (QtDemuxStream * stream)
+       if (info->track_group_properties)
+         g_ptr_array_free (info->track_group_properties, TRUE);
+       if (info->sample_to_group_map)
+-        g_ptr_array_free (info->sample_to_group_map, FALSE);
++        g_ptr_array_free (info->sample_to_group_map, TRUE);
+     }
+     if (stream->protection_scheme_type == FOURCC_aavd) {
+       QtDemuxAavdEncryptionInfo *info =
+@@ -3971,7 +3973,9 @@ qtdemux_parse_sgpd (GstQTDemux * qtdemux, QtDemuxStream * stream,
+       "', count: %u", flags, GST_FOURCC_ARGS (grouping_type), count);
+ 
+   if (count)
+-    *properties = g_ptr_array_sized_new (count);
++    *properties =
++        g_ptr_array_new_full (count,
++        (GDestroyNotify) qtdemux_gst_structure_free);
+ 
+   for (guint32 index = 0; index < count; index++) {
+     GstStructure *props = NULL;
+@@ -4457,7 +4461,7 @@ qtdemux_parse_moof (GstQTDemux * qtdemux, const guint8 * buffer, guint length,
+       }
+ 
+       if (info->sample_to_group_map) {
+-        g_ptr_array_free (info->sample_to_group_map, FALSE);
++        g_ptr_array_free (info->sample_to_group_map, TRUE);
+         info->sample_to_group_map = NULL;
+       }
+ 
+@@ -14104,8 +14108,8 @@ qtdemux_parse_trak (GstQTDemux * qtdemux, GNode * trak)
+     GstByteReader sgpd_data;
+ 
+     if (info->track_group_properties) {
+-      g_ptr_array_free (info->fragment_group_properties, TRUE);
+-      info->fragment_group_properties = NULL;
++      g_ptr_array_free (info->track_group_properties, TRUE);
++      info->track_group_properties = NULL;
+     }
+ 
+     sgpd_node = qtdemux_tree_get_child_by_type_full (stbl, FOURCC_sgpd,
+-- 
+2.45.2
+
