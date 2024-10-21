@@ -145,4 +145,5 @@ libwesteros*
 libstdc++.so
 libbacktrace.so
 libcogcore.so
+libsrtp2.so.1
 cog
