@@ -1,6 +1,6 @@
 ################################################################################
 #
-# WPEFramework UI
+# Thunder UI
 #
 ################################################################################
 WPEFRAMEWORK_UI_VERSION = R4.4.1
@@ -14,9 +14,9 @@ WPEFRAMEWORK_UI_CONFIGURE_CMDS = true
 WPEFRAMEWORK_UI_BUILD_CMDS = true
 
 define WPEFRAMEWORK_UI_INSTALL_TARGET_CMDS
-	rm -rf $(TARGET_DIR)/usr/share/WPEFramework/Controller/UI
-	mkdir -p $(TARGET_DIR)/usr/share/WPEFramework/Controller/UI
-	cp -r $(@D)/dist/* $(TARGET_DIR)/usr/share/WPEFramework/Controller/UI
+	rm -rf $(TARGET_DIR)/usr/share/Thunder/Controller/UI
+	mkdir -p $(TARGET_DIR)/usr/share/Thunder/Controller/UI
+	cp -r $(@D)/dist/* $(TARGET_DIR)/usr/share/Thunder/Controller/UI
 endef
 
 $(eval $(generic-package))
