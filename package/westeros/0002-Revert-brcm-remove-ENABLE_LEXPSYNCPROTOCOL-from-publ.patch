@@ -1,0 +1,55 @@
+From 9a475061b5a56b4dee09e924e43f7143a0c685cd Mon Sep 17 00:00:00 2001
+From: Carlos Bentzen <cadubentzen@igalia.com>
+Date: Wed, 11 Dec 2024 17:31:07 +0100
+Subject: [PATCH] Revert "brcm: remove ENABLE_LEXPSYNCPROTOCOL from public
+ headers"
+
+This reverts commit f7c94df053ce8ef0e306e7f5c685c3fc221f4077.
+---
+ westeros-render.h | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/westeros-render.h b/westeros-render.h
+index 29222ea..e2ad039 100644
+--- a/westeros-render.h
++++ b/westeros-render.h
+@@ -72,14 +72,15 @@ typedef enum _WstHints
+ typedef struct _WstRenderer WstRenderer;
+ typedef struct _WstRenderSurface WstRenderSurface;
+ typedef struct _WstNestedConnection WstNestedConnection;
+-typedef struct _WstExplicitSync WstExplicitSync;
+ 
+ typedef int (*WSTMethodRenderInit)( WstRenderer *renderer, int argc, char **argv);
+ typedef void (*WSTMethodRenderTerm)( WstRenderer *renderer );
+ typedef void (*WSTMethodUpdateScene)( WstRenderer *renderer );
+ typedef WstRenderSurface* (*WSTMethodSurfaceCreate)( WstRenderer *renderer );
+ typedef void (*WSTMethodSurfaceDestroy)( WstRenderer *renderer, WstRenderSurface *surf );
++#ifdef ENABLE_LEXPSYNCPROTOCOL
+ typedef void (*WSTMethodSurfaceImportSync)( WstRenderer *renderer, WstRenderSurface *surf, WstExplicitSync *bufferSync);
++#endif
+ typedef void (*WSTMethodSurfaceCommit)( WstRenderer *renderer, WstRenderSurface *surface, struct wl_resource *resource );
+ typedef void (*WSTMethodSurfaceSetVisible)( WstRenderer *renderer, WstRenderSurface *surface, bool visible );
+ typedef bool (*WSTMethodSurfaceGetVisible)( WstRenderer *renderer, WstRenderSurface *surface, bool *visible );
+@@ -108,7 +109,9 @@ typedef struct _WstRenderer
+    WSTMethodRenderTerm renderTerm;
+    WSTMethodUpdateScene updateScene;
+    WSTMethodSurfaceCreate surfaceCreate;
++   #ifdef ENABLE_LEXPSYNCPROTOCOL
+    WSTMethodSurfaceImportSync surfaceImportSync;
++   #endif
+    WSTMethodSurfaceDestroy surfaceDestroy;
+    WSTMethodSurfaceCommit surfaceCommit;
+    WSTMethodSurfaceSetVisible surfaceSetVisible;
+@@ -150,7 +153,9 @@ void WstRendererDestroy( WstRenderer *renderer );
+ void WstRendererUpdateScene( WstRenderer *renderer );
+ WstRenderSurface* WstRendererSurfaceCreate( WstRenderer *renderer );
+ void WstRendererSurfaceDestroy( WstRenderer *renderer, WstRenderSurface *surface );
++#ifdef ENABLE_LEXPSYNCPROTOCOL
+ void WstRendererSurfaceImportSync( WstRenderer *renderer, WstRenderSurface *surface, WstExplicitSync *bufferSync);
++#endif
+ void WstRendererSurfaceCommit( WstRenderer *renderer, WstRenderSurface *surface, struct wl_resource *resource );
+ void WstRendererSurfaceSetVisible( WstRenderer *renderer, WstRenderSurface *surface, bool visible );
+ bool WstRendererSurfaceGetVisible( WstRenderer *renderer, WstRenderSurface *surface, bool *visible );
+-- 
+2.47.1
+
