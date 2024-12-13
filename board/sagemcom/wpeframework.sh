@@ -16,6 +16,9 @@ export GST_ENABLE_SVP=1
 export XDG_RUNTIME_DIR=/run
 export LD_PRELOAD=libwayland-client.so.0:libwayland-egl.so.1:libnxclient.so:libsrai.so:libwidevine_tl.so:liboemcrypto_tl.so:libplayready30pk.so
 
+export WEBKIT_GST_HOLE_PUNCH_QUIRK="westeros"
+export WEBKIT_GST_QUIRKS="westeros,broadcom"
+
 # Either use brcmsink or westeros sink
 USE_BRCM_SINK=1
 
