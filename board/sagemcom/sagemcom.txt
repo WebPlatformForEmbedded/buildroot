@@ -85,6 +85,7 @@ libWPEFrameworkVolumeControl.so
 libwpe-1.0.so
 libWPEBackend-rdk.so
 libWPEBackend-default.so
+libWPEBackend-headless.so
 libsoup-3.0.so
 libpsl.so
 libcompositorclient.so
@@ -142,6 +143,7 @@ libp11-kit.so
 libvpx.so
 libgstwesterossink.so
 libwesteros*
+libessos*
 libstdc++.so
 libbacktrace.so
 libcogcore.so
