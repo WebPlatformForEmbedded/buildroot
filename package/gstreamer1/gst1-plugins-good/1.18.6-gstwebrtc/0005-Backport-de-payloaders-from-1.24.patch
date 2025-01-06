@@ -1,0 +1,2773 @@
+From a0b63dddf671170fdcfd42f171f18c74cd610454 Mon Sep 17 00:00:00 2001
+From: Carlos Bentzen <cadubentzen@igalia.com>
+Date: Mon, 6 Jan 2025 14:30:31 +0100
+Subject: [PATCH] Backport (de)payloaders from 1.24
+
+---
+ gst/rtp/dboolhuff.c            |  35 +--
+ gst/rtp/gstrtp.c               |   1 +
+ gst/rtp/gstrtpchannels.c       |   2 +-
+ gst/rtp/gstrtpelements.h       |   1 +
+ gst/rtp/gstrtpgstdepay.c       |  10 +
+ gst/rtp/gstrtph261depay.c      |   4 +
+ gst/rtp/gstrtph263depay.c      |   6 +-
+ gst/rtp/gstrtph263pdepay.c     |   6 +
+ gst/rtp/gstrtph264depay.c      |  72 +++--
+ gst/rtp/gstrtph264pay.c        |  15 +-
+ gst/rtp/gstrtph265depay.c      |  81 ++++--
+ gst/rtp/gstrtph265pay.c        |  34 +--
+ gst/rtp/gstrtpj2kdepay.c       |   6 +
+ gst/rtp/gstrtpjpegdepay.c      |   8 +
+ gst/rtp/gstrtpklvdepay.c       |   6 +
+ gst/rtp/gstrtpmp4adepay.c      |  46 +++-
+ gst/rtp/gstrtpmp4gdepay.c      |  14 +-
+ gst/rtp/gstrtpmp4gdepay.h      |   1 +
+ gst/rtp/gstrtpmp4vdepay.c      |   2 +
+ gst/rtp/gstrtpmparobustdepay.c |  14 +-
+ gst/rtp/gstrtpopusdepay.c      |   3 +
+ gst/rtp/gstrtppassthroughpay.c | 477 +++++++++++++++++++++++++++++++++
+ gst/rtp/gstrtppassthroughpay.h |  71 +++++
+ gst/rtp/gstrtpreddec.c         |   4 +-
+ gst/rtp/gstrtpredenc.c         |   4 +-
+ gst/rtp/gstrtpsbcdepay.c       |  12 +-
+ gst/rtp/gstrtpsv3vdepay.c      |  18 +-
+ gst/rtp/gstrtptheoradepay.c    |  30 ++-
+ gst/rtp/gstrtpvorbisdepay.c    |  44 ++-
+ gst/rtp/gstrtpvp8depay.c       |   8 +
+ gst/rtp/gstrtpvp8pay.c         |  78 ++++--
+ gst/rtp/gstrtpvp8pay.h         |   8 +-
+ gst/rtp/gstrtpvp9depay.c       |   8 +
+ gst/rtp/gstrtpvp9pay.c         | 125 +++++++--
+ gst/rtp/gstrtpvp9pay.h         |   9 +-
+ gst/rtp/gstrtpvrawdepay.c      |  13 +-
+ gst/rtp/meson.build            |   1 +
+ gst/rtp/rtpstoragestream.c     |   8 +-
+ 38 files changed, 1121 insertions(+), 164 deletions(-)
+ create mode 100644 gst/rtp/gstrtppassthroughpay.c
+ create mode 100644 gst/rtp/gstrtppassthroughpay.h
+
+diff --git a/gst/rtp/dboolhuff.c b/gst/rtp/dboolhuff.c
+index 3d0fc8f04..118bd0b97 100644
+--- a/gst/rtp/dboolhuff.c
++++ b/gst/rtp/dboolhuff.c
+@@ -14,24 +14,25 @@
+ __declspec (align (16))
+      const unsigned char vp8_norm[256] = {
+ #else
+-const unsigned char vp8_norm[256] __attribute__ ((aligned (16))) = {
++const unsigned char vp8_norm[256] __attribute__((aligned (16))) = {
+ #endif
+-0, 7, 6, 6, 5, 5, 5, 5, 4, 4, 4, 4, 4, 4, 4, 4,
+-      3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+-      2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+-      2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+-      1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+-      1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+-      1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+-      1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+-      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+-      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+-      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+-      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+-      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+-      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+-      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+-      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
++  0, 7, 6, 6, 5, 5, 5, 5, 4, 4, 4, 4, 4, 4, 4, 4,
++  3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
++  2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
++  2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
++  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
++  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
++  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
++  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
++  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
++  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
++  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
++  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
++  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
++  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
++  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
++  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
++};
+ 
+ int
+ vp8dx_start_decode (BOOL_DECODER * br,
+diff --git a/gst/rtp/gstrtp.c b/gst/rtp/gstrtp.c
+index 9528ffb10..180a3f634 100644
+--- a/gst/rtp/gstrtp.c
++++ b/gst/rtp/gstrtp.c
+@@ -66,6 +66,7 @@ plugin_init (GstPlugin * plugin)
+   ret |= GST_ELEMENT_REGISTER (rtpmpvpay, plugin);
+   ret |= GST_ELEMENT_REGISTER (rtpopusdepay, plugin);
+   ret |= GST_ELEMENT_REGISTER (rtpopuspay, plugin);
++  ret |= GST_ELEMENT_REGISTER (rtppassthroughpay, plugin);
+   ret |= GST_ELEMENT_REGISTER (rtph261pay, plugin);
+   ret |= GST_ELEMENT_REGISTER (rtph261depay, plugin);
+   ret |= GST_ELEMENT_REGISTER (rtph263ppay, plugin);
+diff --git a/gst/rtp/gstrtpchannels.c b/gst/rtp/gstrtpchannels.c
+index 9921293fd..d0694cb82 100644
+--- a/gst/rtp/gstrtpchannels.c
++++ b/gst/rtp/gstrtpchannels.c
+@@ -250,7 +250,7 @@ gst_rtp_channels_get_by_order (gint channels, const gchar * order)
+     }
+ 
+     /* compare names */
+-    if (g_ascii_strcasecmp (channel_orders[i].name, order)) {
++    if (!g_ascii_strcasecmp (channel_orders[i].name, order)) {
+       res = &channel_orders[i];
+       break;
+     }
+diff --git a/gst/rtp/gstrtpelements.h b/gst/rtp/gstrtpelements.h
+index 9321d3530..ec9663730 100644
+--- a/gst/rtp/gstrtpelements.h
++++ b/gst/rtp/gstrtpelements.h
+@@ -66,6 +66,7 @@ GST_ELEMENT_REGISTER_DECLARE (rtpmpvdepay);
+ GST_ELEMENT_REGISTER_DECLARE (rtpmpvpay);
+ GST_ELEMENT_REGISTER_DECLARE (rtpopusdepay);
+ GST_ELEMENT_REGISTER_DECLARE (rtpopuspay);
++GST_ELEMENT_REGISTER_DECLARE (rtppassthroughpay);
+ GST_ELEMENT_REGISTER_DECLARE (rtph261pay);
+ GST_ELEMENT_REGISTER_DECLARE (rtph261depay);
+ GST_ELEMENT_REGISTER_DECLARE (rtph263ppay);
+diff --git a/gst/rtp/gstrtpgstdepay.c b/gst/rtp/gstrtpgstdepay.c
+index ebf838296..7a65a7b61 100644
+--- a/gst/rtp/gstrtpgstdepay.c
++++ b/gst/rtp/gstrtpgstdepay.c
+@@ -103,6 +103,9 @@ gst_rtp_gst_depay_class_init (GstRtpGSTDepayClass * klass)
+ static void
+ gst_rtp_gst_depay_init (GstRtpGSTDepay * rtpgstdepay)
+ {
++  gst_rtp_base_depayload_set_aggregate_hdrext_enabled (GST_RTP_BASE_DEPAYLOAD
++      (rtpgstdepay), TRUE);
++
+   rtpgstdepay->adapter = gst_adapter_new ();
+ }
+ 
+@@ -409,6 +412,7 @@ gst_rtp_gst_depay_process (GstRTPBaseDepayload * depayload, GstRTPBuffer * rtp)
+   if (GST_BUFFER_IS_DISCONT (rtp->buffer)) {
+     GST_WARNING_OBJECT (rtpgstdepay, "DISCONT, clear adapter");
+     gst_adapter_clear (rtpgstdepay->adapter);
++    gst_rtp_base_depayload_flush (depayload, TRUE);
+   }
+ 
+   payload = gst_rtp_buffer_get_payload (rtp);
+@@ -525,24 +529,28 @@ empty_packet:
+   {
+     GST_ELEMENT_WARNING (rtpgstdepay, STREAM, DECODE,
+         ("Empty Payload."), (NULL));
++    gst_rtp_base_depayload_dropped (depayload);
+     return NULL;
+   }
+ wrong_frag:
+   {
+     gst_adapter_clear (rtpgstdepay->adapter);
+     GST_LOG_OBJECT (rtpgstdepay, "wrong fragment, skipping");
++    gst_rtp_base_depayload_dropped (depayload);
+     return NULL;
+   }
+ no_caps:
+   {
+     GST_WARNING_OBJECT (rtpgstdepay, "failed to parse caps");
+     gst_buffer_unref (outbuf);
++    gst_rtp_base_depayload_dropped (depayload);
+     return NULL;
+   }
+ no_event:
+   {
+     GST_WARNING_OBJECT (rtpgstdepay, "failed to parse event");
+     gst_buffer_unref (outbuf);
++    gst_rtp_base_depayload_dropped (depayload);
+     return NULL;
+   }
+ missing_caps:
+@@ -554,6 +562,8 @@ missing_caps:
+         gst_video_event_new_upstream_force_key_unit (GST_CLOCK_TIME_NONE,
+             TRUE, 0));
+ 
++    gst_rtp_base_depayload_dropped (depayload);
++
+     return NULL;
+   }
+ }
+diff --git a/gst/rtp/gstrtph261depay.c b/gst/rtp/gstrtph261depay.c
+index 23a888a4e..0dd7a0a85 100644
+--- a/gst/rtp/gstrtph261depay.c
++++ b/gst/rtp/gstrtph261depay.c
+@@ -110,6 +110,7 @@ gst_rtp_h261_depay_process (GstRTPBaseDepayload * depayload, GstRTPBuffer * rtp)
+   if (payload_len < header_len + 1) {
+     /* Must have at least one byte payload */
+     GST_WARNING_OBJECT (depay, "Dropping packet with invalid payload length");
++    gst_rtp_base_depayload_dropped (depayload);
+     return NULL;
+   }
+ 
+@@ -286,4 +287,7 @@ gst_rtp_h261_depay_init (GstRtpH261Depay * depay)
+ {
+   depay->adapter = gst_adapter_new ();
+   depay->leftover = NO_LEFTOVER;
++
++  gst_rtp_base_depayload_set_aggregate_hdrext_enabled (GST_RTP_BASE_DEPAYLOAD
++      (depay), TRUE);
+ }
+diff --git a/gst/rtp/gstrtph263depay.c b/gst/rtp/gstrtph263depay.c
+index f6b41a5bc..ba4701c62 100644
+--- a/gst/rtp/gstrtph263depay.c
++++ b/gst/rtp/gstrtph263depay.c
+@@ -126,6 +126,9 @@ gst_rtp_h263_depay_init (GstRtpH263Depay * rtph263depay)
+ 
+   rtph263depay->offset = 0;
+   rtph263depay->leftover = 0;
++
++  gst_rtp_base_depayload_set_aggregate_hdrext_enabled (GST_RTP_BASE_DEPAYLOAD
++      (rtph263depay), TRUE);
+ }
+ 
+ static void
+@@ -318,7 +321,7 @@ gst_rtp_h263_depay_process (GstRTPBaseDepayload * depayload, GstRTPBuffer * rtp)
+     if (payload_len > 4 && (GST_READ_UINT32_BE (payload) >> 10 == 0x20)) {
+       GST_DEBUG ("Mode %c with PSC => frame start", "ABC"[F + P]);
+       rtph263depay->start = TRUE;
+-      if ((! !(payload[4] & 0x02)) != I) {
++      if ((!!(payload[4] & 0x02)) != I) {
+         GST_DEBUG ("Wrong Picture Coding Type Flag in rtp header");
+         I = !I;
+       }
+@@ -407,6 +410,7 @@ too_small:
+   {
+     GST_ELEMENT_WARNING (rtph263depay, STREAM, DECODE,
+         ("Packet payload was too small"), (NULL));
++    gst_rtp_base_depayload_dropped (depayload);
+     return NULL;
+   }
+ }
+diff --git a/gst/rtp/gstrtph263pdepay.c b/gst/rtp/gstrtph263pdepay.c
+index 8b371ba92..bee74f882 100644
+--- a/gst/rtp/gstrtph263pdepay.c
++++ b/gst/rtp/gstrtph263pdepay.c
+@@ -134,6 +134,9 @@ static void
+ gst_rtp_h263p_depay_init (GstRtpH263PDepay * rtph263pdepay)
+ {
+   rtph263pdepay->adapter = gst_adapter_new ();
++
++  gst_rtp_base_depayload_set_aggregate_hdrext_enabled (GST_RTP_BASE_DEPAYLOAD
++      (rtph263pdepay), TRUE);
+ }
+ 
+ static void
+@@ -447,16 +450,19 @@ too_small:
+   {
+     GST_ELEMENT_WARNING (rtph263pdepay, STREAM, DECODE,
+         ("Packet payload was too small"), (NULL));
++    gst_rtp_base_depayload_dropped (depayload);
+     return NULL;
+   }
+ waiting_start:
+   {
+     GST_DEBUG_OBJECT (rtph263pdepay, "waiting for picture start");
++    gst_rtp_base_depayload_dropped (depayload);
+     return NULL;
+   }
+ empty_frame:
+   {
+     GST_WARNING_OBJECT (rtph263pdepay, "Depayloaded frame is empty, dropping");
++    gst_rtp_base_depayload_dropped (depayload);
+     return NULL;
+   }
+ }
+diff --git a/gst/rtp/gstrtph264depay.c b/gst/rtp/gstrtph264depay.c
+index 9cef347c2..008631cb4 100644
+--- a/gst/rtp/gstrtph264depay.c
++++ b/gst/rtp/gstrtph264depay.c
+@@ -213,6 +213,9 @@ gst_rtp_h264_depay_class_init (GstRtpH264DepayClass * klass)
+ static void
+ gst_rtp_h264_depay_init (GstRtpH264Depay * rtph264depay)
+ {
++  gst_rtp_base_depayload_set_aggregate_hdrext_enabled (GST_RTP_BASE_DEPAYLOAD
++      (rtph264depay), TRUE);
++
+   rtph264depay->adapter = gst_adapter_new ();
+   rtph264depay->picture_adapter = gst_adapter_new ();
+   rtph264depay->byte_stream = DEFAULT_BYTE_STREAM;
+@@ -646,6 +649,9 @@ gst_rtp_h264_add_sps_pps (GstElement * rtph264, GPtrArray * sps_array,
+ 
+   gst_buffer_map (nal, &map, GST_MAP_READ);
+ 
++  if (map.size == 0)
++    goto drop;
++
+   type = map.data[0] & 0x1f;
+ 
+   if (type == 7) {
+@@ -788,7 +794,12 @@ gst_rtp_h264_depay_setcaps (GstRTPBaseDepayload * depayload, GstCaps * caps)
+      * front of the params. */
+     len = 0;
+     for (i = 0; params[i]; i++) {
+-      len += strlen (params[i]);
++      gsize nal_len = strlen (params[i]);
++      if (nal_len == 0) {
++        GST_WARNING_OBJECT (depayload, "empty param (#%d)", i);
++        continue;
++      }
++      len += nal_len;
+       len += sizeof (sync_bytes);
+     }
+     /* we seriously overshoot the length, but it's fine. */
+@@ -800,13 +811,20 @@ gst_rtp_h264_depay_setcaps (GstRTPBaseDepayload * depayload, GstCaps * caps)
+     for (i = 0; params[i]; i++) {
+       guint save = 0;
+       gint state = 0;
++      gsize nal_len = strlen (params[i]);
++
++      if (nal_len == 0)
++        continue;
+ 
+       GST_DEBUG_OBJECT (depayload, "decoding param %d (%s)", i, params[i]);
+       memcpy (ptr, sync_bytes, sizeof (sync_bytes));
+       ptr += sizeof (sync_bytes);
+-      len =
+-          g_base64_decode_step (params[i], strlen (params[i]), ptr, &state,
+-          &save);
++      len = g_base64_decode_step (params[i], nal_len, ptr, &state, &save);
++      if (len == 0) {
++        GST_WARNING_OBJECT (depayload, "failed decoding param %d", i);
++        ptr -= sizeof (sync_bytes);
++        continue;
++      }
+       GST_DEBUG_OBJECT (depayload, "decoded %d bytes", len);
+       total += len + sizeof (sync_bytes);
+       ptr += len;
+@@ -815,12 +833,16 @@ gst_rtp_h264_depay_setcaps (GstRTPBaseDepayload * depayload, GstCaps * caps)
+     gst_buffer_resize (codec_data, 0, total);
+     g_strfreev (params);
+ 
+-    /* keep the codec_data, we need to send it as the first buffer. We cannot
+-     * push it in the adapter because the adapter might be flushed on discont.
+-     */
+-    if (rtph264depay->codec_data)
+-      gst_buffer_unref (rtph264depay->codec_data);
+-    rtph264depay->codec_data = codec_data;
++    if (total > 0) {
++      /* keep the codec_data, we need to send it as the first buffer. We cannot
++       * push it in the adapter because the adapter might be flushed on discont.
++       */
++      if (rtph264depay->codec_data)
++        gst_buffer_unref (rtph264depay->codec_data);
++      rtph264depay->codec_data = codec_data;
++    } else {
++      gst_buffer_unref (codec_data);
++    }
+   } else if (!rtph264depay->byte_stream) {
+     gchar **params;
+     gint i;
+@@ -842,7 +864,7 @@ gst_rtp_h264_depay_setcaps (GstRTPBaseDepayload * depayload, GstCaps * caps)
+ 
+       nal_len = strlen (params[i]);
+       if (nal_len == 0) {
+-        GST_WARNING_OBJECT (depayload, "empty param '%s' (#%d)", params[i], i);
++        GST_WARNING_OBJECT (depayload, "empty param (#%d)", i);
+         continue;
+       }
+       nal = gst_buffer_new_and_alloc (nal_len);
+@@ -851,13 +873,20 @@ gst_rtp_h264_depay_setcaps (GstRTPBaseDepayload * depayload, GstCaps * caps)
+       nal_len =
+           g_base64_decode_step (params[i], nal_len, nalmap.data, &state, &save);
+ 
+-      GST_DEBUG_OBJECT (depayload, "adding param %d as %s", i,
+-          ((nalmap.data[0] & 0x1f) == 7) ? "SPS" : "PPS");
++      if (nal_len > 0) {
++        GST_DEBUG_OBJECT (depayload, "adding param %d as %s", i,
++            ((nalmap.data[0] & 0x1f) == 7) ? "SPS" : "PPS");
++      }
+ 
+       gst_buffer_unmap (nal, &nalmap);
+       gst_buffer_set_size (nal, nal_len);
+ 
+-      gst_rtp_h264_depay_add_sps_pps (rtph264depay, nal);
++      if (nal_len > 0) {
++        gst_rtp_h264_depay_add_sps_pps (rtph264depay, nal);
++      } else {
++        GST_WARNING_OBJECT (depayload, "failed decoding param %d", i);
++        gst_buffer_unref (nal);
++      }
+     }
+     g_strfreev (params);
+ 
+@@ -1096,6 +1125,7 @@ gst_rtp_h264_depay_handle_nal (GstRtpH264Depay * rtph264depay, GstBuffer * nal,
+       GST_LOG_OBJECT (depayload,
+           "Dropping %" GST_PTR_FORMAT ", we are waiting for a keyframe",
+           outbuf);
++      gst_rtp_base_depayload_flush (depayload, FALSE);
+       gst_buffer_unref (outbuf);
+     }
+   }
+@@ -1214,8 +1244,10 @@ gst_rtp_h264_depay_process (GstRTPBaseDepayload * depayload, GstRTPBuffer * rtp)
+      * type.  Assume that the remote payloader is buggy (didn't set the end bit
+      * when the FU ended) and send out what we gathered thusfar */
+     if (G_UNLIKELY (rtph264depay->current_fu_type != 0 &&
+-            nal_unit_type != rtph264depay->current_fu_type))
++            nal_unit_type != rtph264depay->current_fu_type)) {
++      gst_rtp_base_depayload_delayed (depayload);
+       gst_rtp_h264_finish_fragmentation_unit (rtph264depay);
++    }
+ 
+     switch (nal_unit_type) {
+       case 0:
+@@ -1324,8 +1356,10 @@ gst_rtp_h264_depay_process (GstRTPBaseDepayload * depayload, GstRTPBuffer * rtp)
+           /* If a new FU unit started, while still processing an older one.
+            * Assume that the remote payloader is buggy (doesn't set the end
+            * bit) and send out what we've gathered thusfar */
+-          if (G_UNLIKELY (rtph264depay->current_fu_type != 0))
++          if (G_UNLIKELY (rtph264depay->current_fu_type != 0)) {
++            gst_rtp_base_depayload_delayed (depayload);
+             gst_rtp_h264_finish_fragmentation_unit (rtph264depay);
++          }
+ 
+           rtph264depay->current_fu_type = nal_unit_type;
+           rtph264depay->fu_timestamp = timestamp;
+@@ -1361,6 +1395,7 @@ gst_rtp_h264_depay_process (GstRTPBaseDepayload * depayload, GstRTPBuffer * rtp)
+             /* previous FU packet missing start bit? */
+             GST_WARNING_OBJECT (rtph264depay, "missing FU start bit on an "
+                 "earlier packet. Dropping.");
++            gst_rtp_base_depayload_flush (depayload, FALSE);
+             gst_adapter_clear (rtph264depay->adapter);
+             return NULL;
+           }
+@@ -1371,6 +1406,7 @@ gst_rtp_h264_depay_process (GstRTPBaseDepayload * depayload, GstRTPBuffer * rtp)
+                 "%u to %u within Fragmentation Unit. Data was lost, dropping "
+                 "stored.", rtph264depay->last_fu_seqnum,
+                 gst_rtp_buffer_get_seq (rtp));
++            gst_rtp_base_depayload_flush (depayload, FALSE);
+             gst_adapter_clear (rtph264depay->adapter);
+             return NULL;
+           }
+@@ -1435,23 +1471,27 @@ gst_rtp_h264_depay_process (GstRTPBaseDepayload * depayload, GstRTPBuffer * rtp)
+ empty_packet:
+   {
+     GST_DEBUG_OBJECT (rtph264depay, "empty packet");
++    gst_rtp_base_depayload_dropped (depayload);
+     return NULL;
+   }
+ undefined_type:
+   {
+     GST_ELEMENT_WARNING (rtph264depay, STREAM, DECODE,
+         (NULL), ("Undefined packet type"));
++    gst_rtp_base_depayload_dropped (depayload);
+     return NULL;
+   }
+ waiting_start:
+   {
+     GST_DEBUG_OBJECT (rtph264depay, "waiting for start");
++    gst_rtp_base_depayload_dropped (depayload);
+     return NULL;
+   }
+ not_implemented:
+   {
+     GST_ELEMENT_ERROR (rtph264depay, STREAM, FORMAT,
+         (NULL), ("NAL unit type %d not supported yet", nal_unit_type));
++    gst_rtp_base_depayload_dropped (depayload);
+     return NULL;
+   }
+ }
+diff --git a/gst/rtp/gstrtph264pay.c b/gst/rtp/gstrtph264pay.c
+index 860913bfe..3d51076bc 100644
+--- a/gst/rtp/gstrtph264pay.c
++++ b/gst/rtp/gstrtph264pay.c
+@@ -924,6 +924,7 @@ gst_rtp_h264_pay_payload_nal (GstRTPBasePayload * basepayload,
+ {
+   GstRtpH264Pay *rtph264pay;
+   guint8 nal_header, nal_type;
++  gboolean first_slice = FALSE;
+   gboolean send_spspps;
+   guint size;
+ 
+@@ -960,8 +961,17 @@ gst_rtp_h264_pay_payload_nal (GstRTPBasePayload * basepayload,
+ 
+   send_spspps = FALSE;
+ 
++  if (nal_type == IDR_TYPE_ID) {
++    guint8 first_mb_in_slice;
++    gst_buffer_extract (paybuf, 1, &first_mb_in_slice, 1);
++    /* 'first_mb_in_slice' specifies the address of the first macroblock
++     * in the slice. if 'first_mb_in_slice' is 0 (note that it's exp golomb
++     * code), the current slice is the first slice of the frame */
++    first_slice = ((first_mb_in_slice >> 7) & 0x01) == 1;
++  }
++
+   /* check if we need to emit an SPS/PPS now */
+-  if (nal_type == IDR_TYPE_ID && rtph264pay->spspps_interval > 0) {
++  if (first_slice && nal_type == IDR_TYPE_ID && rtph264pay->spspps_interval > 0) {
+     if (rtph264pay->last_spspps != -1) {
+       guint64 diff;
+       GstClockTime running_time =
+@@ -993,7 +1003,8 @@ gst_rtp_h264_pay_payload_nal (GstRTPBasePayload * basepayload,
+       GST_DEBUG_OBJECT (rtph264pay, "no previous SPS/PPS time, send now");
+       send_spspps = TRUE;
+     }
+-  } else if (nal_type == IDR_TYPE_ID && rtph264pay->spspps_interval == -1) {
++  } else if (first_slice && nal_type == IDR_TYPE_ID
++      && rtph264pay->spspps_interval == -1) {
+     GST_DEBUG_OBJECT (rtph264pay, "sending SPS/PPS before current IDR frame");
+     /* send SPS/PPS before every IDR frame */
+     send_spspps = TRUE;
+diff --git a/gst/rtp/gstrtph265depay.c b/gst/rtp/gstrtph265depay.c
+index 41d2762ff..4aba961b7 100644
+--- a/gst/rtp/gstrtph265depay.c
++++ b/gst/rtp/gstrtph265depay.c
+@@ -152,6 +152,9 @@ gst_rtp_h265_depay_class_init (GstRtpH265DepayClass * klass)
+ static void
+ gst_rtp_h265_depay_init (GstRtpH265Depay * rtph265depay)
+ {
++  gst_rtp_base_depayload_set_aggregate_hdrext_enabled (GST_RTP_BASE_DEPAYLOAD
++      (rtph265depay), TRUE);
++
+   rtph265depay->adapter = gst_adapter_new ();
+   rtph265depay->picture_adapter = gst_adapter_new ();
+   rtph265depay->output_format = DEFAULT_STREAM_FORMAT;
+@@ -674,9 +677,18 @@ gst_rtp_h265_add_vps_sps_pps (GstElement * rtph265, GPtrArray * vps_array,
+ 
+   gst_buffer_map (nal, &map, GST_MAP_READ);
+ 
++  if (map.size == 0)
++    goto drop;
++
+   type = (map.data[0] >> 1) & 0x3f;
+ 
+   if (type == GST_H265_VPS_NUT) {
++    if (map.size < 3) {
++      GST_WARNING_OBJECT (rtph265, "Invalid VPS,"
++          " can't parse seq_parameter_set_id");
++      goto drop;
++    }
++
+     guint32 vps_id = (map.data[2] >> 4) & 0x0f;
+ 
+     for (i = 0; i < vps_array->len; i++) {
+@@ -852,7 +864,12 @@ gst_rtp_h265_depay_setcaps (GstRTPBaseDepayload * depayload, GstCaps * caps)
+      * front of the params. */
+     len = 0;
+     for (i = 0; params[i]; i++) {
+-      len += strlen (params[i]);
++      gsize nal_len = strlen (params[i]);
++      if (nal_len == 0) {
++        GST_WARNING_OBJECT (depayload, "empty param (#%d)", i);
++        continue;
++      }
++      len += nal_len;
+       len += sizeof (sync_bytes);
+     }
+     /* we seriously overshoot the length, but it's fine. */
+@@ -864,13 +881,20 @@ gst_rtp_h265_depay_setcaps (GstRTPBaseDepayload * depayload, GstCaps * caps)
+     for (i = 0; params[i]; i++) {
+       guint save = 0;
+       gint state = 0;
++      gsize nal_len = strlen (params[i]);
++
++      if (nal_len == 0)
++        continue;
+ 
+       GST_DEBUG_OBJECT (depayload, "decoding param %d (%s)", i, params[i]);
+       memcpy (ptr, sync_bytes, sizeof (sync_bytes));
+       ptr += sizeof (sync_bytes);
+-      len =
+-          g_base64_decode_step (params[i], strlen (params[i]), ptr, &state,
+-          &save);
++      len = g_base64_decode_step (params[i], nal_len, ptr, &state, &save);
++      if (len == 0) {
++        GST_WARNING_OBJECT (depayload, "failed decoding param %d", i);
++        ptr -= sizeof (sync_bytes);
++        continue;
++      }
+       GST_DEBUG_OBJECT (depayload, "decoded %d bytes", len);
+       total += len + sizeof (sync_bytes);
+       ptr += len;
+@@ -879,12 +903,16 @@ gst_rtp_h265_depay_setcaps (GstRTPBaseDepayload * depayload, GstCaps * caps)
+     gst_buffer_resize (codec_data, 0, total);
+     g_strfreev (params);
+ 
+-    /* keep the codec_data, we need to send it as the first buffer. We cannot
+-     * push it in the adapter because the adapter might be flushed on discont.
+-     */
+-    if (rtph265depay->codec_data)
+-      gst_buffer_unref (rtph265depay->codec_data);
+-    rtph265depay->codec_data = codec_data;
++    if (total > 0) {
++      /* keep the codec_data, we need to send it as the first buffer. We cannot
++       * push it in the adapter because the adapter might be flushed on discont.
++       */
++      if (rtph265depay->codec_data)
++        gst_buffer_unref (rtph265depay->codec_data);
++      rtph265depay->codec_data = codec_data;
++    } else {
++      gst_buffer_unref (codec_data);
++    }
+   } else if (!rtph265depay->byte_stream) {
+     gchar **params;
+     gint i;
+@@ -906,7 +934,7 @@ gst_rtp_h265_depay_setcaps (GstRTPBaseDepayload * depayload, GstCaps * caps)
+ 
+       nal_len = strlen (params[i]);
+       if (nal_len == 0) {
+-        GST_WARNING_OBJECT (depayload, "empty param '%s' (#%d)", params[i], i);
++        GST_WARNING_OBJECT (depayload, "empty param (#%d)", i);
+         continue;
+       }
+       nal = gst_buffer_new_and_alloc (nal_len);
+@@ -915,15 +943,22 @@ gst_rtp_h265_depay_setcaps (GstRTPBaseDepayload * depayload, GstCaps * caps)
+       nal_len =
+           g_base64_decode_step (params[i], nal_len, nalmap.data, &state, &save);
+ 
+-      GST_DEBUG_OBJECT (depayload, "adding param %d as %s", i,
+-          (((nalmap.data[0] >> 1) & 0x3f) ==
+-              32) ? "VPS" : (((nalmap.data[0] >> 1) & 0x3f) ==
+-              33) ? "SPS" : "PPS");
++      if (nal_len > 0) {
++        GST_DEBUG_OBJECT (depayload, "adding param %d as %s", i,
++            (((nalmap.data[0] >> 1) & 0x3f) ==
++                32) ? "VPS" : (((nalmap.data[0] >> 1) & 0x3f) ==
++                33) ? "SPS" : "PPS");
++      }
+ 
+       gst_buffer_unmap (nal, &nalmap);
+       gst_buffer_set_size (nal, nal_len);
+ 
+-      gst_rtp_h265_depay_add_vps_sps_pps (rtph265depay, nal);
++      if (nal_len > 0) {
++        gst_rtp_h265_depay_add_vps_sps_pps (rtph265depay, nal);
++      } else {
++        GST_WARNING_OBJECT (depayload, "failed decoding param %d", i);
++        gst_buffer_unref (nal);
++      }
+     }
+     g_strfreev (params);
+ 
+@@ -1293,8 +1328,10 @@ gst_rtp_h265_depay_process (GstRTPBaseDepayload * depayload, GstRTPBuffer * rtp)
+      * type.  Assume that the remote payloader is buggy (didn't set the end bit
+      * when the FU ended) and send out what we gathered thusfar */
+     if (G_UNLIKELY (rtph265depay->current_fu_type != 0 &&
+-            nal_unit_type != rtph265depay->current_fu_type))
++            nal_unit_type != rtph265depay->current_fu_type)) {
++      gst_rtp_base_depayload_delayed (depayload);
+       gst_rtp_h265_finish_fragmentation_unit (rtph265depay);
++    }
+ 
+     switch (nal_unit_type) {
+       case 48:
+@@ -1428,8 +1465,10 @@ gst_rtp_h265_depay_process (GstRTPBaseDepayload * depayload, GstRTPBuffer * rtp)
+           /* If a new FU unit started, while still processing an older one.
+            * Assume that the remote payloader is buggy (doesn't set the end
+            * bit) and send out what we've gathered thusfar */
+-          if (G_UNLIKELY (rtph265depay->current_fu_type != 0))
++          if (G_UNLIKELY (rtph265depay->current_fu_type != 0)) {
++            gst_rtp_base_depayload_delayed (depayload);
+             gst_rtp_h265_finish_fragmentation_unit (rtph265depay);
++          }
+ 
+           rtph265depay->current_fu_type = nal_unit_type;
+           rtph265depay->fu_timestamp = timestamp;
+@@ -1475,6 +1514,7 @@ gst_rtp_h265_depay_process (GstRTPBaseDepayload * depayload, GstRTPBuffer * rtp)
+             /* previous FU packet missing start bit? */
+             GST_WARNING_OBJECT (rtph265depay, "missing FU start bit on an "
+                 "earlier packet. Dropping.");
++            gst_rtp_base_depayload_flush (depayload, FALSE);
+             gst_adapter_clear (rtph265depay->adapter);
+             return NULL;
+           }
+@@ -1485,6 +1525,7 @@ gst_rtp_h265_depay_process (GstRTPBaseDepayload * depayload, GstRTPBuffer * rtp)
+                 "%u to %u within Fragmentation Unit. Data was lost, dropping "
+                 "stored.", rtph265depay->last_fu_seqnum,
+                 gst_rtp_buffer_get_seq (rtp));
++            gst_rtp_base_depayload_flush (depayload, FALSE);
+             gst_adapter_clear (rtph265depay->adapter);
+             return NULL;
+           }
+@@ -1560,11 +1601,13 @@ gst_rtp_h265_depay_process (GstRTPBaseDepayload * depayload, GstRTPBuffer * rtp)
+ empty_packet:
+   {
+     GST_DEBUG_OBJECT (rtph265depay, "empty packet");
++    gst_rtp_base_depayload_dropped (depayload);
+     return NULL;
+   }
+ waiting_start:
+   {
+     GST_DEBUG_OBJECT (rtph265depay, "waiting for start");
++    gst_rtp_base_depayload_dropped (depayload);
+     return NULL;
+   }
+ #if 0
+@@ -1572,6 +1615,7 @@ not_implemented_donl_present:
+   {
+     GST_ELEMENT_ERROR (rtph265depay, STREAM, FORMAT,
+         (NULL), ("DONL field present not supported yet"));
++    gst_rtp_base_depayload_dropped (depayload);
+     return NULL;
+   }
+ #endif
+@@ -1579,6 +1623,7 @@ not_implemented:
+   {
+     GST_ELEMENT_ERROR (rtph265depay, STREAM, FORMAT,
+         (NULL), ("NAL unit type %d not supported yet", nal_unit_type));
++    gst_rtp_base_depayload_dropped (depayload);
+     return NULL;
+   }
+ }
+diff --git a/gst/rtp/gstrtph265pay.c b/gst/rtp/gstrtph265pay.c
+index e06c928e4..5a08f8bbe 100644
+--- a/gst/rtp/gstrtph265pay.c
++++ b/gst/rtp/gstrtph265pay.c
+@@ -922,8 +922,7 @@ gst_rtp_h265_pay_decode_nal (GstRtpH265Pay * payloader,
+ }
+ 
+ static GstFlowReturn gst_rtp_h265_pay_payload_nal (GstRTPBasePayload *
+-    basepayload, GPtrArray * paybufs, GstClockTime dts, GstClockTime pts,
+-    gboolean delta_unit);
++    basepayload, GPtrArray * paybufs, GstClockTime dts, GstClockTime pts);
+ static GstFlowReturn gst_rtp_h265_pay_payload_nal_single (GstRTPBasePayload *
+     basepayload, GstBuffer * paybuf, GstClockTime dts, GstClockTime pts,
+     gboolean marker, gboolean delta_unit);
+@@ -970,7 +969,7 @@ gst_rtp_h265_pay_send_vps_sps_pps (GstRTPBasePayload * basepayload,
+     g_ptr_array_add (bufs, gst_buffer_ref (pps_buf));
+   }
+ 
+-  ret = gst_rtp_h265_pay_payload_nal (basepayload, bufs, dts, pts, FALSE);
++  ret = gst_rtp_h265_pay_payload_nal (basepayload, bufs, dts, pts);
+   if (ret != GST_FLOW_OK) {
+     /* not critical but warn */
+     GST_WARNING_OBJECT (basepayload, "failed pushing VPS/SPS/PPS");
+@@ -996,8 +995,7 @@ gst_rtp_h265_pay_reset_bundle (GstRtpH265Pay * rtph265pay)
+ 
+ static GstFlowReturn
+ gst_rtp_h265_pay_payload_nal (GstRTPBasePayload * basepayload,
+-    GPtrArray * paybufs, GstClockTime dts, GstClockTime pts,
+-    gboolean delta_unit)
++    GPtrArray * paybufs, GstClockTime dts, GstClockTime pts)
+ {
+   GstRtpH265Pay *rtph265pay;
+   guint mtu;
+@@ -1023,6 +1021,7 @@ gst_rtp_h265_pay_payload_nal (GstRTPBasePayload * basepayload,
+     gboolean send_ps;
+     guint size;
+     gboolean marker;
++    gboolean delta_unit;
+ 
+     paybuf = g_ptr_array_index (paybufs, i);
+ 
+@@ -1033,6 +1032,7 @@ gst_rtp_h265_pay_payload_nal (GstRTPBasePayload * basepayload,
+     }
+ 
+     marker = GST_BUFFER_FLAG_IS_SET (paybuf, GST_BUFFER_FLAG_MARKER);
++    delta_unit = GST_BUFFER_FLAG_IS_SET (paybuf, GST_BUFFER_FLAG_DELTA_UNIT);
+ 
+     size = gst_buffer_get_size (paybuf);
+     gst_buffer_extract (paybuf, 0, nal_header, 2);
+@@ -1583,6 +1583,14 @@ gst_rtp_h265_pay_handle_buffer (GstRTPBasePayload * basepayload,
+         discont = FALSE;
+       }
+ 
++      GST_BUFFER_FLAG_SET (paybuf, GST_BUFFER_FLAG_DELTA_UNIT);
++      if (!rtph265pay->delta_unit)
++        GST_BUFFER_FLAG_UNSET (paybuf, GST_BUFFER_FLAG_DELTA_UNIT);
++
++      if (!rtph265pay->delta_unit)
++        /* only the first outgoing packet doesn't have the DELTA_UNIT flag */
++        rtph265pay->delta_unit = TRUE;
++
+       /* Skip current nal. If it is split over multiple GstMemory
+        * advance_bytes () will switch to the correct GstMemory. The payloader
+        * does not access those bytes directly but uses gst_buffer_copy_region ()
+@@ -1592,13 +1600,7 @@ gst_rtp_h265_pay_handle_buffer (GstRTPBasePayload * basepayload,
+       offset += nal_len;
+       remaining_buffer_size -= nal_len;
+     }
+-    ret =
+-        gst_rtp_h265_pay_payload_nal (basepayload, paybufs, dts, pts,
+-        rtph265pay->delta_unit);
+-
+-    if (!rtph265pay->delta_unit)
+-      /* only the first outgoing packet doesn't have the DELTA_UNIT flag */
+-      rtph265pay->delta_unit = TRUE;
++    ret = gst_rtp_h265_pay_payload_nal (basepayload, paybufs, dts, pts);
+ 
+     gst_buffer_memory_unmap (&memory);
+     gst_buffer_unref (buffer);
+@@ -1713,6 +1715,10 @@ gst_rtp_h265_pay_handle_buffer (GstRTPBasePayload * basepayload,
+         discont = FALSE;
+       }
+ 
++      GST_BUFFER_FLAG_SET (paybuf, GST_BUFFER_FLAG_DELTA_UNIT);
++      if (!rtph265pay->delta_unit)
++        GST_BUFFER_FLAG_UNSET (paybuf, GST_BUFFER_FLAG_DELTA_UNIT);
++
+       if (delayed_not_delta_unit) {
+         rtph265pay->delta_unit = FALSE;
+         delayed_not_delta_unit = FALSE;
+@@ -1726,9 +1732,7 @@ gst_rtp_h265_pay_handle_buffer (GstRTPBasePayload * basepayload,
+       gst_adapter_flush (rtph265pay->adapter, nal_len - size);
+     }
+     /* put the data in one or more RTP packets */
+-    ret =
+-        gst_rtp_h265_pay_payload_nal (basepayload, paybufs, dts, pts,
+-        rtph265pay->delta_unit);
++    ret = gst_rtp_h265_pay_payload_nal (basepayload, paybufs, dts, pts);
+     g_array_set_size (nal_queue, 0);
+   }
+ 
+diff --git a/gst/rtp/gstrtpj2kdepay.c b/gst/rtp/gstrtpj2kdepay.c
+index 4456b3dd8..17ad6f510 100644
+--- a/gst/rtp/gstrtpj2kdepay.c
++++ b/gst/rtp/gstrtpj2kdepay.c
+@@ -132,6 +132,9 @@ gst_rtp_j2k_depay_class_init (GstRtpJ2KDepayClass * klass)
+ static void
+ gst_rtp_j2k_depay_init (GstRtpJ2KDepay * rtpj2kdepay)
+ {
++  gst_rtp_base_depayload_set_aggregate_hdrext_enabled (GST_RTP_BASE_DEPAYLOAD
++      (rtpj2kdepay), TRUE);
++
+   rtpj2kdepay->pu_adapter = gst_adapter_new ();
+   rtpj2kdepay->t_adapter = gst_adapter_new ();
+   rtpj2kdepay->f_adapter = gst_adapter_new ();
+@@ -440,6 +443,7 @@ gst_rtp_j2k_depay_flush_frame (GstRTPBaseDepayload * depayload)
+   } else {
+     GST_WARNING_OBJECT (rtpj2kdepay, "empty packet");
+     gst_adapter_clear (rtpj2kdepay->f_adapter);
++    gst_rtp_base_depayload_flush (depayload, TRUE);
+   }
+ 
+   /* we accept any mh_id now */
+@@ -597,6 +601,7 @@ empty_packet:
+   {
+     GST_ELEMENT_WARNING (rtpj2kdepay, STREAM, DECODE,
+         ("Empty Payload."), (NULL));
++    gst_rtp_base_depayload_dropped (depayload);
+     return NULL;
+   }
+ wrong_mh_id:
+@@ -604,6 +609,7 @@ wrong_mh_id:
+     GST_ELEMENT_WARNING (rtpj2kdepay, STREAM, DECODE,
+         ("Invalid mh_id %u, expected %u", mh_id, rtpj2kdepay->last_mh_id),
+         (NULL));
++    gst_rtp_base_depayload_dropped (depayload);
+     gst_rtp_j2k_depay_clear_pu (rtpj2kdepay);
+     return NULL;
+   }
+diff --git a/gst/rtp/gstrtpjpegdepay.c b/gst/rtp/gstrtpjpegdepay.c
+index b85b7fbf1..a5f44ed82 100644
+--- a/gst/rtp/gstrtpjpegdepay.c
++++ b/gst/rtp/gstrtpjpegdepay.c
+@@ -119,6 +119,9 @@ gst_rtp_jpeg_depay_class_init (GstRtpJPEGDepayClass * klass)
+ static void
+ gst_rtp_jpeg_depay_init (GstRtpJPEGDepay * rtpjpegdepay)
+ {
++  gst_rtp_base_depayload_set_aggregate_hdrext_enabled (GST_RTP_BASE_DEPAYLOAD
++      (rtpjpegdepay), TRUE);
++
+   rtpjpegdepay->adapter = gst_adapter_new ();
+ }
+ 
+@@ -737,17 +740,20 @@ empty_packet:
+   {
+     GST_ELEMENT_WARNING (rtpjpegdepay, STREAM, DECODE,
+         ("Empty Payload."), (NULL));
++    gst_rtp_base_depayload_dropped (depayload);
+     return NULL;
+   }
+ invalid_dimension:
+   {
+     GST_ELEMENT_WARNING (rtpjpegdepay, STREAM, FORMAT,
+         ("Invalid Dimension %dx%d.", width, height), (NULL));
++    gst_rtp_base_depayload_dropped (depayload);
+     return NULL;
+   }
+ no_qtable:
+   {
+     GST_WARNING_OBJECT (rtpjpegdepay, "no qtable");
++    gst_rtp_base_depayload_dropped (depayload);
+     return NULL;
+   }
+ invalid_packet:
+@@ -755,12 +761,14 @@ invalid_packet:
+     GST_WARNING_OBJECT (rtpjpegdepay, "invalid packet");
+     gst_adapter_flush (rtpjpegdepay->adapter,
+         gst_adapter_available (rtpjpegdepay->adapter));
++    gst_rtp_base_depayload_flush (depayload, TRUE);
+     return NULL;
+   }
+ no_header_packet:
+   {
+     GST_WARNING_OBJECT (rtpjpegdepay,
+         "discarding data packets received when we have no header");
++    gst_rtp_base_depayload_dropped (depayload);
+     return NULL;
+   }
+ }
+diff --git a/gst/rtp/gstrtpklvdepay.c b/gst/rtp/gstrtpklvdepay.c
+index 20673c8fb..0d290287e 100644
+--- a/gst/rtp/gstrtpklvdepay.c
++++ b/gst/rtp/gstrtpklvdepay.c
+@@ -108,6 +108,9 @@ gst_rtp_klv_depay_class_init (GstRtpKlvDepayClass * klass)
+ static void
+ gst_rtp_klv_depay_init (GstRtpKlvDepay * klvdepay)
+ {
++  gst_rtp_base_depayload_set_aggregate_hdrext_enabled (GST_RTP_BASE_DEPAYLOAD
++      (klvdepay), TRUE);
++
+   klvdepay->adapter = gst_adapter_new ();
+ }
+ 
+@@ -261,6 +264,7 @@ gst_rtp_klv_depay_process_data (GstRtpKlvDepay * klvdepay)
+ bad_klv_packet:
+   {
+     GST_WARNING_OBJECT (klvdepay, "bad KLV packet, dropping");
++    gst_rtp_base_depayload_flush (GST_RTP_BASE_DEPAYLOAD (klvdepay), TRUE);
+     gst_rtp_klv_depay_reset (klvdepay);
+     return NULL;
+   }
+@@ -357,6 +361,8 @@ gst_rtp_klv_depay_process (GstRTPBaseDepayload * depayload, GstRTPBuffer * rtp)
+ 
+   if (marker)
+     outbuf = gst_rtp_klv_depay_process_data (klvdepay);
++  else if (outbuf)
++    gst_rtp_base_depayload_delayed (depayload);
+ 
+ done:
+ 
+diff --git a/gst/rtp/gstrtpmp4adepay.c b/gst/rtp/gstrtpmp4adepay.c
+index f278fc598..fc5e60303 100644
+--- a/gst/rtp/gstrtpmp4adepay.c
++++ b/gst/rtp/gstrtpmp4adepay.c
+@@ -111,6 +111,9 @@ gst_rtp_mp4a_depay_class_init (GstRtpMP4ADepayClass * klass)
+ static void
+ gst_rtp_mp4a_depay_init (GstRtpMP4ADepay * rtpmp4adepay)
+ {
++  gst_rtp_base_depayload_set_aggregate_hdrext_enabled (GST_RTP_BASE_DEPAYLOAD
++      (rtpmp4adepay), TRUE);
++
+   rtpmp4adepay->adapter = gst_adapter_new ();
+   rtpmp4adepay->framed = FALSE;
+ }
+@@ -306,6 +309,7 @@ gst_rtp_mp4a_depay_process (GstRTPBaseDepayload * depayload, GstRTPBuffer * rtp)
+   GstRtpMP4ADepay *rtpmp4adepay;
+   GstBuffer *outbuf;
+   GstMapInfo map;
++  GstBufferList *outbufs = NULL;
+ 
+   rtpmp4adepay = GST_RTP_MP4A_DEPAY (depayload);
+ 
+@@ -347,9 +351,11 @@ gst_rtp_mp4a_depay_process (GstRTPBaseDepayload * depayload, GstRTPBuffer * rtp)
+     guint8 *data;
+     guint pos;
+     GstClockTime timestamp;
++    guint64 samples_consumed;
+ 
+     avail = gst_adapter_available (rtpmp4adepay->adapter);
+     timestamp = gst_adapter_prev_pts (rtpmp4adepay->adapter, NULL);
++    samples_consumed = 0;
+ 
+     GST_LOG_OBJECT (rtpmp4adepay, "have marker and %u available", avail);
+ 
+@@ -359,6 +365,7 @@ gst_rtp_mp4a_depay_process (GstRTPBaseDepayload * depayload, GstRTPBuffer * rtp)
+     /* position in data we are at */
+     pos = 0;
+ 
++    outbufs = gst_buffer_list_new_sized (rtpmp4adepay->numSubFrames);
+     /* looping through the number of sub-frames in the audio payload */
+     for (i = 0; i <= rtpmp4adepay->numSubFrames; i++) {
+       /* determine payload length and set buffer data pointer accordingly */
+@@ -397,18 +404,30 @@ gst_rtp_mp4a_depay_process (GstRTPBaseDepayload * depayload, GstRTPBuffer * rtp)
+       avail -= skip;
+ 
+       GST_BUFFER_PTS (tmp) = timestamp;
+-      gst_rtp_drop_non_audio_meta (depayload, tmp);
+-      gst_rtp_base_depayload_push (depayload, tmp);
+ 
+-      /* shift ts for next buffers */
+-      if (rtpmp4adepay->frame_len && timestamp != -1
+-          && depayload->clock_rate != 0) {
+-        timestamp +=
+-            gst_util_uint64_scale_int (rtpmp4adepay->frame_len, GST_SECOND,
++      if (timestamp != -1 && depayload->clock_rate != 0) {
++        GST_BUFFER_PTS (tmp) +=
++            gst_util_uint64_scale_int (samples_consumed, GST_SECOND,
+             depayload->clock_rate);
++
++        /* shift ts for next buffers */
++        if (rtpmp4adepay->frame_len) {
++          samples_consumed += rtpmp4adepay->frame_len;
++
++          GstClockTime next_timestamp =
++              timestamp + gst_util_uint64_scale_int (samples_consumed,
++              GST_SECOND, depayload->clock_rate);
++          GST_BUFFER_DURATION (tmp) = next_timestamp - GST_BUFFER_PTS (tmp);
++        }
+       }
++
++      gst_rtp_drop_non_audio_meta (depayload, tmp);
++      gst_buffer_list_add (outbufs, tmp);
+     }
+ 
++    /* now push all sub-frames we found */
++    gst_rtp_base_depayload_push_list (depayload, outbufs);
++
+     /* just a check that lengths match */
+     if (avail) {
+       GST_ELEMENT_WARNING (depayload, STREAM, DECODE,
+@@ -416,9 +435,9 @@ gst_rtp_mp4a_depay_process (GstRTPBaseDepayload * depayload, GstRTPBuffer * rtp)
+               "possible wrongly encoded packet."));
+     }
+ 
+-    gst_buffer_unmap (outbuf, &map);
+-    gst_buffer_unref (outbuf);
++    goto out;
+   }
++
+   return NULL;
+ 
+   /* ERRORS */
+@@ -426,6 +445,15 @@ wrong_size:
+   {
+     GST_ELEMENT_WARNING (rtpmp4adepay, STREAM, DECODE,
+         ("Packet did not validate"), ("wrong packet size"));
++    /* push what we have so far */
++    gst_rtp_base_depayload_push_list (depayload, outbufs);
++  }
++
++out:
++  {
++    /* we may not have sent anything but we consumed all data from the
++       adapter so let's clear the hdrext cache */
++    gst_rtp_base_depayload_flush (depayload, FALSE);
+     gst_buffer_unmap (outbuf, &map);
+     gst_buffer_unref (outbuf);
+     return NULL;
+diff --git a/gst/rtp/gstrtpmp4gdepay.c b/gst/rtp/gstrtpmp4gdepay.c
+index 8ee094d5b..1ee312896 100644
+--- a/gst/rtp/gstrtpmp4gdepay.c
++++ b/gst/rtp/gstrtpmp4gdepay.c
+@@ -182,6 +182,8 @@ gst_rtp_mp4g_depay_class_init (GstRtpMP4GDepayClass * klass)
+ static void
+ gst_rtp_mp4g_depay_init (GstRtpMP4GDepay * rtpmp4gdepay)
+ {
++  gst_rtp_base_depayload_set_aggregate_hdrext_enabled (GST_RTP_BASE_DEPAYLOAD
++      (rtpmp4gdepay), TRUE);
+   rtpmp4gdepay->adapter = gst_adapter_new ();
+   rtpmp4gdepay->packets = g_queue_new ();
+ }
+@@ -348,7 +350,11 @@ gst_rtp_mp4g_depay_push_outbuf (GstRtpMP4GDepay * rtpmp4gdepay,
+       discont ? "" : "expected ", AU_index);
+ 
+   gst_rtp_drop_meta (GST_ELEMENT_CAST (rtpmp4gdepay), outbuf, 0);
+-  gst_rtp_base_depayload_push (GST_RTP_BASE_DEPAYLOAD (rtpmp4gdepay), outbuf);
++  if (!rtpmp4gdepay->outbufs) {
++    rtpmp4gdepay->outbufs =
++        gst_buffer_list_new_sized (g_queue_get_length (rtpmp4gdepay->packets));
++  }
++  gst_buffer_list_add (rtpmp4gdepay->outbufs, outbuf);
+   rtpmp4gdepay->next_AU_index = AU_index + 1;
+ }
+ 
+@@ -727,6 +733,11 @@ gst_rtp_mp4g_depay_process (GstRTPBaseDepayload * depayload, GstRTPBuffer * rtp)
+         payload_AU += AU_size;
+         payload_AU_size -= AU_size;
+       }
++
++      if (rtpmp4gdepay->outbufs) {
++        gst_rtp_base_depayload_push_list (depayload,
++            g_steal_pointer (&rtpmp4gdepay->outbufs));
++      }
+     } else {
+       /* push complete buffer in adapter */
+       outbuf = gst_rtp_buffer_get_payload_subbuffer (rtp, 0, payload_len);
+@@ -755,6 +766,7 @@ short_payload:
+   {
+     GST_ELEMENT_WARNING (rtpmp4gdepay, STREAM, DECODE,
+         ("Packet payload was too short."), (NULL));
++    gst_rtp_base_depayload_dropped (depayload);
+     return NULL;
+   }
+ }
+diff --git a/gst/rtp/gstrtpmp4gdepay.h b/gst/rtp/gstrtpmp4gdepay.h
+index a6a88a0d4..7887464c2 100644
+--- a/gst/rtp/gstrtpmp4gdepay.h
++++ b/gst/rtp/gstrtpmp4gdepay.h
+@@ -73,6 +73,7 @@ struct _GstRtpMP4GDepay
+   GQueue *packets;
+   
+   GstAdapter *adapter;
++  GstBufferList *outbufs;
+ };
+ 
+ struct _GstRtpMP4GDepayClass
+diff --git a/gst/rtp/gstrtpmp4vdepay.c b/gst/rtp/gstrtpmp4vdepay.c
+index 204828c47..c99df605f 100644
+--- a/gst/rtp/gstrtpmp4vdepay.c
++++ b/gst/rtp/gstrtpmp4vdepay.c
+@@ -106,6 +106,8 @@ gst_rtp_mp4v_depay_class_init (GstRtpMP4VDepayClass * klass)
+ static void
+ gst_rtp_mp4v_depay_init (GstRtpMP4VDepay * rtpmp4vdepay)
+ {
++  gst_rtp_base_depayload_set_aggregate_hdrext_enabled (GST_RTP_BASE_DEPAYLOAD
++      (rtpmp4vdepay), TRUE);
+   rtpmp4vdepay->adapter = gst_adapter_new ();
+ }
+ 
+diff --git a/gst/rtp/gstrtpmparobustdepay.c b/gst/rtp/gstrtpmparobustdepay.c
+index ca7f1f19a..b20072fb6 100644
+--- a/gst/rtp/gstrtpmparobustdepay.c
++++ b/gst/rtp/gstrtpmparobustdepay.c
+@@ -278,7 +278,7 @@ gst_rtp_mpa_robust_depay_generate_dummy_frame (GstRtpMPARobustDepay *
+   GstADUFrame *dummy;
+   GstMapInfo map;
+ 
+-  dummy = g_slice_dup (GstADUFrame, frame);
++  dummy = g_memdup2 (frame, sizeof (GstADUFrame));
+ 
+   /* go for maximum bitrate */
+   dummy->header = (frame->header & ~(0xf << 12)) | (0xe << 12);
+@@ -319,7 +319,7 @@ gst_rtp_mpa_robust_depay_queue_frame (GstRtpMPARobustDepay * rtpmpadepay,
+   if (map.size < 6)
+     goto corrupt_frame;
+ 
+-  frame = g_slice_new0 (GstADUFrame);
++  frame = g_new0 (GstADUFrame, 1);
+   frame->header = GST_READ_UINT32_BE (map.data);
+ 
+   size = mp3_type_frame_length_from_header (GST_ELEMENT_CAST (rtpmpadepay),
+@@ -377,7 +377,7 @@ corrupt_frame:
+     gst_buffer_unmap (buf, &map);
+     gst_buffer_unref (buf);
+     if (frame)
+-      g_slice_free (GstADUFrame, frame);
++      g_free (frame);
+     return FALSE;
+   }
+ }
+@@ -387,7 +387,7 @@ gst_rtp_mpa_robust_depay_free_frame (GstADUFrame * frame)
+ {
+   if (frame->buffer)
+     gst_buffer_unref (frame->buffer);
+-  g_slice_free (GstADUFrame, frame);
++  g_free (frame);
+ }
+ 
+ static inline void
+@@ -500,7 +500,7 @@ gst_rtp_mpa_robust_depay_push_mp3_frames (GstRtpMPARobustDepay * rtpmpadepay)
+           frame->buffer);
+       frame->buffer = NULL;
+       /* and remove it from any further consideration */
+-      g_slice_free (GstADUFrame, frame);
++      g_free (frame);
+       g_queue_delete_link (rtpmpadepay->adu_frames, rtpmpadepay->cur_adu_frame);
+       rtpmpadepay->cur_adu_frame = NULL;
+       continue;
+@@ -682,8 +682,8 @@ gst_rtp_mpa_robust_depay_process (GstRTPBaseDepayload * depayload,
+    */
+   while (payload_len) {
+     if (G_LIKELY (rtpmpadepay->has_descriptor)) {
+-      cont = ! !(payload[offset] & 0x80);
+-      dtype = ! !(payload[offset] & 0x40);
++      cont = !!(payload[offset] & 0x80);
++      dtype = !!(payload[offset] & 0x40);
+       if (dtype) {
+         size = (payload[offset] & 0x3f) << 8 | payload[offset + 1];
+         payload_len--;
+diff --git a/gst/rtp/gstrtpopusdepay.c b/gst/rtp/gstrtpopusdepay.c
+index 220f5c0ae..64e073716 100644
+--- a/gst/rtp/gstrtpopusdepay.c
++++ b/gst/rtp/gstrtpopusdepay.c
+@@ -257,6 +257,9 @@ gst_rtp_opus_depay_process (GstRTPBaseDepayload * depayload,
+ 
+   outbuf = gst_rtp_buffer_get_payload_buffer (rtp_buffer);
+ 
++  if (gst_rtp_buffer_get_marker (rtp_buffer))
++    GST_BUFFER_FLAG_SET (outbuf, GST_BUFFER_FLAG_RESYNC);
++
+   gst_rtp_drop_non_audio_meta (depayload, outbuf);
+ 
+   return outbuf;
+diff --git a/gst/rtp/gstrtppassthroughpay.c b/gst/rtp/gstrtppassthroughpay.c
+new file mode 100644
+index 000000000..693d27085
+--- /dev/null
++++ b/gst/rtp/gstrtppassthroughpay.c
+@@ -0,0 +1,477 @@
++/*
++ * GStreamer
++ *
++ * Copyright (C) 2023 Sebastian Dröge <sebastian@centricular.com>
++ * Copyright (C) 2023 Jonas Danielsson <jonas.danielsson@spiideo.com>
++ *
++ * gstrtppassthroughpay.c:
++ *
++ * This library is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU Library General Public
++ * License as published by the Free Software Foundation; either
++ * version 2 of the License, or (at your option) any later version.
++ *
++ * This library is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * Library General Public License for more details.
++ */
++
++/**
++ * SECTION:element-rtppassthroughpay
++ * @title: rtppassthroughpay
++ *
++ * This elements pass RTP packets along unchanged and appear as a RTP
++ * payloader element to the outside world.
++ *
++ * This is useful, for example, in the case where you are receiving RTP
++ * packets from a different source and want to serve them over RTSP. Since the
++ * gst-rtsp-server library expect the element marked as `payX` to be a RTP
++ * payloader element and assumes certain properties are available.
++ *
++ * ## Example pipelines
++ *
++ * |[
++ * gst-launch-1.0 rtpbin name=rtpbin \
++ *     videotestsrc ! videoconvert ! x264enc ! rtph264pay ! rtpbin.send_rtp_sink_0 \
++ *     rtpbin.send_rtp_src_0 ! udpsink port=5000
++ * ]| Encode and payload H264 video from videotestsrc. The H264 RTP packets are
++ * sent on UDP port 5000.
++ * |[
++ * test-launch "( udpsrc port=5000 caps=application/x-rtp, ..." ! .recv_rtp_sink_0 \
++ *      rtpbin ! rtppassthroughpay name=pay0 )"
++ * ]| Setup a gstreamer-rtsp-server using the example tool, it will listen for
++ * H264 RTP packets on port 5000 and present them using the rtppassthroughpay
++ * element as the well-known payloader pay0.
++ *
++ * Since: 1.24
++ */
++
++#include <gst/rtp/rtp.h>
++
++#include "gstrtpelements.h"
++#include "gstrtppassthroughpay.h"
++
++GST_DEBUG_CATEGORY_STATIC (gst_rtp_passthrough_pay_debug);
++#define GST_CAT_DEFAULT gst_rtp_passthrough_pay_debug
++
++#define PAYLOAD_TYPE_INVALID 128        /* valid range is 0 - 127 (seven bits) */
++
++G_DEFINE_TYPE (GstRtpPassthroughPay, gst_rtp_passthrough_pay, GST_TYPE_ELEMENT);
++GST_ELEMENT_REGISTER_DEFINE_WITH_CODE (rtppassthroughpay,
++    "rtppassthroughpay", GST_RANK_NONE, GST_TYPE_RTP_PASSTHROUGH_PAY,
++    rtp_element_init (plugin));
++
++static GstStaticPadTemplate src_template =
++GST_STATIC_PAD_TEMPLATE ("src", GST_PAD_SRC, GST_PAD_ALWAYS,
++    GST_STATIC_CAPS ("application/x-rtp, " "payload = (int) [ 0, 127 ],"
++        "clock-rate = (int) [ 1, 2147483647 ]"));
++
++static GstStaticPadTemplate sink_template =
++GST_STATIC_PAD_TEMPLATE ("sink", GST_PAD_SINK, GST_PAD_ALWAYS,
++    GST_STATIC_CAPS ("application/x-rtp, " "payload = (int) [ 0, 127 ],"
++        "clock-rate = (int) [ 1, 2147483647 ]"));
++
++enum
++{
++  PROP_0,
++  PROP_PT,
++  PROP_MTU,
++  PROP_STATS,
++  PROP_SEQNUM,
++  PROP_SEQNUM_OFFSET,
++  PROP_TIMESTAMP,
++  PROP_TIMESTAMP_OFFSET,
++};
++
++static void gst_rtp_passthrough_pay_get_property (GObject * object,
++    guint prop_id, GValue * value, GParamSpec * pspec);
++
++static void gst_rtp_passthrough_pay_set_property (GObject * object,
++    guint prop_id, const GValue * value, GParamSpec * pspec);
++static void gst_rtp_passthrough_pay_finalize (GObject * object);
++
++static GstStateChangeReturn
++gst_rtp_passthrough_pay_change_state (GstElement * element,
++    GstStateChange transition);
++
++static GstFlowReturn gst_rtp_passthrough_pay_chain (GstPad * pad,
++    GstObject * parent, GstBuffer * buffer);
++
++static gboolean gst_rtp_passthrough_pay_sink_event (GstPad * pad,
++    GstObject * parent, GstEvent * event);
++
++static void gst_rtp_passthrough_set_payload_type (GstRtpPassthroughPay * self,
++    guint pt);
++
++static GstStructure
++    * gst_rtp_passthrough_pay_create_stats (GstRtpPassthroughPay * self);
++
++static void
++gst_rtp_passthrough_pay_init (GstRtpPassthroughPay * self)
++{
++  self->sinkpad = gst_pad_new_from_static_template (&sink_template, "sink");
++  gst_pad_set_chain_function (self->sinkpad, gst_rtp_passthrough_pay_chain);
++  gst_pad_set_event_function (self->sinkpad,
++      gst_rtp_passthrough_pay_sink_event);
++  GST_OBJECT_FLAG_SET (self->sinkpad, GST_PAD_FLAG_PROXY_ALLOCATION);
++  GST_OBJECT_FLAG_SET (self->sinkpad, GST_PAD_FLAG_PROXY_CAPS);
++  GST_OBJECT_FLAG_SET (self->sinkpad, GST_PAD_FLAG_PROXY_SCHEDULING);
++  gst_element_add_pad (GST_ELEMENT (self), self->sinkpad);
++
++  self->srcpad = gst_pad_new_from_static_template (&src_template, "src");
++  GST_OBJECT_FLAG_SET (self->srcpad, GST_PAD_FLAG_PROXY_CAPS);
++  gst_element_add_pad (GST_ELEMENT (self), self->srcpad);
++
++  self->pt = PAYLOAD_TYPE_INVALID;
++}
++
++static void
++gst_rtp_passthrough_pay_class_init (GstRtpPassthroughPayClass
++    * gst_rtp_passthrough_pay_class)
++{
++  GObjectClass *gobject_class = G_OBJECT_CLASS (gst_rtp_passthrough_pay_class);
++  GstElementClass *element_class =
++      GST_ELEMENT_CLASS (gst_rtp_passthrough_pay_class);
++
++  gobject_class->set_property = gst_rtp_passthrough_pay_set_property;
++  gobject_class->get_property = gst_rtp_passthrough_pay_get_property;
++  gobject_class->finalize = gst_rtp_passthrough_pay_finalize;
++
++  /**
++   * GstRtpPassthroughPay:pt:
++   *
++   * If set this will override the payload of the incoming RTP packets.
++   * If not set the payload type will be same as incoming RTP packets.
++   *
++   * Since: 1.24
++   */
++  g_object_class_install_property (G_OBJECT_CLASS (gobject_class), PROP_PT,
++      g_param_spec_uint ("pt", "payload type",
++          "The payload type of the packets", 0, 0x80, PAYLOAD_TYPE_INVALID,
++          G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
++  /**
++   * GstRtpPassthroughPay:mtu:
++   *
++   * Setting this property has no effect on this element, it is here and it
++   * is writable only to emulate a proper RTP payloader.
++   *
++   * Since: 1.24
++   */
++  g_object_class_install_property (G_OBJECT_CLASS (gobject_class), PROP_MTU,
++      g_param_spec_uint ("mtu", "MTU", "Maximum size of one packet", 28,
++          G_MAXUINT, 1492, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
++  /**
++   * GstRtpPassthroughPay:timestamp:
++   *
++   * Since: 1.24
++   */
++  g_object_class_install_property (G_OBJECT_CLASS (gobject_class),
++      PROP_TIMESTAMP, g_param_spec_uint ("timestamp", "Timestamp",
++          "The RTP timestamp of the last processed packet", 0, G_MAXUINT32, 0,
++          G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
++  /**
++   * GstRtpPassthroughPay:seqnum:
++   *
++   * Since: 1.24
++   */
++  g_object_class_install_property (G_OBJECT_CLASS (gobject_class), PROP_SEQNUM,
++      g_param_spec_uint ("seqnum", "Sequence number",
++          "The RTP sequence number of the last processed packet", 0,
++          G_MAXUINT16, 0, G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
++  /**
++   * GstRtpPassthroughPay:timestamp-offset:
++   *
++   * Since: 1.24
++   */
++  g_object_class_install_property (G_OBJECT_CLASS (gobject_class),
++      PROP_TIMESTAMP_OFFSET, g_param_spec_uint ("timestamp-offset",
++          "Timestamp Offset",
++          "Offset to add to all outgoing timestamps (default = random)", 0,
++          G_MAXUINT32, -1, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
++  /**
++   * GstRtpPassthroughPay:seqnum-offset:
++   *
++   * Since: 1.24
++   */
++  g_object_class_install_property (G_OBJECT_CLASS (gobject_class),
++      PROP_SEQNUM_OFFSET, g_param_spec_int ("seqnum-offset",
++          "Sequence number Offset",
++          "Offset to add to all outgoing seqnum (-1 = random)", -1, G_MAXUINT16,
++          -1, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
++  /**
++   * GstRtpPassthroughPay:stats:
++   *
++   * Since: 1.24
++   */
++  g_object_class_install_property (G_OBJECT_CLASS (gobject_class), PROP_STATS,
++      g_param_spec_boxed ("stats", "Statistics", "Various statistics",
++          GST_TYPE_STRUCTURE, G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
++
++  element_class->change_state = gst_rtp_passthrough_pay_change_state;
++
++  gst_element_class_add_static_pad_template (element_class, &sink_template);
++  gst_element_class_add_static_pad_template (element_class, &src_template);
++
++  gst_element_class_set_static_metadata (element_class,
++      "RTP Passthrough payloader", "Codec/Payloader/Network/RTP",
++      "Passes through RTP packets",
++      "Sebastian Dröge <sebastian@centricular.com>, "
++      "Jonas Danielsson <jonas.danielsson@spiideo.com>");
++
++  GST_DEBUG_CATEGORY_INIT (gst_rtp_passthrough_pay_debug, "rtppassthroughpay",
++      0, "RTP Passthrough Payloader");
++}
++
++static void
++gst_rtp_passthrough_pay_finalize (GObject * object)
++{
++  GstRtpPassthroughPay *self = GST_RTP_PASSTHROUGH_PAY (object);
++
++  gst_clear_caps (&self->caps);
++  G_OBJECT_CLASS (gst_rtp_passthrough_pay_parent_class)->finalize (object);
++}
++
++static void
++gst_rtp_passthrough_pay_get_property (GObject * object, guint prop_id,
++    GValue * value, GParamSpec * pspec)
++{
++  GstRtpPassthroughPay *self = GST_RTP_PASSTHROUGH_PAY (object);
++
++  switch (prop_id) {
++    case PROP_PT:
++      g_value_set_uint (value, self->pt);
++      break;
++    case PROP_MTU:
++      g_value_set_uint (value, 0U);
++      break;
++    case PROP_TIMESTAMP:
++      g_value_set_uint (value, self->timestamp);
++      break;
++    case PROP_TIMESTAMP_OFFSET:
++      g_value_set_uint (value, self->timestamp_offset);
++      break;
++    case PROP_SEQNUM:
++      g_value_set_uint (value, self->seqnum);
++      break;
++    case PROP_SEQNUM_OFFSET:
++      g_value_set_int (value, (guint16) self->seqnum_offset);
++      break;
++    case PROP_STATS:
++      g_value_take_boxed (value, gst_rtp_passthrough_pay_create_stats (self));
++      break;
++    default:
++      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
++      break;
++  }
++}
++
++static void
++gst_rtp_passthrough_pay_set_property (GObject * object, guint prop_id,
++    const GValue * value, GParamSpec * pspec)
++{
++  GstRtpPassthroughPay *self = GST_RTP_PASSTHROUGH_PAY (object);
++
++  switch (prop_id) {
++    case PROP_PT:
++      gst_rtp_passthrough_set_payload_type (self, g_value_get_uint (value));
++      break;
++    case PROP_MTU:
++      GST_WARNING_OBJECT (self, "Setting the mtu property has no effect");
++      break;
++    case PROP_TIMESTAMP_OFFSET:
++      GST_FIXME_OBJECT (self,
++          "Setting the timestamp-offset property has no effect");
++      break;
++    case PROP_SEQNUM_OFFSET:
++      GST_FIXME_OBJECT (self,
++          "Setting the seqnum-offset property has no effect");
++      break;
++    default:
++      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
++      break;
++  }
++}
++
++static GstStateChangeReturn
++gst_rtp_passthrough_pay_change_state (GstElement * element,
++    GstStateChange transition)
++{
++  GstRtpPassthroughPay *self = GST_RTP_PASSTHROUGH_PAY (element);
++  GstStateChangeReturn ret;
++
++  ret = GST_ELEMENT_CLASS (gst_rtp_passthrough_pay_parent_class)
++      ->change_state (element, transition);
++
++  switch (transition) {
++    case GST_STATE_CHANGE_PAUSED_TO_READY:
++      gst_clear_caps (&self->caps);
++      gst_segment_init (&self->segment, GST_FORMAT_TIME);
++      self->clock_rate = -1;
++      self->pt = PAYLOAD_TYPE_INVALID;
++      self->pt_override = FALSE;
++      self->ssrc = -1;
++      self->ssrc_set = FALSE;
++      self->timestamp = -1;
++      self->timestamp_offset = -1;
++      self->timestamp_offset_set = FALSE;
++      self->seqnum = -1;
++      self->pts_or_dts = GST_CLOCK_TIME_NONE;
++      break;
++    default:
++      break;
++  }
++
++  return ret;
++}
++
++static GstFlowReturn
++gst_rtp_passthrough_pay_chain (GstPad * pad,
++    GstObject * parent, GstBuffer * buffer)
++{
++  GstRtpPassthroughPay *self = GST_RTP_PASSTHROUGH_PAY (parent);
++  GstRTPBuffer rtp_buffer = GST_RTP_BUFFER_INIT;
++  guint pt, ssrc, seqnum, timestamp;
++
++  buffer = gst_buffer_make_writable (buffer);
++
++  if (!gst_rtp_buffer_map (buffer, GST_MAP_READWRITE, &rtp_buffer)) {
++    GST_ERROR_OBJECT (self, "Invalid RTP buffer");
++    return gst_pad_push (self->srcpad, buffer);
++  }
++
++  /* If the PROP_PT property is set we override the incoming packets payload
++   * type. If it is not, we will mirror the payload type.
++   *
++   */
++  pt = gst_rtp_buffer_get_payload_type (&rtp_buffer);
++  if (self->pt_override && self->pt != PAYLOAD_TYPE_INVALID) {
++    gst_rtp_buffer_set_payload_type (&rtp_buffer, self->pt);
++  } else {
++    if (pt != self->pt) {
++      if (self->pt != PAYLOAD_TYPE_INVALID) {
++        GST_WARNING_OBJECT (self, "Payload type changed from %u to %u",
++            self->pt, pt);
++      }
++      self->pt = pt;
++      g_object_notify (G_OBJECT (self), "pt");
++    }
++  }
++
++  ssrc = gst_rtp_buffer_get_ssrc (&rtp_buffer);
++  if (self->ssrc_set && self->ssrc != ssrc) {
++    GST_WARNING_OBJECT (self, "SSRC changed from %u to %u", self->ssrc, ssrc);
++  }
++  self->ssrc = ssrc;
++  self->ssrc_set = TRUE;
++
++  seqnum = gst_rtp_buffer_get_seq (&rtp_buffer);
++  self->seqnum = seqnum;
++  if (self->seqnum_offset == (guint) (-1)) {
++    self->seqnum_offset = seqnum;
++    g_object_notify (G_OBJECT (self), "seqnum-offset");
++  }
++
++  timestamp = gst_rtp_buffer_get_timestamp (&rtp_buffer);
++  self->timestamp = timestamp;
++  if (!self->timestamp_offset_set) {
++    self->timestamp_offset = timestamp;
++    self->timestamp_offset_set = TRUE;
++    g_object_notify (G_OBJECT (self), "timestamp-offset");
++  }
++
++  gst_rtp_buffer_unmap (&rtp_buffer);
++
++  if (GST_BUFFER_PTS_IS_VALID (buffer))
++    self->pts_or_dts = GST_BUFFER_PTS (buffer);
++  else if (GST_BUFFER_DTS_IS_VALID (buffer))
++    self->pts_or_dts = GST_BUFFER_DTS (buffer);
++
++  return gst_pad_push (self->srcpad, buffer);
++}
++
++static gboolean
++gst_rtp_passthrough_pay_sink_event (GstPad * pad,
++    GstObject * parent, GstEvent * event)
++{
++  GstRtpPassthroughPay *self = GST_RTP_PASSTHROUGH_PAY (parent);
++  gboolean ret = FALSE;
++
++  switch (GST_EVENT_TYPE (event)) {
++    case GST_EVENT_SEGMENT:{
++      gst_event_copy_segment (event, &self->segment);
++
++      ret = gst_pad_event_default (pad, parent, event);
++      break;
++    }
++    case GST_EVENT_CAPS:{
++      GstCaps *caps;
++      const GstStructure *s;
++
++      gst_event_parse_caps (event, &caps);
++      gst_caps_replace (&self->caps, caps);
++
++      s = gst_caps_get_structure (caps, 0);
++
++      if (!self->pt_override
++          && !gst_structure_get_int (s, "payload", &self->pt)) {
++        GST_WARNING_OBJECT (self, "Caps are missing payload type!");
++      }
++      if (!gst_structure_get_int (s, "clock-rate", &self->clock_rate))
++        GST_WARNING_OBJECT (self, "Caps are missing clock-rate!");
++      if (gst_structure_get_uint (s, "ssrc", &self->ssrc))
++        self->ssrc_set = TRUE;
++      if (gst_structure_get_uint (s, "clock-base", &self->timestamp_offset))
++        self->timestamp_offset_set = TRUE;
++      gst_structure_get_uint (s, "seqnum-base", &self->seqnum_offset);
++
++      ret = gst_pad_event_default (pad, parent, event);
++      break;
++    }
++    default:
++      ret = gst_pad_event_default (pad, parent, event);
++      break;
++  }
++
++  return ret;
++}
++
++static void
++gst_rtp_passthrough_set_payload_type (GstRtpPassthroughPay * self, guint pt)
++{
++  if (self->pt == pt) {
++    return;
++  }
++
++  if (pt != PAYLOAD_TYPE_INVALID) {
++    GST_INFO_OBJECT (self, "Overriding payload type (%u)", pt);
++    self->pt_override = TRUE;
++  } else {
++    self->pt_override = FALSE;
++  }
++
++  self->pt = pt;
++}
++
++static GstStructure *
++gst_rtp_passthrough_pay_create_stats (GstRtpPassthroughPay * self)
++{
++  GstClockTime running_time;
++
++  if (self->segment.format == GST_FORMAT_UNDEFINED) {
++    running_time = 0;
++  } else {
++    running_time = gst_segment_to_running_time (&self->segment, GST_FORMAT_TIME,
++        self->pts_or_dts);
++  }
++
++  return gst_structure_new ("application/x-rtp-payload-stats", "clock-rate",
++      G_TYPE_UINT, (guint) self->clock_rate, "running-time", G_TYPE_UINT64,
++      running_time, "seqnum", G_TYPE_UINT, (guint) self->seqnum, "timestamp",
++      G_TYPE_UINT, (guint) self->timestamp, "ssrc", G_TYPE_UINT, self->ssrc,
++      "pt", G_TYPE_UINT, self->pt, "seqnum-offset", G_TYPE_UINT,
++      (guint) self->seqnum_offset, "timestamp-offset", G_TYPE_UINT,
++      (guint) self->timestamp_offset, NULL);
++
++  return NULL;
++}
+diff --git a/gst/rtp/gstrtppassthroughpay.h b/gst/rtp/gstrtppassthroughpay.h
+new file mode 100644
+index 000000000..68536821d
+--- /dev/null
++++ b/gst/rtp/gstrtppassthroughpay.h
+@@ -0,0 +1,71 @@
++/*
++ * GStreamer
++ *
++ * Copyright (C) 2023 Sebastian Dröge <sebastian@centricular.com>
++ * Copyright (C) 2023 Jonas Danielsson <jonas.danielsson@spiideo.com>
++ *
++ * gstrtppassthroughpay.h:
++ *
++ * This library is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU Library General Public
++ * License as published by the Free Software Foundation; either
++ * version 2 of the License, or (at your option) any later version.
++ *
++ * This library is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * Library General Public License for more details.
++ */
++
++#pragma once
++
++#include <gst/gst.h>
++
++G_BEGIN_DECLS
++#define GST_TYPE_RTP_PASSTHROUGH_PAY (gst_rtp_passthrough_pay_get_type())
++#define GST_RTP_PASSTHROUGH_PAY(obj)                                           \
++  (G_TYPE_CHECK_INSTANCE_CAST((obj), GST_TYPE_RTP_PASSTHROUGH_PAY,             \
++                              GstRtpPassthroughPay))
++#define GST_RTP_PASSTHROUGH_PAY_CLASS(klass)                                   \
++  (G_TYPE_CHECK_CLASS_CAST((klass), GST_TYPE_RTP_PASSTHROUGH_PAY,              \
++                           GstRtpPassthroughPayClass))
++#define GST_IS_RTP_PASSTHROUGH_PAY(obj)                                        \
++  (G_TYPE_CHECK_INSTANCE_TYPE((obj), GST_TYPE_RTP_PASSTHROUGH_PAY))
++#define GST_IS_RTP_PASSTHROUGH_PAY_CLASS(klass)                                \
++  (G_TYPE_CHECK_CLASS_TYPE((klass), GST_TYPE_RTP_PASSTHROUGH_PAY))
++#define GST_RTP_PASSTHROUGH_PAY_GET_CLASS(obj)                                 \
++  (G_TYPE_INSTANCE_GET_CLASS((obj), GST_TYPE_RTP_PASSTHROUGH_PAY,              \
++                             GstRtpPassthroughPayClass))
++typedef struct _GstRtpPassthroughPay GstRtpPassthroughPay;
++typedef struct _GstRtpPassthroughPayClass GstRtpPassthroughPayClass;
++
++struct _GstRtpPassthroughPayClass
++{
++  GstElementClass parent_class;
++};
++
++struct _GstRtpPassthroughPay
++{
++  GstElement parent;
++
++  GstPad *sinkpad, *srcpad;
++
++  GstCaps *caps;
++  GstSegment segment;
++
++  gint clock_rate;
++  gint pt;
++  gboolean pt_override;
++  guint ssrc;
++  gboolean ssrc_set;
++  guint timestamp;
++  guint timestamp_offset;
++  gboolean timestamp_offset_set;
++  guint seqnum;
++  guint seqnum_offset;
++  GstClockTime pts_or_dts;
++};
++
++GType gst_rtp_passthrough_pay_get_type (void);
++
++G_END_DECLS
+diff --git a/gst/rtp/gstrtpreddec.c b/gst/rtp/gstrtpreddec.c
+index 6c7ba363f..178bae4bf 100644
+--- a/gst/rtp/gstrtpreddec.c
++++ b/gst/rtp/gstrtpreddec.c
+@@ -97,13 +97,13 @@ enum
+ static RTPHistItem *
+ rtp_hist_item_alloc (void)
+ {
+-  return g_slice_new (RTPHistItem);
++  return g_new (RTPHistItem, 1);
+ }
+ 
+ static void
+ rtp_hist_item_free (gpointer item)
+ {
+-  g_slice_free (RTPHistItem, item);
++  g_free (item);
+ }
+ 
+ static gint
+diff --git a/gst/rtp/gstrtpredenc.c b/gst/rtp/gstrtpredenc.c
+index 94062fea9..91a5354f1 100644
+--- a/gst/rtp/gstrtpredenc.c
++++ b/gst/rtp/gstrtpredenc.c
+@@ -104,7 +104,7 @@ rtp_hist_item_init (RTPHistItem * item, GstRTPBuffer * rtp,
+ static RTPHistItem *
+ rtp_hist_item_new (GstRTPBuffer * rtp, GstBuffer * rtp_payload)
+ {
+-  RTPHistItem *item = g_slice_new0 (RTPHistItem);
++  RTPHistItem *item = g_new0 (RTPHistItem, 1);
+   rtp_hist_item_init (item, rtp, rtp_payload);
+   return item;
+ }
+@@ -122,7 +122,7 @@ rtp_hist_item_free (gpointer _item)
+ {
+   RTPHistItem *item = _item;
+   gst_buffer_unref (item->payload);
+-  g_slice_free (RTPHistItem, item);
++  g_free (item);
+ }
+ 
+ static GstEvent *
+diff --git a/gst/rtp/gstrtpsbcdepay.c b/gst/rtp/gstrtpsbcdepay.c
+index f5dec8b78..1de5a8bce 100644
+--- a/gst/rtp/gstrtpsbcdepay.c
++++ b/gst/rtp/gstrtpsbcdepay.c
+@@ -117,6 +117,9 @@ gst_rtp_sbc_depay_class_init (GstRtpSbcDepayClass * klass)
+ static void
+ gst_rtp_sbc_depay_init (GstRtpSbcDepay * rtpsbcdepay)
+ {
++  gst_rtp_base_depayload_set_aggregate_hdrext_enabled (GST_RTP_BASE_DEPAYLOAD
++      (rtpsbcdepay), TRUE);
++
+   rtpsbcdepay->adapter = gst_adapter_new ();
+   rtpsbcdepay->stream_align =
+       gst_audio_stream_align_new (48000, 40 * GST_MSECOND, 1 * GST_SECOND);
+@@ -318,10 +321,11 @@ gst_rtp_sbc_depay_process (GstRTPBaseDepayload * base, GstRTPBuffer * rtp)
+     if (start && gst_adapter_available (depay->adapter)) {
+       GST_WARNING_OBJECT (depay, "Missing last fragment");
+       gst_adapter_clear (depay->adapter);
+-
++      gst_rtp_base_depayload_flush (base, TRUE);
+     } else if (!start && !gst_adapter_available (depay->adapter)) {
+       GST_WARNING_OBJECT (depay, "Missing start fragment");
+       gst_buffer_unref (data);
++      gst_rtp_base_depayload_dropped (base);
+       data = NULL;
+       goto out;
+     }
+@@ -387,5 +391,11 @@ out:
+ bad_packet:
+   GST_ELEMENT_WARNING (depay, STREAM, DECODE,
+       ("Received invalid RTP payload, dropping"), (NULL));
++  gst_rtp_base_depayload_dropped (base);
++  /* if the adapter has been cleared before using this error out we
++     have the clear the header ext cache as well */
++  if (!gst_adapter_available (depay->adapter))
++    gst_rtp_base_depayload_flush (base, FALSE);
++
+   goto out;
+ }
+diff --git a/gst/rtp/gstrtpsv3vdepay.c b/gst/rtp/gstrtpsv3vdepay.c
+index bac99458a..09c4769ae 100644
+--- a/gst/rtp/gstrtpsv3vdepay.c
++++ b/gst/rtp/gstrtpsv3vdepay.c
+@@ -98,6 +98,9 @@ gst_rtp_sv3v_depay_class_init (GstRtpSV3VDepayClass * klass)
+ static void
+ gst_rtp_sv3v_depay_init (GstRtpSV3VDepay * rtpsv3vdepay)
+ {
++  gst_rtp_base_depayload_set_aggregate_hdrext_enabled (GST_RTP_BASE_DEPAYLOAD
++      (rtpsv3vdepay), TRUE);
++
+   rtpsv3vdepay->adapter = gst_adapter_new ();
+ }
+ 
+@@ -139,13 +142,13 @@ gst_rtp_sv3v_depay_process (GstRTPBaseDepayload * depayload, GstRTPBuffer * rtp)
+     guint width, height;
+   } resolutions[7] = {
+     {
+-    160, 128}, {
+-    128, 96}, {
+-    176, 144}, {
+-    352, 288}, {
+-    704, 576}, {
+-    240, 180}, {
+-    320, 240}
++        160, 128}, {
++        128, 96}, {
++        176, 144}, {
++        352, 288}, {
++        704, 576}, {
++        240, 180}, {
++        320, 240}
+   };
+   gint payload_len;
+   guint8 *payload;
+@@ -281,6 +284,7 @@ bad_packet:
+   {
+     GST_ELEMENT_WARNING (rtpsv3vdepay, STREAM, DECODE,
+         (NULL), ("Packet was too short"));
++    gst_rtp_base_depayload_dropped (depayload);
+     return NULL;
+   }
+ }
+diff --git a/gst/rtp/gstrtptheoradepay.c b/gst/rtp/gstrtptheoradepay.c
+index e7ff9e18c..431b9b947 100644
+--- a/gst/rtp/gstrtptheoradepay.c
++++ b/gst/rtp/gstrtptheoradepay.c
+@@ -116,6 +116,8 @@ gst_rtp_theora_depay_class_init (GstRtpTheoraDepayClass * klass)
+ static void
+ gst_rtp_theora_depay_init (GstRtpTheoraDepay * rtptheoradepay)
+ {
++  gst_rtp_base_depayload_set_aggregate_hdrext_enabled (GST_RTP_BASE_DEPAYLOAD
++      (rtptheoradepay), TRUE);
+   rtptheoradepay->adapter = gst_adapter_new ();
+ }
+ 
+@@ -422,10 +424,10 @@ gst_rtp_theora_depay_process (GstRTPBaseDepayload * depayload,
+ {
+   GstRtpTheoraDepay *rtptheoradepay;
+   GstBuffer *outbuf;
+-  GstFlowReturn ret;
+   gint payload_len;
+   GstMapInfo map;
+   GstBuffer *payload_buffer = NULL;
++  GstBufferList *outbufs = NULL;
+   guint8 *payload;
+   guint32 header, ident;
+   guint8 F, TDT, packets;
+@@ -491,12 +493,15 @@ gst_rtp_theora_depay_process (GstRTPBaseDepayload * depayload,
+     if (F == 1) {
+       /* if we start a packet, clear adapter and start assembling. */
+       gst_adapter_clear (rtptheoradepay->adapter);
++      gst_rtp_base_depayload_flush (depayload, TRUE);
+       GST_DEBUG_OBJECT (depayload, "start assemble");
+       rtptheoradepay->assembling = TRUE;
+     }
+ 
+-    if (!rtptheoradepay->assembling)
++    if (!rtptheoradepay->assembling) {
++      gst_rtp_base_depayload_dropped (depayload);
+       goto no_output;
++    }
+ 
+     /* skip header and length. */
+     vdata = gst_rtp_buffer_get_payload_subbuffer (rtp, 6, -1);
+@@ -526,6 +531,8 @@ gst_rtp_theora_depay_process (GstRTPBaseDepayload * depayload,
+   rtptheoradepay->assembling = FALSE;
+   gst_adapter_clear (rtptheoradepay->adapter);
+ 
++  outbufs = gst_buffer_list_new ();
++
+   /* payload now points to a length with that many theora data bytes.
+    * Iterate over the packets and send them out.
+    *
+@@ -562,6 +569,12 @@ gst_rtp_theora_depay_process (GstRTPBaseDepayload * depayload,
+     /* handle in-band configuration */
+     if (G_UNLIKELY (TDT == 1)) {
+       GST_DEBUG_OBJECT (rtptheoradepay, "in-band configuration");
++
++      /* push all buffers we found so far and clear the cached header
++         extensions if any */
++      gst_rtp_base_depayload_push_list (depayload, outbufs);
++      gst_rtp_base_depayload_flush (depayload, FALSE);
++
+       if (!gst_rtp_theora_depay_parse_inband_configuration (rtptheoradepay,
+               ident, payload, payload_len, length))
+         goto invalid_configuration;
+@@ -584,11 +597,11 @@ gst_rtp_theora_depay_process (GstRTPBaseDepayload * depayload,
+     /* make sure to read next length */
+     length = 0;
+ 
+-    ret = gst_rtp_base_depayload_push (depayload, outbuf);
+-    if (ret != GST_FLOW_OK)
+-      break;
++    gst_buffer_list_add (outbufs, outbuf);
+   }
+ 
++  gst_rtp_base_depayload_push_list (depayload, outbufs);
++
+   if (rtptheoradepay->needs_keyframe)
+     goto request_keyframe;
+ 
+@@ -607,23 +620,30 @@ switch_failed:
+   {
+     GST_ELEMENT_WARNING (rtptheoradepay, STREAM, DECODE,
+         (NULL), ("Could not switch codebooks"));
++    gst_rtp_base_depayload_dropped (depayload);
+     goto request_config;
+   }
+ packet_short:
+   {
+     GST_ELEMENT_WARNING (rtptheoradepay, STREAM, DECODE,
+         (NULL), ("Packet was too short (%d < 4)", payload_len));
++    gst_rtp_base_depayload_dropped (depayload);
+     goto request_keyframe;
+   }
+ ignore_reserved:
+   {
+     GST_WARNING_OBJECT (rtptheoradepay, "reserved TDT ignored");
++    gst_rtp_base_depayload_dropped (depayload);
+     goto out;
+   }
+ length_short:
+   {
+     GST_ELEMENT_WARNING (rtptheoradepay, STREAM, DECODE,
+         (NULL), ("Packet contains invalid data"));
++    /* there may already be some buffers to push so do that before
++       leaving */
++    gst_rtp_base_depayload_push_list (depayload, outbufs);
++    gst_rtp_base_depayload_flush (depayload, FALSE);
+     goto request_keyframe;
+   }
+ invalid_configuration:
+diff --git a/gst/rtp/gstrtpvorbisdepay.c b/gst/rtp/gstrtpvorbisdepay.c
+index 053e64795..87a6dcadf 100644
+--- a/gst/rtp/gstrtpvorbisdepay.c
++++ b/gst/rtp/gstrtpvorbisdepay.c
+@@ -110,6 +110,8 @@ gst_rtp_vorbis_depay_class_init (GstRtpVorbisDepayClass * klass)
+ static void
+ gst_rtp_vorbis_depay_init (GstRtpVorbisDepay * rtpvorbisdepay)
+ {
++  gst_rtp_base_depayload_set_aggregate_hdrext_enabled (GST_RTP_BASE_DEPAYLOAD
++      (rtpvorbisdepay), TRUE);
+   rtpvorbisdepay->adapter = gst_adapter_new ();
+ }
+ 
+@@ -417,7 +419,7 @@ no_rate:
+ 
+ static gboolean
+ gst_rtp_vorbis_depay_switch_codebook (GstRtpVorbisDepay * rtpvorbisdepay,
+-    guint32 ident)
++    guint32 ident, GstBufferList * outbufs)
+ {
+   GList *walk;
+   gboolean res = FALSE;
+@@ -436,8 +438,7 @@ gst_rtp_vorbis_depay_switch_codebook (GstRtpVorbisDepay * rtpvorbisdepay,
+         GstBuffer *header = GST_BUFFER_CAST (headers->data);
+ 
+         gst_buffer_ref (header);
+-        gst_rtp_base_depayload_push (GST_RTP_BASE_DEPAYLOAD (rtpvorbisdepay),
+-            header);
++        gst_buffer_list_add (outbufs, header);
+       }
+       /* remember the current config */
+       rtpvorbisdepay->config = conf;
+@@ -457,9 +458,9 @@ gst_rtp_vorbis_depay_process (GstRTPBaseDepayload * depayload,
+ {
+   GstRtpVorbisDepay *rtpvorbisdepay;
+   GstBuffer *outbuf;
+-  GstFlowReturn ret;
+   gint payload_len;
+   GstBuffer *payload_buffer = NULL;
++  GstBufferList *outbufs = NULL;
+   guint8 *payload;
+   GstMapInfo map;
+   guint32 header, ident;
+@@ -498,6 +499,8 @@ gst_rtp_vorbis_depay_process (GstRTPBaseDepayload * depayload,
+   F = (header & 0xc0) >> 6;
+   packets = (header & 0xf);
+ 
++  outbufs = gst_buffer_list_new ();
++
+   if (VDT == 0) {
+     gboolean do_switch = FALSE;
+ 
+@@ -513,7 +516,8 @@ gst_rtp_vorbis_depay_process (GstRTPBaseDepayload * depayload,
+       do_switch = TRUE;
+     }
+     if (do_switch) {
+-      if (!gst_rtp_vorbis_depay_switch_codebook (rtpvorbisdepay, ident))
++      if (!gst_rtp_vorbis_depay_switch_codebook (rtpvorbisdepay,
++              ident, outbufs))
+         goto switch_failed;
+     }
+   }
+@@ -532,8 +536,10 @@ gst_rtp_vorbis_depay_process (GstRTPBaseDepayload * depayload,
+       rtpvorbisdepay->assembling = TRUE;
+     }
+ 
+-    if (!rtpvorbisdepay->assembling)
+-      goto no_output;
++    if (!rtpvorbisdepay->assembling) {
++      gst_rtp_base_depayload_dropped (depayload);
++      goto no_data_output;
++    }
+ 
+     /* skip header and length. */
+     vdata = gst_rtp_buffer_get_payload_subbuffer (rtp, 6, -1);
+@@ -543,7 +549,7 @@ gst_rtp_vorbis_depay_process (GstRTPBaseDepayload * depayload,
+ 
+     /* packet is not complete, we are done */
+     if (F != 3)
+-      goto no_output;
++      goto no_data_output;
+ 
+     /* construct assembled buffer */
+     length = gst_adapter_available (rtpvorbisdepay->adapter);
+@@ -599,6 +605,12 @@ gst_rtp_vorbis_depay_process (GstRTPBaseDepayload * depayload,
+     /* handle in-band configuration */
+     if (G_UNLIKELY (VDT == 1)) {
+       GST_DEBUG_OBJECT (rtpvorbisdepay, "in-band configuration");
++
++      /* push all buffers we found so far and clear the cached header
++         extensions if any */
++      gst_rtp_base_depayload_push_list (depayload, outbufs);
++      gst_rtp_base_depayload_flush (depayload, FALSE);
++
+       if (!gst_rtp_vorbis_depay_parse_inband_configuration (rtpvorbisdepay,
+               ident, payload, payload_len, length))
+         goto invalid_configuration;
+@@ -615,16 +627,20 @@ gst_rtp_vorbis_depay_process (GstRTPBaseDepayload * depayload,
+     /* make sure to read next length */
+     length = 0;
+ 
+-    ret = gst_rtp_base_depayload_push (depayload, outbuf);
+-    if (ret != GST_FLOW_OK)
+-      break;
++    gst_buffer_list_add (outbufs, outbuf);
+   }
+ 
++  gst_rtp_base_depayload_push_list (depayload, outbufs);
++
+   gst_buffer_unmap (payload_buffer, &map);
+   gst_buffer_unref (payload_buffer);
+ 
+   return NULL;
+ 
++no_data_output:
++  /* we may have the headers from a codebook switch that should be
++     pushed */
++  gst_rtp_base_depayload_push_list (depayload, outbufs);
+ no_output:
+   {
+     if (payload_buffer) {
+@@ -638,17 +654,21 @@ switch_failed:
+   {
+     GST_ELEMENT_WARNING (rtpvorbisdepay, STREAM, DECODE,
+         (NULL), ("Could not switch codebooks"));
++    gst_buffer_list_unref (outbufs);
++    gst_rtp_base_depayload_dropped (depayload);
+     return NULL;
+   }
+ packet_short:
+   {
+     GST_ELEMENT_WARNING (rtpvorbisdepay, STREAM, DECODE,
+         (NULL), ("Packet was too short (%d < 4)", payload_len));
++    gst_rtp_base_depayload_dropped (depayload);
+     return NULL;
+   }
+ ignore_reserved:
+   {
+     GST_WARNING_OBJECT (rtpvorbisdepay, "reserved VDT ignored");
++    gst_rtp_base_depayload_dropped (depayload);
+     return NULL;
+   }
+ length_short:
+@@ -659,6 +679,8 @@ length_short:
+       gst_buffer_unmap (payload_buffer, &map);
+       gst_buffer_unref (payload_buffer);
+     }
++    gst_rtp_base_depayload_push_list (depayload, outbufs);
++    gst_rtp_base_depayload_flush (depayload, FALSE);
+     return NULL;
+   }
+ invalid_configuration:
+diff --git a/gst/rtp/gstrtpvp8depay.c b/gst/rtp/gstrtpvp8depay.c
+index 3428f43f6..708bceb68 100644
+--- a/gst/rtp/gstrtpvp8depay.c
++++ b/gst/rtp/gstrtpvp8depay.c
+@@ -82,6 +82,9 @@ enum
+ static void
+ gst_rtp_vp8_depay_init (GstRtpVP8Depay * self)
+ {
++  gst_rtp_base_depayload_set_aggregate_hdrext_enabled (GST_RTP_BASE_DEPAYLOAD
++      (self), TRUE);
++
+   self->adapter = gst_adapter_new ();
+   self->started = FALSE;
+   self->wait_for_keyframe = DEFAULT_WAIT_FOR_KEYFRAME;
+@@ -351,6 +354,8 @@ gst_rtp_vp8_depay_process (GstRTPBaseDepayload * depay, GstRTPBuffer * rtp)
+   if (frame_start) {
+     if (G_UNLIKELY (self->started)) {
+       GST_DEBUG_OBJECT (depay, "Incomplete frame, flushing adapter");
++      /* keep the current buffer because it may still be used later */
++      gst_rtp_base_depayload_flush (depay, TRUE);
+       gst_adapter_clear (self->adapter);
+       self->started = FALSE;
+ 
+@@ -425,6 +430,7 @@ gst_rtp_vp8_depay_process (GstRTPBaseDepayload * depay, GstRTPBuffer * rtp)
+       GST_BUFFER_FLAG_SET (out, GST_BUFFER_FLAG_DELTA_UNIT);
+ 
+       if (self->waiting_for_keyframe) {
++        gst_rtp_base_depayload_flush (depay, FALSE);
+         gst_buffer_unref (out);
+         out = NULL;
+         GST_INFO_OBJECT (self, "Dropping inter-frame before intra-frame");
+@@ -473,10 +479,12 @@ gst_rtp_vp8_depay_process (GstRTPBaseDepayload * depay, GstRTPBuffer * rtp)
+   }
+ 
+ done:
++  gst_rtp_base_depayload_dropped (depay);
+   return NULL;
+ 
+ too_small:
+   GST_DEBUG_OBJECT (self, "Invalid rtp packet (too small), ignoring");
++  gst_rtp_base_depayload_flush (depay, FALSE);
+   gst_adapter_clear (self->adapter);
+   self->started = FALSE;
+ 
+diff --git a/gst/rtp/gstrtpvp8pay.c b/gst/rtp/gstrtpvp8pay.c
+index f4b4031d6..0948f8fd9 100644
+--- a/gst/rtp/gstrtpvp8pay.c
++++ b/gst/rtp/gstrtpvp8pay.c
+@@ -45,6 +45,7 @@ GST_DEBUG_CATEGORY_STATIC (gst_rtp_vp8_pay_debug);
+ enum
+ {
+   PROP_0,
++  PROP_PICTURE_ID,
+   PROP_PICTURE_ID_MODE,
+   PROP_PICTURE_ID_OFFSET
+ };
+@@ -98,7 +99,7 @@ GST_STATIC_PAD_TEMPLATE ("sink",
+     GST_STATIC_CAPS ("video/x-vp8"));
+ 
+ static gint
+-picture_id_field_len (PictureIDMode mode)
++picture_id_field_len (GstVP8RtpPayPictureIDMode mode)
+ {
+   if (VP8_PAY_NO_PICTURE_ID == mode)
+     return 0;
+@@ -108,30 +109,41 @@ picture_id_field_len (PictureIDMode mode)
+ }
+ 
+ static void
+-gst_rtp_vp8_pay_picture_id_reset (GstRtpVP8Pay * obj)
++gst_rtp_vp8_pay_picture_id_reset (GstRtpVP8Pay * self)
+ {
+   gint nbits;
++  gint old_picture_id = self->picture_id;
++  gint picture_id = 0;
+ 
+-  if (obj->picture_id_offset == -1)
+-    obj->picture_id = g_random_int ();
+-  else
+-    obj->picture_id = obj->picture_id_offset;
++  if (self->picture_id_mode != VP8_PAY_NO_PICTURE_ID) {
++    if (self->picture_id_offset == -1) {
++      picture_id = g_random_int ();
++    } else {
++      picture_id = self->picture_id_offset;
++    }
++    nbits = picture_id_field_len (self->picture_id_mode);
++    picture_id &= (1 << nbits) - 1;
++  }
++  g_atomic_int_set (&self->picture_id, picture_id);
+ 
+-  nbits = picture_id_field_len (obj->picture_id_mode);
+-  obj->picture_id &= (1 << nbits) - 1;
++  GST_LOG_OBJECT (self, "picture-id reset %d -> %d",
++      old_picture_id, picture_id);
+ }
+ 
+ static void
+-gst_rtp_vp8_pay_picture_id_increment (GstRtpVP8Pay * obj)
++gst_rtp_vp8_pay_picture_id_increment (GstRtpVP8Pay * self)
+ {
+   gint nbits;
+ 
+-  if (obj->picture_id_mode == VP8_PAY_NO_PICTURE_ID)
++  if (self->picture_id_mode == VP8_PAY_NO_PICTURE_ID)
+     return;
+ 
+-  nbits = picture_id_field_len (obj->picture_id_mode);
+-  obj->picture_id++;
+-  obj->picture_id &= (1 << nbits) - 1;
++  /* Atomically increment and wrap the picture id if it overflows */
++  nbits = picture_id_field_len (self->picture_id_mode);
++  gint picture_id = g_atomic_int_get (&self->picture_id);
++  picture_id++;
++  picture_id &= (1 << nbits) - 1;
++  g_atomic_int_set (&self->picture_id, picture_id);
+ }
+ 
+ static void
+@@ -163,11 +175,24 @@ gst_rtp_vp8_pay_class_init (GstRtpVP8PayClass * gst_rtp_vp8_pay_class)
+   gobject_class->set_property = gst_rtp_vp8_pay_set_property;
+   gobject_class->get_property = gst_rtp_vp8_pay_get_property;
+ 
++  /**
++   * rtpvp8pay:picture-id:
++   *
++   * Currently used picture-id
++   *
++   * Since: 1.24
++   */
++  g_object_class_install_property (gobject_class, PROP_PICTURE_ID,
++      g_param_spec_int ("picture-id", "Picture ID",
++          "Currently used picture-id for payloading", 0, 0x7FFF, 0,
++          G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
++
+   g_object_class_install_property (gobject_class, PROP_PICTURE_ID_MODE,
+       g_param_spec_enum ("picture-id-mode", "Picture ID Mode",
+           "The picture ID mode for payloading",
+           GST_TYPE_RTP_VP8_PAY_PICTURE_ID_MODE, DEFAULT_PICTURE_ID_MODE,
+           G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
++
+   /**
+    * rtpvp8pay:picture-id-offset:
+    *
+@@ -228,6 +253,9 @@ gst_rtp_vp8_pay_get_property (GObject * object,
+   GstRtpVP8Pay *rtpvp8pay = GST_RTP_VP8_PAY (object);
+ 
+   switch (prop_id) {
++    case PROP_PICTURE_ID:
++      g_value_set_int (value, g_atomic_int_get (&rtpvp8pay->picture_id));
++      break;
+     case PROP_PICTURE_ID_MODE:
+       g_value_set_enum (value, rtpvp8pay->picture_id_mode);
+       break;
+@@ -583,7 +611,7 @@ gst_rtp_vp8_drop_vp8_meta (gpointer element, GstBuffer * buf)
+ static guint
+ gst_rtp_vp8_payload_next (GstRtpVP8Pay * self, GstBufferList * list,
+     guint offset, GstBuffer * buffer, gsize buffer_size, gsize max_payload_len,
+-    GstCustomMeta * meta)
++    GstCustomMeta * meta, gboolean delta_unit)
+ {
+   guint partition;
+   GstBuffer *header;
+@@ -599,7 +627,7 @@ gst_rtp_vp8_payload_next (GstRtpVP8Pay * self, GstBufferList * list,
+   if (available > remaining)
+     available = remaining;
+ 
+-  if (meta) {
++  if (self->temporal_scalability_fields_present && meta) {
+     /* If meta is present, then we have no partition offset information,
+      * so always emit PID 0 and set the start bit for the first packet
+      * of a frame only (c.f. RFC7741 $4.4)
+@@ -623,6 +651,9 @@ gst_rtp_vp8_payload_next (GstRtpVP8Pay * self, GstBufferList * list,
+ 
+   out = gst_buffer_append (header, sub);
+ 
++  if (delta_unit)
++    GST_BUFFER_FLAG_SET (out, GST_BUFFER_FLAG_DELTA_UNIT);
++
+   gst_buffer_list_insert (list, -1, out);
+ 
+   return available;
+@@ -638,9 +669,12 @@ gst_rtp_vp8_pay_handle_buffer (GstRTPBasePayload * payload, GstBuffer * buffer)
+   GstCustomMeta *meta;
+   gsize size, max_paylen;
+   guint offset, mtu, vp8_hdr_len;
++  gboolean delta_unit;
+ 
+   size = gst_buffer_get_size (buffer);
+   meta = gst_buffer_get_custom_meta (buffer, "GstVP8Meta");
++  delta_unit = GST_BUFFER_FLAG_IS_SET (buffer, GST_BUFFER_FLAG_DELTA_UNIT);
++
+   if (G_UNLIKELY (!gst_rtp_vp8_pay_parse_frame (self, buffer, size))) {
+     GST_ELEMENT_ERROR (self, STREAM, ENCODE, (NULL),
+         ("Failed to parse VP8 frame"));
+@@ -671,7 +705,11 @@ gst_rtp_vp8_pay_handle_buffer (GstRTPBasePayload * payload, GstBuffer * buffer)
+   while (offset < size) {
+     offset +=
+         gst_rtp_vp8_payload_next (self, list, offset, buffer, size,
+-        max_paylen, meta);
++        max_paylen, meta, delta_unit);
++
++    /* only the first outgoing packet should not have the DELTA_UNIT flag */
++    if (!delta_unit)
++      delta_unit = TRUE;
+   }
+ 
+   ret = gst_rtp_base_payload_push_list (payload, list);
+@@ -687,9 +725,13 @@ static gboolean
+ gst_rtp_vp8_pay_sink_event (GstRTPBasePayload * payload, GstEvent * event)
+ {
+   GstRtpVP8Pay *self = GST_RTP_VP8_PAY (payload);
++  GstEventType event_type = GST_EVENT_TYPE (event);
+ 
+-  if (GST_EVENT_TYPE (event) == GST_EVENT_FLUSH_START) {
+-    gst_rtp_vp8_pay_reset (self);
++  if (event_type == GST_EVENT_GAP || event_type == GST_EVENT_FLUSH_START) {
++    gint picture_id = self->picture_id;
++    gst_rtp_vp8_pay_picture_id_increment (self);
++    GST_DEBUG_OBJECT (payload, "Incrementing picture ID on %s event %d -> %d",
++        GST_EVENT_TYPE_NAME (event), picture_id, self->picture_id);
+   }
+ 
+   return GST_RTP_BASE_PAYLOAD_CLASS (gst_rtp_vp8_pay_parent_class)->sink_event
+diff --git a/gst/rtp/gstrtpvp8pay.h b/gst/rtp/gstrtpvp8pay.h
+index 30ad99a67..748bec165 100644
+--- a/gst/rtp/gstrtpvp8pay.h
++++ b/gst/rtp/gstrtpvp8pay.h
+@@ -39,9 +39,9 @@ G_BEGIN_DECLS
+ 
+ typedef struct _GstRtpVP8Pay GstRtpVP8Pay;
+ typedef struct _GstRtpVP8PayClass GstRtpVP8PayClass;
+-typedef enum _PictureIDMode PictureIDMode;
++typedef enum _GstVP8RtpPayPictureIDMode GstVP8RtpPayPictureIDMode;
+ 
+-enum _PictureIDMode {
++enum _GstVP8RtpPayPictureIDMode {
+   VP8_PAY_NO_PICTURE_ID,
+   VP8_PAY_PICTURE_ID_7BITS,
+   VP8_PAY_PICTURE_ID_15BITS,
+@@ -61,9 +61,9 @@ struct _GstRtpVP8Pay
+    * folowed by max. 8 data partitions. last offset is the end of the buffer */
+   guint partition_offset[10];
+   guint partition_size[9];
+-  PictureIDMode picture_id_mode;
++  GstVP8RtpPayPictureIDMode picture_id_mode;
+   gint picture_id_offset;
+-  guint16 picture_id;
++  gint picture_id;
+   gboolean temporal_scalability_fields_present;
+   guint8 tl0picidx;
+ };
+diff --git a/gst/rtp/gstrtpvp9depay.c b/gst/rtp/gstrtpvp9depay.c
+index 94348c5c8..5c5f71c76 100644
+--- a/gst/rtp/gstrtpvp9depay.c
++++ b/gst/rtp/gstrtpvp9depay.c
+@@ -83,6 +83,9 @@ enum
+ static void
+ gst_rtp_vp9_depay_init (GstRtpVP9Depay * self)
+ {
++  gst_rtp_base_depayload_set_aggregate_hdrext_enabled (GST_RTP_BASE_DEPAYLOAD
++      (self), TRUE);
++
+   self->adapter = gst_adapter_new ();
+   self->started = FALSE;
+   self->inter_picture = FALSE;
+@@ -421,6 +424,8 @@ gst_rtp_vp9_depay_process (GstRTPBaseDepayload * depay, GstRTPBuffer * rtp)
+   if (is_start_of_picture) {
+     if (G_UNLIKELY (self->started)) {
+       GST_DEBUG_OBJECT (depay, "Incomplete frame, flushing adapter");
++      /* keep the current buffer because it may still be used later */
++      gst_rtp_base_depayload_flush (depay, TRUE);
+       gst_adapter_clear (self->adapter);
+       self->started = FALSE;
+       flushed_adapter = TRUE;
+@@ -503,6 +508,7 @@ gst_rtp_vp9_depay_process (GstRTPBaseDepayload * depay, GstRTPBuffer * rtp)
+       GST_BUFFER_FLAG_SET (out, GST_BUFFER_FLAG_DELTA_UNIT);
+ 
+       if (self->waiting_for_keyframe) {
++        gst_rtp_base_depayload_flush (depay, FALSE);
+         gst_buffer_unref (out);
+         out = NULL;
+         GST_INFO_OBJECT (self, "Dropping inter-frame before intra-frame");
+@@ -547,10 +553,12 @@ gst_rtp_vp9_depay_process (GstRTPBaseDepayload * depay, GstRTPBuffer * rtp)
+   }
+ 
+ done:
++  gst_rtp_base_depayload_dropped (depay);
+   return NULL;
+ 
+ too_small:
+   GST_LOG_OBJECT (self, "Invalid rtp packet (too small), ignoring");
++  gst_rtp_base_depayload_flush (depay, FALSE);
+   gst_adapter_clear (self->adapter);
+   self->started = FALSE;
+   goto done;
+diff --git a/gst/rtp/gstrtpvp9pay.c b/gst/rtp/gstrtpvp9pay.c
+index 0d29ac992..51c259972 100644
+--- a/gst/rtp/gstrtpvp9pay.c
++++ b/gst/rtp/gstrtpvp9pay.c
+@@ -33,7 +33,6 @@
+ #include <gst/rtp/gstrtpbuffer.h>
+ #include <gst/video/video.h>
+ #include "gstrtpelements.h"
+-#include "dboolhuff.h"
+ #include "gstrtpvp9pay.h"
+ #include "gstrtputils.h"
+ 
+@@ -41,11 +40,14 @@ GST_DEBUG_CATEGORY_STATIC (gst_rtp_vp9_pay_debug);
+ #define GST_CAT_DEFAULT gst_rtp_vp9_pay_debug
+ 
+ #define DEFAULT_PICTURE_ID_MODE VP9_PAY_NO_PICTURE_ID
++#define DEFAULT_PICTURE_ID_OFFSET (-1)
+ 
+ enum
+ {
+   PROP_0,
+-  PROP_PICTURE_ID_MODE
++  PROP_PICTURE_ID,
++  PROP_PICTURE_ID_MODE,
++  PROP_PICTURE_ID_OFFSET,
+ };
+ 
+ #define GST_TYPE_RTP_VP9_PAY_PICTURE_ID_MODE (gst_rtp_vp9_pay_picture_id_mode_get_type())
+@@ -96,14 +98,44 @@ GST_STATIC_PAD_TEMPLATE ("sink",
+     GST_PAD_ALWAYS,
+     GST_STATIC_CAPS ("video/x-vp9"));
+ 
++static gint
++picture_id_field_len (GstVP9RtpPayPictureIDMode mode)
++{
++  if (VP9_PAY_NO_PICTURE_ID == mode)
++    return 0;
++  if (VP9_PAY_PICTURE_ID_7BITS == mode)
++    return 7;
++  return 15;
++}
++
++static void
++gst_rtp_vp9_pay_picture_id_reset (GstRtpVP9Pay * self)
++{
++  gint nbits;
++  gint old_picture_id = self->picture_id;
++  gint picture_id = 0;
++
++  if (self->picture_id_mode != VP9_PAY_NO_PICTURE_ID) {
++    if (self->picture_id_offset == -1) {
++      picture_id = g_random_int ();
++    } else {
++      picture_id = self->picture_id_offset;
++    }
++    nbits = picture_id_field_len (self->picture_id_mode);
++    picture_id &= (1 << nbits) - 1;
++  }
++  g_atomic_int_set (&self->picture_id, picture_id);
++
++  GST_LOG_OBJECT (self, "picture-id reset %d -> %d",
++      old_picture_id, picture_id);
++}
++
+ static void
+ gst_rtp_vp9_pay_init (GstRtpVP9Pay * obj)
+ {
+   obj->picture_id_mode = DEFAULT_PICTURE_ID_MODE;
+-  if (obj->picture_id_mode == VP9_PAY_PICTURE_ID_7BITS)
+-    obj->picture_id = g_random_int_range (0, G_MAXUINT8) & 0x7F;
+-  else if (obj->picture_id_mode == VP9_PAY_PICTURE_ID_15BITS)
+-    obj->picture_id = g_random_int_range (0, G_MAXUINT16) & 0x7FFF;
++  obj->picture_id_offset = DEFAULT_PICTURE_ID_OFFSET;
++  gst_rtp_vp9_pay_picture_id_reset (obj);
+ }
+ 
+ static void
+@@ -117,12 +149,37 @@ gst_rtp_vp9_pay_class_init (GstRtpVP9PayClass * gst_rtp_vp9_pay_class)
+   gobject_class->set_property = gst_rtp_vp9_pay_set_property;
+   gobject_class->get_property = gst_rtp_vp9_pay_get_property;
+ 
++  /**
++   * rtpvp9pay:picture-id:
++   *
++   * Currently used picture-id
++   *
++   * Since: 1.24
++   */
++  g_object_class_install_property (gobject_class, PROP_PICTURE_ID,
++      g_param_spec_int ("picture-id", "Picture ID",
++          "Currently used picture-id for payloading", 0, 0x7FFF, 0,
++          G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
++
+   g_object_class_install_property (gobject_class, PROP_PICTURE_ID_MODE,
+       g_param_spec_enum ("picture-id-mode", "Picture ID Mode",
+           "The picture ID mode for payloading",
+           GST_TYPE_RTP_VP9_PAY_PICTURE_ID_MODE, DEFAULT_PICTURE_ID_MODE,
+           G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+ 
++  /**
++   * rtpvp9pay:picture-id-offset:
++   *
++   * Offset to add to the initial picture-id (-1 = random)
++   *
++   * Since: 1.24
++   */
++  g_object_class_install_property (gobject_class, PROP_PICTURE_ID_OFFSET,
++      g_param_spec_int ("picture-id-offset", "Picture ID offset",
++          "Offset to add to the initial picture-id (-1 = random)",
++          -1, 0x7FFF, DEFAULT_PICTURE_ID_OFFSET,
++          G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
++
+   gst_element_class_add_static_pad_template (element_class,
+       &gst_rtp_vp9_pay_sink_template);
+   gst_element_class_add_static_pad_template (element_class,
+@@ -151,10 +208,11 @@ gst_rtp_vp9_pay_set_property (GObject * object,
+   switch (prop_id) {
+     case PROP_PICTURE_ID_MODE:
+       rtpvp9pay->picture_id_mode = g_value_get_enum (value);
+-      if (rtpvp9pay->picture_id_mode == VP9_PAY_PICTURE_ID_7BITS)
+-        rtpvp9pay->picture_id = g_random_int_range (0, G_MAXUINT8) & 0x7F;
+-      else if (rtpvp9pay->picture_id_mode == VP9_PAY_PICTURE_ID_15BITS)
+-        rtpvp9pay->picture_id = g_random_int_range (0, G_MAXUINT16) & 0x7FFF;
++      gst_rtp_vp9_pay_picture_id_reset (rtpvp9pay);
++      break;
++    case PROP_PICTURE_ID_OFFSET:
++      rtpvp9pay->picture_id_offset = g_value_get_int (value);
++      gst_rtp_vp9_pay_picture_id_reset (rtpvp9pay);
+       break;
+     default:
+       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+@@ -169,9 +227,15 @@ gst_rtp_vp9_pay_get_property (GObject * object,
+   GstRtpVP9Pay *rtpvp9pay = GST_RTP_VP9_PAY (object);
+ 
+   switch (prop_id) {
++    case PROP_PICTURE_ID:
++      g_value_set_int (value, g_atomic_int_get (&rtpvp9pay->picture_id));
++      break;
+     case PROP_PICTURE_ID_MODE:
+       g_value_set_enum (value, rtpvp9pay->picture_id_mode);
+       break;
++    case PROP_PICTURE_ID_OFFSET:
++      g_value_set_int (value, rtpvp9pay->picture_id_offset);
++      break;
+     default:
+       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+       break;
+@@ -445,7 +509,8 @@ gst_rtp_vp9_create_header_buffer (GstRtpVP9Pay * self,
+ 
+ static guint
+ gst_rtp_vp9_payload_next (GstRtpVP9Pay * self, GstBufferList * list,
+-    guint offset, GstBuffer * buffer, gsize buffer_size, gsize max_payload_len)
++    guint offset, GstBuffer * buffer, gsize buffer_size, gsize max_payload_len,
++    gboolean delta_unit)
+ {
+   GstBuffer *header;
+   GstBuffer *sub;
+@@ -467,11 +532,29 @@ gst_rtp_vp9_payload_next (GstRtpVP9Pay * self, GstBufferList * list,
+ 
+   out = gst_buffer_append (header, sub);
+ 
++  if (delta_unit)
++    GST_BUFFER_FLAG_SET (out, GST_BUFFER_FLAG_DELTA_UNIT);
++
+   gst_buffer_list_insert (list, -1, out);
+ 
+   return available;
+ }
+ 
++static void
++gst_rtp_vp9_pay_picture_id_increment (GstRtpVP9Pay * self)
++{
++  gint nbits;
++
++  if (self->picture_id_mode == VP9_PAY_NO_PICTURE_ID)
++    return;
++
++  /* Atomically increment and wrap the picture id if it overflows */
++  nbits = picture_id_field_len (self->picture_id_mode);
++  gint picture_id = g_atomic_int_get (&self->picture_id);
++  picture_id++;
++  picture_id &= (1 << nbits) - 1;
++  g_atomic_int_set (&self->picture_id, picture_id);
++}
+ 
+ static GstFlowReturn
+ gst_rtp_vp9_pay_handle_buffer (GstRTPBasePayload * payload, GstBuffer * buffer)
+@@ -481,8 +564,10 @@ gst_rtp_vp9_pay_handle_buffer (GstRTPBasePayload * payload, GstBuffer * buffer)
+   GstBufferList *list;
+   gsize size, max_paylen;
+   guint offset, mtu, vp9_hdr_len;
++  gboolean delta_unit;
+ 
+   size = gst_buffer_get_size (buffer);
++  delta_unit = GST_BUFFER_FLAG_IS_SET (buffer, GST_BUFFER_FLAG_DELTA_UNIT);
+ 
+   if (G_UNLIKELY (!gst_rtp_vp9_pay_parse_frame (self, buffer, size))) {
+     GST_ELEMENT_ERROR (self, STREAM, ENCODE, (NULL),
+@@ -499,7 +584,12 @@ gst_rtp_vp9_pay_handle_buffer (GstRTPBasePayload * payload, GstBuffer * buffer)
+   offset = 0;
+   while (offset < size) {
+     offset +=
+-        gst_rtp_vp9_payload_next (self, list, offset, buffer, size, max_paylen);
++        gst_rtp_vp9_payload_next (self, list, offset, buffer, size, max_paylen,
++        delta_unit);
++
++    /* only the first outgoing packet should not have the DELTA_UNIT flag */
++    if (!delta_unit)
++      delta_unit = TRUE;
+   }
+ 
+   ret = gst_rtp_base_payload_push_list (payload, list);
+@@ -520,12 +610,13 @@ static gboolean
+ gst_rtp_vp9_pay_sink_event (GstRTPBasePayload * payload, GstEvent * event)
+ {
+   GstRtpVP9Pay *self = GST_RTP_VP9_PAY (payload);
++  GstEventType event_type = GST_EVENT_TYPE (event);
+ 
+-  if (GST_EVENT_TYPE (event) == GST_EVENT_FLUSH_START) {
+-    if (self->picture_id_mode == VP9_PAY_PICTURE_ID_7BITS)
+-      self->picture_id = g_random_int_range (0, G_MAXUINT8) & 0x7F;
+-    else if (self->picture_id_mode == VP9_PAY_PICTURE_ID_15BITS)
+-      self->picture_id = g_random_int_range (0, G_MAXUINT16) & 0x7FFF;
++  if (event_type == GST_EVENT_GAP || event_type == GST_EVENT_FLUSH_START) {
++    gint picture_id = self->picture_id;
++    gst_rtp_vp9_pay_picture_id_increment (self);
++    GST_DEBUG_OBJECT (payload, "Incrementing picture ID on %s event %d -> %d",
++        GST_EVENT_TYPE_NAME (event), picture_id, self->picture_id);
+   }
+ 
+   return GST_RTP_BASE_PAYLOAD_CLASS (gst_rtp_vp9_pay_parent_class)->sink_event
+diff --git a/gst/rtp/gstrtpvp9pay.h b/gst/rtp/gstrtpvp9pay.h
+index 407e3e08c..b2ad88445 100644
+--- a/gst/rtp/gstrtpvp9pay.h
++++ b/gst/rtp/gstrtpvp9pay.h
+@@ -40,9 +40,9 @@ G_BEGIN_DECLS
+ 
+ typedef struct _GstRtpVP9Pay GstRtpVP9Pay;
+ typedef struct _GstRtpVP9PayClass GstRtpVP9PayClass;
+-typedef enum _VP9PictureIDMode VP9PictureIDMode;
++typedef enum _GstVP9RtpPayPictureIDMode GstVP9RtpPayPictureIDMode;
+ 
+-enum _VP9PictureIDMode {
++enum _GstVP9RtpPayPictureIDMode {
+   VP9_PAY_NO_PICTURE_ID,
+   VP9_PAY_PICTURE_ID_7BITS,
+   VP9_PAY_PICTURE_ID_15BITS,
+@@ -59,8 +59,9 @@ struct _GstRtpVP9Pay
+   gboolean is_keyframe;
+   guint width;
+   guint height;
+-  VP9PictureIDMode picture_id_mode;
+-  guint16 picture_id;
++  GstVP9RtpPayPictureIDMode picture_id_mode;
++  gint picture_id_offset;
++  gint picture_id;
+ };
+ 
+ GType gst_rtp_vp9_pay_get_type (void);
+diff --git a/gst/rtp/gstrtpvrawdepay.c b/gst/rtp/gstrtpvrawdepay.c
+index d3bb5af05..74e8494a9 100644
+--- a/gst/rtp/gstrtpvrawdepay.c
++++ b/gst/rtp/gstrtpvrawdepay.c
+@@ -41,7 +41,7 @@ GST_STATIC_PAD_TEMPLATE ("src",
+     );
+ 
+ static GstStaticPadTemplate gst_rtp_vraw_depay_sink_template =
+-GST_STATIC_PAD_TEMPLATE ("sink",
++    GST_STATIC_PAD_TEMPLATE ("sink",
+     GST_PAD_SINK,
+     GST_PAD_ALWAYS,
+     GST_STATIC_CAPS ("application/x-rtp, "
+@@ -55,7 +55,16 @@ GST_STATIC_PAD_TEMPLATE ("sink",
+          * "width = (string) [1 32767],"
+          * "height = (string) [1 32767],"
+          */
+-        "depth = (string) { \"8\", \"10\", \"12\", \"16\" }")
++        "depth = (string) 8; "
++        "application/x-rtp, "
++        "media = (string) video, "
++        "clock-rate = (int) 90000, "
++        "encoding-name = (string) RAW, sampling = (string) YCbCr-4:2:2,"
++        /* we cannot express these as strings
++         * "width = (string) [1 32767],"
++         * "height = (string) [1 32767],"
++         */
++        "depth = (string) 10")
+     );
+ 
+ #define gst_rtp_vraw_depay_parent_class parent_class
+diff --git a/gst/rtp/meson.build b/gst/rtp/meson.build
+index aa76523ec..000b91d7e 100644
+--- a/gst/rtp/meson.build
++++ b/gst/rtp/meson.build
+@@ -26,6 +26,7 @@ rtp_sources = [
+   'gstrtpmpvpay.c',
+   'gstrtpopuspay.c',
+   'gstrtpopusdepay.c',
++  'gstrtppassthroughpay.c',
+   'gstrtppcmadepay.c',
+   'gstrtppcmudepay.c',
+   'gstrtppcmupay.c',
+diff --git a/gst/rtp/rtpstoragestream.c b/gst/rtp/rtpstoragestream.c
+index a0708859e..851b9b508 100644
+--- a/gst/rtp/rtpstoragestream.c
++++ b/gst/rtp/rtpstoragestream.c
+@@ -25,7 +25,7 @@
+ static RtpStorageItem *
+ rtp_storage_item_new (GstBuffer * buffer, guint8 pt, guint16 seq)
+ {
+-  RtpStorageItem *ret = g_slice_new0 (RtpStorageItem);
++  RtpStorageItem *ret = g_new0 (RtpStorageItem, 1);
+   ret->buffer = buffer;
+   ret->pt = pt;
+   ret->seq = seq;
+@@ -37,7 +37,7 @@ rtp_storage_item_free (RtpStorageItem * item)
+ {
+   g_assert (item->buffer != NULL);
+   gst_buffer_unref (item->buffer);
+-  g_slice_free (RtpStorageItem, item);
++  g_free (item);
+ }
+ 
+ static gint
+@@ -150,7 +150,7 @@ rtp_storage_stream_resize_and_add_item (RtpStorageStream * stream,
+ RtpStorageStream *
+ rtp_storage_stream_new (guint32 ssrc)
+ {
+-  RtpStorageStream *ret = g_slice_new0 (RtpStorageStream);
++  RtpStorageStream *ret = g_new0 (RtpStorageStream, 1);
+   ret->max_arrival_time = GST_CLOCK_TIME_NONE;
+   ret->ssrc = ssrc;
+   g_mutex_init (&ret->stream_lock);
+@@ -165,7 +165,7 @@ rtp_storage_stream_free (RtpStorageStream * stream)
+     rtp_storage_item_free (g_queue_pop_tail (&stream->queue));
+   STREAM_UNLOCK (stream);
+   g_mutex_clear (&stream->stream_lock);
+-  g_slice_free (RtpStorageStream, stream);
++  g_free (stream);
+ }
+ 
+ void
+-- 
+2.47.1
+
