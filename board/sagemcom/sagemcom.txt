@@ -51,6 +51,9 @@ libpcreposix.so
 libmount.so.1
 libintl.so.8
 libiconv.so.2
+lib*webrtc*
+libsrtp2.so*
+libnice.so*
 ca-certificates.crt
 libicu*.so
 libudev.so.1

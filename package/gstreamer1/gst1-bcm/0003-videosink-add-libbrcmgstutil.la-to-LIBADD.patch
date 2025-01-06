@@ -1,0 +1,22 @@
+From 8d4b3b9a1add7b2552fd1f03c7e574a05def074d Mon Sep 17 00:00:00 2001
+From: Xabier Rodriguez Calvar <calvaris@igalia.com>
+Date: Thu, 27 Jun 2024 15:17:33 +0200
+Subject: [PATCH] [videosink] add libbrcmgstutil.la to LIBADD
+
+It was preventing videosink from loading properly in runtime. audiosink uses the same.
+---
+ reference/videosink/src/Makefile.am | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/reference/videosink/src/Makefile.am b/reference/videosink/src/Makefile.am
+index 064abd1..faabae6 100755
+--- a/reference/videosink/src/Makefile.am
++++ b/reference/videosink/src/Makefile.am
+@@ -46,3 +46,4 @@ plugin_LTLIBRARIES = libbrcmvideosink.la
+ libbrcmvideosink_la_SOURCES = gst_brcm_video_sink.c video_sink_properties.c
+ libbrcmvideosink_la_LDFLAGS = $(AM_LDFLAGS)
+ libbrcmvideosink_la_LDFLAGS += -module -avoid-version
++libbrcmvideosink_la_LIBADD = $(top_builddir)/reference/util/src/libbrcmgstutil.la
+-- 
+2.43.0
+

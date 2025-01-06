@@ -313,10 +313,17 @@ endif
 
 ifeq ($(BR2_PACKAGE_WPEWEBKIT2_38),y)
 define GST1_PLUGINS_BASE_APPLY_WPEWEBKIT_EXTRA_PATCHES_POST_HOOK
-        cd $(@D) && { for P in ../../../package/gstreamer1/gst1-plugins-base/$(GST1_PLUGINS_BASE_VERSION)-wpe-2.38/*.patch; do patch -p1 < "$$P" ; done; }
+        cd $(@D) && { for P in $(TOPDIR)/$(GST1_PLUGINS_BASE_PKGDIR)/$(GST1_PLUGINS_BASE_VERSION)-wpe-2.38/*.patch; do patch -p1 < "$$P" ; done; }
 endef
 endif
 
 GST1_PLUGINS_BASE_POST_PATCH_HOOKS += GST1_PLUGINS_BASE_APPLY_WPEWEBKIT_EXTRA_PATCHES_POST_HOOK
+
+ifeq ($(BR2_PACKAGE_WPEWEBKIT_USE_GSTREAMER_WEBRTC),y)
+define GST1_PLUGINS_BASE_APPLY_GSTWEBRTC_PATCHES_POST_HOOK
+        cd $(@D) && { for P in $(TOPDIR)/$(GST1_PLUGINS_BASE_PKGDIR)/$(GST1_PLUGINS_BASE_VERSION)-gstwebrtc/*.patch; do patch -p1 < "$$P" ; done; }
+endef
+GST1_PLUGINS_BASE_POST_PATCH_HOOKS += GST1_PLUGINS_BASE_APPLY_GSTWEBRTC_PATCHES_POST_HOOK
+endif
 
 $(eval $(meson-package))
