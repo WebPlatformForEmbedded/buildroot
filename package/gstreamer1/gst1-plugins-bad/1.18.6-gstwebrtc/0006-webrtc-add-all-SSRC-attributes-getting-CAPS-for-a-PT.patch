@@ -1,0 +1,96 @@
+From e2db93c386bb133ca7e4d3641007771de573695b Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Fran=C3=A7ois=20Laignel?= <francois@centricular.com>
+Date: Thu, 7 Mar 2024 17:36:33 +0100
+Subject: [PATCH 6/9] webrtc: add all SSRC attributes getting CAPS for a PT
+
+The transport stream only returned the CAPS for the first matching PT entry
+from the `ptmap`. Other SSRC with the same PT where not included. For a stream
+which bundled multiple audio streams for instance, only the first SSRC was
+knowed to the SSRC demux and downstream elements.
+
+This commit adds all the `ssrc-` attributes from the matching PT entries.
+
+The RTP jitter buffer can now find the CNAME corresponding its SSRC even if it
+was not the first to be registered for a particular PT.
+
+The RTP PT demux removes `ssrc-*` attributes cooresponding to other SSRCs
+before pushing SSRC specific CAPS to downstream elements.
+
+Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6119>
+---
+ ext/webrtc/gstwebrtcbin.c |  5 ++--
+ ext/webrtc/transportstream.c              | 30 ++++++++++++++++---
+ 3 files changed, 57 insertions(+), 6 deletions(-)
+
+diff --git a/ext/webrtc/gstwebrtcbin.c b/ext/webrtc/gstwebrtcbin.c
+index d8cf348f99..2b920313d6 100644
+--- a/ext/webrtc/gstwebrtcbin.c
++++ b/ext/webrtc/gstwebrtcbin.c
+@@ -5080,6 +5080,8 @@ _set_internal_rtpbin_element_props_from_stream (GstWebRTCBin * webrtc,
+
+     GST_LOG_OBJECT (stream, "setting rtx mapping: %s -> %u", apt, rtx_pt[i]);
+     gst_structure_set (pt_map, apt, G_TYPE_UINT, rtx_pt[i], NULL);
++
++    gst_caps_unref (rtx_caps);
+   }
+
+   GST_DEBUG_OBJECT (stream, "setting payload map on %" GST_PTR_FORMAT " : %"
+@@ -7562,8 +7564,7 @@ on_rtpbin_request_pt_map (GstElement * rtpbin, guint session_id, guint pt,
+   if (!stream)
+     goto unknown_session;
+
+-  if ((ret = transport_stream_get_caps_for_pt (stream, pt)))
+-    gst_caps_ref (ret);
++  ret = transport_stream_get_caps_for_pt (stream, pt);
+
+   GST_DEBUG_OBJECT (webrtc, "Found caps %" GST_PTR_FORMAT " for pt %d in "
+       "session %d", ret, pt, session_id);
+diff --git a/ext/webrtc/transportstream.c b/ext/webrtc/transportstream.c
+index f1811a025c..7462384df0 100644
+--- a/ext/webrtc/transportstream.c
++++ b/ext/webrtc/transportstream.c
+@@ -47,15 +47,37 @@ enum
+ GstCaps *
+ transport_stream_get_caps_for_pt (TransportStream * stream, guint pt)
+ {
+-  guint i, len;
++  GstCaps *ret = NULL;
++  GstStructure *ret_s, *item_s;
++  guint i, len, si, slen;
++  const gchar *field_name;
+
+   len = stream->ptmap->len;
+   for (i = 0; i < len; i++) {
+     PtMapItem *item = &g_array_index (stream->ptmap, PtMapItem, i);
+-    if (item->pt == pt)
+-      return item->caps;
++    if (item->pt == pt) {
++      if (item->caps) {
++        if (ret == NULL) {
++          ret = gst_caps_copy (item->caps);
++          ret_s = gst_caps_get_structure (ret, 0);
++        } else {
++          /* Append the "ssrc-*" fields for current PT entry to ret */
++          item_s = gst_caps_get_structure (item->caps, 0);
++          slen = gst_structure_n_fields (item_s);
++          for (si = 0; si < slen; ++si) {
++            field_name = gst_structure_nth_field_name (item_s, si);
++            if (!g_str_has_prefix (field_name, "ssrc-"))
++              continue;
++
++            gst_structure_set (ret_s, field_name, G_TYPE_STRING,
++                gst_structure_get_string (item_s, field_name), NULL);
++          }
++        }
++      }
++    }
+   }
+-  return NULL;
++
++  return ret;
+ }
+
+ int
+--
+2.47.0
+

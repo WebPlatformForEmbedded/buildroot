@@ -1,0 +1,73 @@
+From e2db93c386bb133ca7e4d3641007771de573695b Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Fran=C3=A7ois=20Laignel?= <francois@centricular.com>
+Date: Thu, 7 Mar 2024 17:36:33 +0100
+Subject: [PATCH 6/9] webrtc: add all SSRC attributes getting CAPS for a PT
+
+The transport stream only returned the CAPS for the first matching PT entry
+from the `ptmap`. Other SSRC with the same PT where not included. For a stream
+which bundled multiple audio streams for instance, only the first SSRC was
+knowed to the SSRC demux and downstream elements.
+
+This commit adds all the `ssrc-` attributes from the matching PT entries.
+
+The RTP jitter buffer can now find the CNAME corresponding its SSRC even if it
+was not the first to be registered for a particular PT.
+
+The RTP PT demux removes `ssrc-*` attributes cooresponding to other SSRCs
+before pushing SSRC specific CAPS to downstream elements.
+
+Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6119>
+---
+ gst/rtpmanager/gstrtpptdemux.c            | 28 +++++++++++++++++
+ 3 files changed, 57 insertions(+), 6 deletions(-)
+
+diff --git a/gst/rtpmanager/gstrtpptdemux.c b/gst/rtpmanager/gstrtpptdemux.c
+index 0454d97134..7be4cc8945 100644
+--- a/gst/rtpmanager/gstrtpptdemux.c
++++ b/gst/rtpmanager/gstrtpptdemux.c
+@@ -312,6 +312,29 @@ gst_rtp_pt_demux_finalize (GObject * object)
+   G_OBJECT_CLASS (parent_class)->finalize (object);
+ }
+
++/* Removes "ssrc-*" attributes matching other SSRCs. */
++static gboolean
++_filter_ssrc (GQuark field_id, GValue * value, gpointer ssrc)
++{
++  const gchar *field_name = g_quark_to_string (field_id);
++
++  if (!g_str_has_prefix (field_name, "ssrc-"))
++    return TRUE;
++
++  gchar *endptr;
++  guint32 field_ssrc = g_ascii_strtoll (field_name + 5, &endptr, 10);
++
++  if (!endptr || *endptr != '-')
++    return TRUE;
++
++  /* Found a valid "ssrc-*" */
++  if (field_ssrc != *(guint32 *) ssrc)
++    /* Not the expected SSRC => remove this field */
++    return FALSE;
++
++  return TRUE;
++}
++
+ static GstCaps *
+ gst_rtp_pt_demux_get_caps (GstRtpPtDemux * rtpdemux, guint pt)
+ {
+@@ -349,7 +372,12 @@ gst_rtp_pt_demux_get_caps (GstRtpPtDemux * rtpdemux, guint pt)
+   }
+
+   if (caps != NULL) {
++    GstStructure *s;
++
+     caps = gst_caps_make_writable (caps);
++    s = gst_caps_get_structure (caps, 0);
++    gst_structure_filter_and_map_in_place (s, _filter_ssrc, &ssrc);
++
+     gst_caps_set_simple (caps, "payload", G_TYPE_INT, pt, NULL);
+     if (have_ssrc)
+       gst_caps_set_simple (caps, "ssrc", G_TYPE_UINT, ssrc, NULL);
+--
+2.47.0
+

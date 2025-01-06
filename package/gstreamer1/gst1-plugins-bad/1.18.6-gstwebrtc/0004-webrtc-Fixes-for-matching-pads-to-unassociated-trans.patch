@@ -1,0 +1,46 @@
+From aaf06f221975d4ef771e81438da7179b4b3bdd00 Mon Sep 17 00:00:00 2001
+From: Jan Schmidt <jan@centricular.com>
+Date: Wed, 24 Jul 2024 20:59:51 +1000
+Subject: [PATCH 4/9] webrtc: Fixes for matching pads to unassociated
+ transceivers
+
+Fix an inverted condition when checking if sink pad caps match
+the codec-preference of an unassociated transceiver, and
+fix a condition check for transceiver media kind to
+avoid matching sinkpad requests where caps aren't provided
+against unassociated transceivers where the caps might
+not match later.
+
+Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/7237>
+---
+ ext/webrtc/gstwebrtcbin.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/ext/webrtc/gstwebrtcbin.c b/ext/webrtc/gstwebrtcbin.c
+index ec8fc47490..6a9484a2bc 100644
+--- a/ext/webrtc/gstwebrtcbin.c
++++ b/ext/webrtc/gstwebrtcbin.c
+@@ -8355,9 +8355,9 @@ gst_webrtc_bin_request_new_pad (GstElement * element, GstPadTemplate * templ,
+       GstWebRTCBinPad *pad2;
+       gboolean has_matching_caps;
+
+-      /* Ignore transceivers with a non-matching kind */
++      /* Ignore transceivers with a non-matching kind or where we don't know the kind we want */
+       if (tmptrans->kind != GST_WEBRTC_KIND_UNKNOWN &&
+-          kind != GST_WEBRTC_KIND_UNKNOWN && tmptrans->kind != kind)
++          (kind == GST_WEBRTC_KIND_UNKNOWN || tmptrans->kind != kind))
+         continue;
+
+       /* Ignore stopped transmitters */
+@@ -8379,7 +8379,7 @@ gst_webrtc_bin_request_new_pad (GstElement * element, GstPadTemplate * templ,
+
+       GST_OBJECT_LOCK (tmptrans);
+       has_matching_caps = (caps && tmptrans->codec_preferences &&
+-          !gst_caps_can_intersect (caps, tmptrans->codec_preferences));
++          gst_caps_can_intersect (caps, tmptrans->codec_preferences));
+       GST_OBJECT_UNLOCK (tmptrans);
+       /* Ignore transceivers with non-matching caps */
+       if (!has_matching_caps)
+--
+2.47.0
+

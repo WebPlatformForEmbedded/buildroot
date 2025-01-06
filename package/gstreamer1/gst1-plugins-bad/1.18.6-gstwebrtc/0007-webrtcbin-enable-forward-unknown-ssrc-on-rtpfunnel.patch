@@ -1,0 +1,30 @@
+From aae237495054cd49d7183f43d694736b9d71d64c Mon Sep 17 00:00:00 2001
+From: Matthew Waters <matthew@centricular.com>
+Date: Mon, 26 Aug 2024 14:46:59 +1000
+Subject: [PATCH 8/9] webrtcbin: enable forward-unknown-ssrc on rtpfunnel
+
+See also: https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/7405
+
+Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/7409>
+---
+ ext/webrtc/gstwebrtcbin.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/ext/webrtc/gstwebrtcbin.c b/ext/webrtc/gstwebrtcbin.c
+index 2b920313d6..7d25858318 100644
+--- a/ext/webrtc/gstwebrtcbin.c
++++ b/ext/webrtc/gstwebrtcbin.c
+@@ -6044,6 +6044,10 @@ _connect_rtpfunnel (GstWebRTCBin * webrtc, guint session_id)
+     goto done;
+
+   webrtc->rtpfunnel = gst_element_factory_make ("rtpfunnel", NULL);
++  if (g_object_class_find_property (G_OBJECT_GET_CLASS (webrtc->rtpfunnel),
++          "forward-unknown-ssrc") != NULL) {
++    g_object_set (webrtc->rtpfunnel, "forward-unknown-ssrc", TRUE, NULL);
++  }
+   gst_bin_add (GST_BIN (webrtc), webrtc->rtpfunnel);
+   gst_element_sync_state_with_parent (webrtc->rtpfunnel);
+
+--
+2.47.0
+
