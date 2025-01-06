@@ -4,7 +4,11 @@
 #
 ################################################################################
 
-WPEBACKEND_RDK_VERSION = 31337f13eed21e16766129050933f5e1aa655cf4 #R4.4.1
+ifeq ($(BR2_PACKAGE_WPEBACKEND_RDK_BACK_ESSOS),y)
+WPEBACKEND_RDK_VERSION = 31337f13eed21e16766129050933f5e1aa655cf4
+else
+WPEBACKEND_RDK_VERSION = R4.4.1
+endif
 WPEBACKEND_RDK_SITE = $(call github,WebPlatformForEmbedded,WPEBackend-rdk,$(WPEBACKEND_RDK_VERSION))
 WPEBACKEND_RDK_INSTALL_STAGING = YES
 WPEBACKEND_RDK_DEPENDENCIES = wpebackend libglib2
