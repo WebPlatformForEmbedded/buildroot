@@ -151,3 +151,4 @@ libstdc++.so
 libbacktrace.so
 libcogcore.so
 cog
+libwoff*.so
