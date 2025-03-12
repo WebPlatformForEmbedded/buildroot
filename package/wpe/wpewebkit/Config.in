@@ -179,6 +179,13 @@ config BR2_PACKAGE_WPEWEBKIT_ML_CONFIG
     help
       The possible target configuration
 
+config BR2_PACKAGE_WPEWEBKIT_USE_LTO
+	bool "LTO"
+	default n
+	select BR2_GCC_ENABLE_LTO
+	help
+	  Use LTO for WPE build
+
 if BR2_STRIP_strip
 config BR2_PACKAGE_WPEWEBKIT_USE_REFTRACKER_DISABLED
 	bool "(disabled) RefTracker (debugging tool, see source). Depends on: Root -> Build Options -> Striping = n."
