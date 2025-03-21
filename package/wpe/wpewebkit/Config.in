@@ -424,6 +424,11 @@ config BR2_PACKAGE_WPEWEBKIT_WEBDRIVER
 	  Enable support for WebDriver. This will build and install the
 	  WebKitWebDriver program in the target.
 
+config BR2_PACKAGE_WPEWEBKIT_WEBASSEMBLY
+        bool "WebAssembly support"
+        help
+          Enable support for WebAssembly.
+
 endif
 
 config BR2_PACKAGE_WPEWEBKIT_JSC_SHELL
