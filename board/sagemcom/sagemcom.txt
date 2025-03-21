@@ -152,3 +152,5 @@ libbacktrace.so
 libcogcore.so
 cog
 libwoff*.so
+libbrotli*
+libopus*
