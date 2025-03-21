@@ -145,3 +145,6 @@ libwesteros*
 libwebpmux.so*
 libstdc++.so.6*
 libbacktrace.so*
+libwoff*
+libbro*
+libopus*
