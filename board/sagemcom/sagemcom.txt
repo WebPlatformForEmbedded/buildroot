@@ -154,3 +154,4 @@ cog
 libwoff*.so
 libbrotli*
 libopus*
+muprof
