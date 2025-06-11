@@ -16,7 +16,7 @@ endif
 
 ifeq ($(BR2_PACKAGE_WPEWEBKIT2_38),y)
 WPEWEBKIT_VERSION_VALUE = 2.38
-WPEWEBKIT_VERSION = wpe-2.38
+WPEWEBKIT_VERSION = wpe-2.38_page_lifecycle_api
 endif
 
 ifeq ($(BR2_PACKAGE_WPEWEBKIT2_42),y)
