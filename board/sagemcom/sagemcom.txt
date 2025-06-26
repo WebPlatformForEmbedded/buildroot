@@ -155,3 +155,4 @@ libwoff*.so
 libbrotli*
 libopus*
 muprof
+inspector.gresource

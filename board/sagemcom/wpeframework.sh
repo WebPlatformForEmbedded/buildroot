@@ -18,6 +18,7 @@ export LD_PRELOAD=libwayland-client.so.0:libwayland-egl.so.1:libnxclient.so:libs
 
 export WEBKIT_GST_HOLE_PUNCH_QUIRK="westeros"
 export WEBKIT_GST_QUIRKS="westeros,broadcom"
+export WEBKIT_INSPECTOR_RESOURCES_PATH=$SOURCE/usr/share/wpe-webkit-1.1/
 
 # Either use brcmsink or westeros sink
 USE_BRCM_SINK=1
