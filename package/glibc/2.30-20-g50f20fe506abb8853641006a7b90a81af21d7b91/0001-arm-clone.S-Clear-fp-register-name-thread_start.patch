@@ -1,0 +1,49 @@
+From c37d37ac362f00b709778a37348f370d850bf87f Mon Sep 17 00:00:00 2001
+From: Alicia Boya Garcia <aboya@igalia.com>
+Date: Wed, 30 Jul 2025 18:11:53 +0000
+Subject: [PATCH] arm/clone.S: Clear fp register, name thread_start
+
+The frame pointer register (r11 in ARM) should be cleared before
+branching into the thread main function. Otherwise tools that depend on
+frame pointers (e.g. perf) won't be able to find the end of the call
+chain and will end up reading garbage.
+
+This patch also names the function that calls the thread main function
+as thread_start. Before it was unnamed, it would appear in perf as a
+pointer, just like functions without symbols or broken backtraces, which
+can be quite confusing, especially given how many other things can
+already go wrong with frame pointers in ARM32.
+---
+ sysdeps/unix/sysv/linux/arm/clone.S | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/sysdeps/unix/sysv/linux/arm/clone.S b/sysdeps/unix/sysv/linux/arm/clone.S
+index b7326439..c0ada233 100644
+--- a/sysdeps/unix/sysv/linux/arm/clone.S
++++ b/sysdeps/unix/sysv/linux/arm/clone.S
+@@ -56,7 +56,7 @@ ENTRY(__clone)
+ 	swi	0x0
+ 	cfi_endproc
+ 	cmp	r0, #0
+-	beq	1f
++	beq	thread_start
+ 	pop	{r4, r7}
+ 	blt	PLTJMP(C_SYMBOL_NAME(__syscall_error))
+ 	RETINSTR(, lr)
+@@ -64,9 +64,12 @@ ENTRY(__clone)
+ 	cfi_startproc
+ PSEUDO_END (__clone)
+ 
+-1:
++thread_start:
+ 	.fnstart
+ 	.cantunwind
++
++	@ clear the frame pointer register
++	mov     r11, 0
+ 	@ pick the function arg and call address off the stack and execute
+ 	ldr	r0, [sp, #4]
+ 	ldr 	ip, [sp], #8
+-- 
+2.43.0
+
