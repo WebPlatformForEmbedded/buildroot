@@ -1,0 +1,25 @@
+From 35b5e8804c8412546dd6a42c7d8979b82ba3ceec Mon Sep 17 00:00:00 2001
+From: Alicia Boya Garcia <aboya@igalia.com>
+Date: Tue, 15 Jul 2025 09:46:45 +0000
+Subject: [PATCH] Do more DISCOVER retries
+
+---
+ networking/udhcp/dhcpc.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/networking/udhcp/dhcpc.c b/networking/udhcp/dhcpc.c
+index 739870b..e501d42 100644
+--- a/networking/udhcp/dhcpc.c
++++ b/networking/udhcp/dhcpc.c
+@@ -1250,7 +1250,7 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
+ 	llist_t *list_x = NULL;
+ 	int tryagain_timeout = 20;
+ 	int discover_timeout = 3;
+-	int discover_retries = 3;
++	int discover_retries = 6;
+ 	uint32_t server_addr = server_addr; /* for compiler */
+ 	uint32_t requested_ip = 0;
+ 	uint32_t xid = xid; /* for compiler */
+-- 
+2.43.0
+
