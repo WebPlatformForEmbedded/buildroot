@@ -1,0 +1,39 @@
+From 2c3550d1da1d6f2a61774091a1efc18e6bb76289 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Enrique=20Oca=C3=B1a=20Gonz=C3=A1lez?= <eocanha@igalia.com>
+Date: Sun, 26 Oct 2025 15:03:07 +0100
+Subject: [PATCH] decodebin3: Reset is_drained on multiqueue srcpad flush-stop
+
+Without this change, a video would be played till the end (so the video
+stream would EOS and the slot be amarked as such), then seeked back (but
+still be EOS), and when the audio pad gets EOS (because of its own
+circumstances that would trigger a chain reaction that would forward all
+the accumulated EOS to all the multiqueue src pads, causing all the video
+buffers to fail being pushed from that moment on.
+
+This change resets the flag on flush, preventing the issue. The slots won't
+still be considered drained after the flush and buffer pushing won't be
+interrupted.
+
+See: https://github.com/WebPlatformForEmbedded/WPEWebKit/pull/1568#issuecomment-3448502697
+---
+ gst/playback/gstdecodebin3.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/gst/playback/gstdecodebin3.c b/gst/playback/gstdecodebin3.c
+index 9f4763096..e1057265c 100644
+--- a/gst/playback/gstdecodebin3.c
++++ b/gst/playback/gstdecodebin3.c
+@@ -1808,6 +1808,10 @@ multiqueue_src_probe (GstPad * pad, GstPadProbeInfo * info,
+           gst_element_post_message ((GstElement *) slot->dbin, msg);
+       }
+         break;
++      case GST_EVENT_FLUSH_STOP:
++        slot->is_drained = FALSE;
++        GST_LOG_OBJECT (pad, "Clearing slot drained flag because of flush-stop");
++        break;
+       case GST_EVENT_EOS:
+       {
+         gboolean was_drained = slot->is_drained;
+-- 
+2.34.1
+
