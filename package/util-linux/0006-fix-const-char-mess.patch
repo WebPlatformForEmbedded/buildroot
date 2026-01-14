@@ -1,0 +1,70 @@
+From 3c3b7648c98dc51426b852ffb825b5dba978016c Mon Sep 17 00:00:00 2001
+From: Karel Zak <kzak@redhat.com>
+Date: Thu, 16 Jan 2020 12:56:18 +0100
+Subject: [PATCH] libfdisk: fix const char mess
+
+Signed-off-by: Karel Zak <kzak@redhat.com>
+---
+ libfdisk/src/dos.c | 11 ++++++-----
+ libfdisk/src/gpt.c |  8 +++++---
+ 2 files changed, 11 insertions(+), 8 deletions(-)
+
+diff --git a/libfdisk/src/dos.c b/libfdisk/src/dos.c
+index 98314dfa61e..ae06e179da1 100644
+--- a/libfdisk/src/dos.c
++++ b/libfdisk/src/dos.c
+@@ -709,7 +709,7 @@ static int dos_create_disklabel(struct fdisk_context *cxt)
+ 
+ static int dos_set_disklabel_id(struct fdisk_context *cxt, const char *str)
+ {
+-	char *str0 = str;
++	char *buf = NULL;
+ 	unsigned int id, old;
+ 	struct fdisk_dos_label *l;
+ 	int rc = 0;
+@@ -723,9 +723,11 @@ static int dos_set_disklabel_id(struct fdisk_context *cxt, const char *str)
+ 	l = self_label(cxt);
+ 	old = mbr_get_id(cxt->firstsector);
+ 
+-	if (!str)
++	if (!str) {
+ 		rc = fdisk_ask_string(cxt,
+-			_("Enter the new disk identifier"), &str);
++			_("Enter the new disk identifier"), &buf);
++		str = buf;
++	}
+ 	if (!rc) {
+ 		char *end = NULL;
+ 
+@@ -737,8 +739,7 @@ static int dos_set_disklabel_id(struct fdisk_context *cxt, const char *str)
+ 		}
+ 	}
+ 
+-	if (!str0)
+-		free(str);
++	free(buf);
+ 	if (rc)
+ 		return -EINVAL;
+ 
+diff --git a/libfdisk/src/gpt.c b/libfdisk/src/gpt.c
+index 9608053a245..06820792b42 100644
+--- a/libfdisk/src/gpt.c
++++ b/libfdisk/src/gpt.c
+@@ -2515,11 +2515,13 @@ static int gpt_set_disklabel_id(struct fdisk_context *cxt, const char *str)
+ 
+ 	gpt = self_label(cxt);
+ 	if (!str) {
++		char *buf = NULL;
++
+ 		if (fdisk_ask_string(cxt,
+-				_("Enter new disk UUID (in 8-4-4-4-12 format)"), &str))
++				_("Enter new disk UUID (in 8-4-4-4-12 format)"), &buf))
+ 			return -EINVAL;
+-		rc = string_to_guid(str, &uuid);
+-		free(str);
++		rc = string_to_guid(buf, &uuid);
++		free(buf);
+ 	} else
+ 		rc = string_to_guid(str, &uuid);
+ 
+
