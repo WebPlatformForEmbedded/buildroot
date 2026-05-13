@@ -3,7 +3,7 @@
 # wpeframework-packagemanager
 #
 ################################################################################
-WPEFRAMEWORK_PACKAGEMANAGER_VERSION = ce5b5406da0e41008f5b782b48eae50f9e83a782
+WPEFRAMEWORK_PACKAGEMANAGER_VERSION = R4.4.2
 WPEFRAMEWORK_PACKAGEMANAGER_SITE_METHOD = git
 WPEFRAMEWORK_PACKAGEMANAGER_SITE = git@github.com:rdkcentral/PackageManager.git
 
