@@ -1,0 +1,18 @@
+diff --git a/WebKitBrowser/WebKitImplementation.cpp b/WebKitBrowser/WebKitImplementation.cpp
+index 79b5762..59ae655 100644
+--- a/WebKitBrowser/WebKitImplementation.cpp
++++ b/WebKitBrowser/WebKitImplementation.cpp
+@@ -2987,7 +2987,12 @@ static GSourceFuncs _handlerIntervention =
+             // webkit_user_content_manager_register_script_message_handler_in_world(userContentManager, "wpeNotifyWPEFramework", std::to_string(_guid).c_str());
+             g_signal_connect(userContentManager, "script-message-received::wpeNotifyWPEFramework",
+                 reinterpret_cast<GCallback>(wpeNotifyWPEFrameworkMessageReceivedCallback), this);
+-            webkit_user_content_manager_register_script_message_handler(userContentManager, "wpeNotifyWPEFramework");
++            // Amazon Luna gets stuck on the loading screen if there's anything under `window.webkit`,
++            // which is the case when we register this handler in the page content world under
++            // `window.webkit.messageHandlers.wpeNotifyWPEFramework.postMessage()`.
++            // See https://commits.webkit.org/281898@main for more information.
++            if (_URL.find("luna.amazon.") == std::string::npos)
++                webkit_user_content_manager_register_script_message_handler(userContentManager, "wpeNotifyWPEFramework");
+ 
+             SetupUserContentFilter();
+             TryLoadingUserScripts();
