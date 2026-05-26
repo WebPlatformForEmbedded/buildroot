@@ -121,12 +121,13 @@ index 35d79837b..4c3465c13 100644
        xmlFree (system_id_attribute);
        break;
      }
-@@ -606,7 +610,7 @@ gst_mss_manifest_free (GstMssManifest * manifest)
+@@ -606,7 +610,8 @@ gst_mss_manifest_free (GstMssManifest * manifest)
  
    if (manifest->protection_system_id != NULL)
      g_string_free (manifest->protection_system_id, TRUE);
 -  xmlFree (manifest->protection_data);
-+  gst_buffer_unref (manifest->protection_data);
++  if (manifest->protection_data)
++    gst_buffer_unref (manifest->protection_data);
  
    xmlFreeDoc (manifest->xml);
    g_free (manifest);
