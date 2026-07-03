@@ -1,0 +1,144 @@
+From af030797f3eecc0139923ed47bb17c766fd9617d Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Sebastian=20Dr=C3=B6ge?= <sebastian@centricular.com>
+Date: Fri, 3 Jul 2026 15:27:09 +0200
+Subject: [PATCH] qtdemux: Use DTS instead of PTS for deciding whether we're
+ after segment.stop
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Using the PTS can mean that qtdemux is stopping too early in case of frame
+reordering. By using the DTS we can make sure that all frames with a PTS before
+the segment.stop are actually output.
+
+Fixes https://gitlab.freedesktop.org/gstreamer/gstreamer/-/issues/4867
+
+Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/10601>
+
+Backported to gst 1.18.6 by: Enrique Ocaña González <eocanha@igalia.com>
+---
+ gst/isomp4/qtdemux.c | 61 +++++++++++++++++++++++++++++++++-----------
+ gst/isomp4/qtdemux.h |  4 ---
+ 2 files changed, 46 insertions(+), 19 deletions(-)
+
+diff --git a/gst/isomp4/qtdemux.c b/gst/isomp4/qtdemux.c
+index ac5cc5860..1a3dc1219 100644
+--- a/gst/isomp4/qtdemux.c
++++ b/gst/isomp4/qtdemux.c
+@@ -6094,10 +6094,12 @@ gst_qtdemux_push_buffer (GstQTDemux * qtdemux, QtDemuxStream * stream,
+ 
+   GST_LOG_OBJECT (qtdemux,
+       "Pushing buffer with dts %" GST_TIME_FORMAT ", pts %" GST_TIME_FORMAT
+-      ", duration %" GST_TIME_FORMAT " on pad %s",
++      ", duration %" GST_TIME_FORMAT " on pad %s (discont: %d, keyframe: %d)",
+       GST_TIME_ARGS (GST_BUFFER_DTS (buf)),
+       GST_TIME_ARGS (GST_BUFFER_PTS (buf)),
+-      GST_TIME_ARGS (GST_BUFFER_DURATION (buf)), GST_PAD_NAME (stream->pad));
++      GST_TIME_ARGS (GST_BUFFER_DURATION (buf)), GST_PAD_NAME (stream->pad),
++      GST_BUFFER_IS_DISCONT (buf), !GST_BUFFER_FLAG_IS_SET (buf,
++          GST_BUFFER_FLAG_DELTA_UNIT));
+ 
+   if (stream->protected && (stream->protection_scheme_type == FOURCC_cenc
+           || stream->protection_scheme_type == FOURCC_cbcs)) {
+@@ -6381,9 +6383,6 @@ gst_qtdemux_decorate_and_push_buffer (GstQTDemux * qtdemux,
+ 
+   if (!keyframe) {
+     GST_BUFFER_FLAG_SET (buf, GST_BUFFER_FLAG_DELTA_UNIT);
+-    stream->on_keyframe = FALSE;
+-  } else {
+-    stream->on_keyframe = TRUE;
+   }
+ 
+   if (G_UNLIKELY (CUR_STREAM (stream)->rgb8_palette))
+@@ -6590,13 +6589,25 @@ gst_qtdemux_loop_state_movie (GstQTDemux * qtdemux)
+     goto eos;
+   }
+ 
+-  /* check for segment end */
+-  if (G_UNLIKELY (qtdemux->segment.stop != -1
+-          && qtdemux->segment.rate >= 0
+-          && qtdemux->segment.stop <= min_time && target_stream->on_keyframe)) {
+-    GST_DEBUG_OBJECT (qtdemux, "we reached the end of our segment.");
+-    target_stream->time_position = GST_CLOCK_TIME_NONE;
+-    goto eos_stream;
++  /* Check whether we're after the seek segment stop now. This check uses
++   * DTS instead of PTS to make sure no future samples have a PTS before
++   * the segment stop. */
++  if (G_UNLIKELY (qtdemux->segment.stop != -1 && qtdemux->segment.rate >= 0)) {
++    const QtDemuxSegment *segment;
++    GstClockTime dts_gst = QTSTREAMTIME_TO_GSTTIME (target_stream, dts);
++    GstClockTime global_dts;
++    /* Need to convert from time inside the media segment to global time */
++    g_assert (target_stream->segment_index < target_stream->n_segments);
++    segment = &target_stream->segments[target_stream->segment_index];
++    global_dts =
++        (dts_gst >=
++        segment->media_start) ? ((dts_gst - segment->media_start) +
++        segment->time) : 0;
++    if (qtdemux->segment.stop <= global_dts) {
++      GST_DEBUG_OBJECT (qtdemux, "we reached the end of our segment.");
++      target_stream->time_position = GST_CLOCK_TIME_NONE;
++      goto eos_stream;
++    }
+   }
+ 
+   /* gap events for subtitle streams */
+@@ -7816,6 +7827,8 @@ gst_qtdemux_process_adapter (GstQTDemux * demux, gboolean force)
+         sample = &stream->samples[stream->sample_index];
+ 
+         if (G_LIKELY (!(STREAM_IS_EOS (stream)))) {
++          GstClockTime global_dts;
++
+           GST_DEBUG_OBJECT (demux, "stream : %" GST_FOURCC_FORMAT,
+               GST_FOURCC_ARGS (CUR_STREAM (stream)->fourcc));
+ 
+@@ -7824,10 +7837,28 @@ gst_qtdemux_process_adapter (GstQTDemux * demux, gboolean force)
+           duration = QTSAMPLE_DUR_DTS (stream, sample, dts);
+           keyframe = QTSAMPLE_KEYFRAME (stream, sample);
+ 
+-          /* check for segment end */
++          if (!demux->upstream_format_is_time) {
++            const QtDemuxSegment *segment = NULL;
++
++            g_assert (stream->segment_index < stream->n_segments);
++            segment = &stream->segments[stream->segment_index];
++
++            /* Need to convert from time inside the media segment to global time */
++            global_dts =
++                (dts >=
++                segment->media_start) ? ((dts - segment->media_start) +
++                segment->time) : 0;
++          } else {
++            global_dts = dts;
++          }
++
++          /* Check whether we're after the seek segment stop now. This check uses
++           * DTS instead of PTS to make sure no future samples have a PTS before
++           * the segment stop. */
+           if (G_UNLIKELY (demux->segment.stop != -1
+-                  && demux->segment.stop <= pts && stream->on_keyframe)
+-              && !(demux->upstream_format_is_time && demux->segment.rate < 0)) {
++                  && global_dts != GST_CLOCK_TIME_NONE
++                  && demux->segment.stop <= global_dts
++                  && stream->segment.rate >= 0)) {
+             GST_DEBUG_OBJECT (demux, "we reached the end of our segment.");
+             stream->time_position = GST_CLOCK_TIME_NONE;        /* this means EOS */
+ 
+diff --git a/gst/isomp4/qtdemux.h b/gst/isomp4/qtdemux.h
+index dd5f1d0ae..140935203 100644
+--- a/gst/isomp4/qtdemux.h
++++ b/gst/isomp4/qtdemux.h
+@@ -343,10 +343,6 @@ struct _QtDemuxStream
+                                  * for MSS and fragmented streams */
+ 
+   gboolean new_stream;          /* signals that a stream_start is required */
+-  gboolean on_keyframe;         /* if this stream last pushed buffer was a
+-                                 * keyframe. This is important to identify
+-                                 * where to stop pushing buffers after a
+-                                 * segment stop time */
+ 
+   /* if the stream has a redirect URI in its headers, we store it here */
+   gchar *redirect_uri;
+-- 
+2.34.1
+
