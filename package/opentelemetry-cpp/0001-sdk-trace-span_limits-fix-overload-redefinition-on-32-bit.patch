@@ -1,0 +1,39 @@
+sdk/trace: fix UpdateFromEnv redefinition on 32-bit targets
+
+On 32-bit targets std::size_t and std::uint32_t are the same type, so the
+two UpdateFromEnv() overloads in span_limits.cc are a redefinition and the
+build fails. Use one template instead, which works for both widths.
+
+Upstream: not reported yet
+
+diff --git a/sdk/src/trace/span_limits.cc b/sdk/src/trace/span_limits.cc
+index aba19b1..9324a64 100644
+--- a/sdk/src/trace/span_limits.cc
++++ b/sdk/src/trace/span_limits.cc
+@@ -31,21 +31,15 @@ static constexpr const char *kLinkAttributeCountLimitEnv  = "OTEL_LINK_ATTRIBUTE
+ namespace
+ {
+ 
+-void UpdateFromEnv(const char *env_var_name, std::uint32_t &limit)
++// A single template instead of uint32_t/size_t overloads: both are the same
++// type on 32-bit targets, which makes the overloads a redefinition.
++template <typename T>
++void UpdateFromEnv(const char *env_var_name, T &limit)
+ {
+   std::uint32_t value{};
+   if (opentelemetry::sdk::common::GetUintEnvironmentVariable(env_var_name, value))
+   {
+-    limit = value;
+-  }
+-}
+-
+-void UpdateFromEnv(const char *env_var_name, std::size_t &limit)
+-{
+-  std::uint32_t value{};
+-  if (opentelemetry::sdk::common::GetUintEnvironmentVariable(env_var_name, value))
+-  {
+-    limit = static_cast<std::size_t>(value);
++    limit = static_cast<T>(value);
+   }
+ }
+ 
